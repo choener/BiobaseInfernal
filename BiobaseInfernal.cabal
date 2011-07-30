@@ -26,10 +26,11 @@ library
   build-depends:
     base >3 && <5,
     attoparsec,
-    attoparsec-enumerator,
+    attoparsec-iteratee,
     bytestring,
     containers,
-    enumerator,
+    either-unwrap,
+    iteratee,
     transformers,
     tuple
 
