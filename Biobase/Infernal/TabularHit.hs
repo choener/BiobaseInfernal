@@ -1,4 +1,6 @@
 
+-- | Simple tabular hits as returned by Infernal.
+
 module Biobase.Infernal.TabularHit where
 
 import Data.ByteString.Char8 as BS

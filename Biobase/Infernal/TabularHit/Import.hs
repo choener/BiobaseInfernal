@@ -1,5 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 
+-- Importing tabular hits is rather easy, as they are one entry per line.
+
 module Biobase.Infernal.TabularHit.Import where
 
 import Data.ByteString.Char8 as BS
