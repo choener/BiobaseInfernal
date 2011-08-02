@@ -15,15 +15,38 @@ module Biobase.Infernal.VerboseHit.Export where
 -}
 
 import Control.Monad.Trans.Class (lift)
-import qualified Data.ByteString.Char8 as BS
-import qualified Data.Enumerator as E
-import qualified Data.Enumerator.List as EL
+import Data.ByteString.Char8 as BS
+import Data.Iteratee as I
+import Data.Maybe
 import Text.Printf
+import Prelude as P
 
 import Biobase.Infernal.VerboseHit
 import Biobase.Infernal.VerboseHit.Internal
 
+import Biobase.Infernal.VerboseHit.Import
 
+test = do
+  xs <- fromFile "/home/choener/tmp/infernal-1.0.2/tutorial/tmp.res"
+  i <- enumList [xs] $ joinI $ eneeByteString stream2stream
+  ys <- run i
+  BS.putStrLn ys
+  print $ BS.length ys
+  print $ P.length $ BS.lines ys
+  return ()
+
+-- | Prints out
+
+eneeByteString :: Monad m => Enumeratee [VerboseHit] BS.ByteString m a
+eneeByteString = unfoldConvStream f (AliGo BS.empty BS.empty '?') where
+--  f :: Monad m => Maybe AliGo -> Iteratee [VerboseHit] m (Maybe AliGo, BS.ByteString)
+  f acc = do
+    h' <- tryHead
+    case h' of
+      Nothing -> return (acc,BS.empty)
+      Just h  -> return (acc, BS.pack $ show h ++ "\n")
+
+{-
 
 -- | Takes a list of 'VerboseHit's and produces a list of bytestrings. Unlining
 -- those bytestrings produces a file that is \in essence\ an Infernal
@@ -168,3 +191,6 @@ eeStreamToByteString' :: (Monad m) => StreamToByteString m ()
 eeStreamToByteString' = eeStreamToByteString
 
 type StreamToByteString m z = forall a . E.Enumeratee (HitStream z) BS.ByteString m a
+
+
+-}
