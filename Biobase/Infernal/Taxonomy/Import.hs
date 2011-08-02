@@ -59,6 +59,7 @@ mkSpecies = f <$> ptaxid <* tab <*> pname <* tab <*> takeByteString where
 
 -- | Convenience function: given a taxonomy file, produce both maps simultanously.
 
+fromFile :: FilePath -> IO (M.Map ByteString Species, M.Map Int Species)
 fromFile fp = do
   i <- enumFile 8192 fp
     . joinI

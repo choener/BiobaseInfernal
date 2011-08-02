@@ -35,6 +35,7 @@ library
     tuple
 
   exposed-modules:
+    Biobase.Infernal
     Biobase.Infernal.TabularHit
     Biobase.Infernal.TabularHit.Import
     Biobase.Infernal.Taxonomy
