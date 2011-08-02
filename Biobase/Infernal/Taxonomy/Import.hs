@@ -1,22 +1,24 @@
+{-# LANGUAGE BangPatterns #-}
 
-module Biobase.Infernal.Taxonomy.Import
-  ( eeImport
-  , iSpeciesMap
-  , iTaxIdMap
-  ) where
+-- | Iteratee-based importer. Provides a simple "fromFile" function that
+-- produces both maps in one pass.
 
-import qualified Data.Enumerator as E
-import qualified Data.Enumerator.List as EL
-import qualified Data.ByteString.Char8 as BS
-import qualified Data.Attoparsec as A
+module Biobase.Infernal.Taxonomy.Import where
+
 import Control.Applicative
-import qualified Data.Attoparsec.Char8 as A8
-import qualified Data.Attoparsec.Enumerator as EAP
-import qualified Data.Map as M
+import Data.Attoparsec as A
+import Data.Attoparsec.Char8 as A8
+import Data.Attoparsec.Iteratee
+import Data.ByteString.Char8 as BS
+import Data.Either.Unwrap as E
+import Data.Iteratee as I
+import Data.Iteratee.Char as I
+import Data.Iteratee.IO as I
+import Data.Iteratee.ListLike as I
+import Data.List as L
+import Data.Map as M
 
 import Biobase.Infernal.Taxonomy
-
-import qualified Data.Enumerator.Binary as EB
 
 
 
@@ -25,44 +27,53 @@ import qualified Data.Enumerator.Binary as EB
 -- TODO there are 9 duplicates in the names, let's find them and see what is
 -- going on
 
-iSpeciesMap :: Monad m => E.Iteratee Species m (M.Map BS.ByteString Species)
-iSpeciesMap = EL.fold (\m x -> M.insert (name x) x m) M.empty
+iSpeciesMap :: Monad m => Iteratee [Species] m (M.Map ByteString Species)
+iSpeciesMap = I.foldl' f M.empty where
+  f !m x = M.insert (name x) x m
 
 -- | And a map based on taxon id
 
-iTaxIdMap :: Monad m => E.Iteratee Species m (M.Map Int Species)
-iTaxIdMap = EL.fold (\m x -> M.insert (taxid x) x m) M.empty
+iTaxIdMap :: Monad m => Iteratee [Species] m (M.Map Int Species)
+iTaxIdMap = I.foldl' f M.empty where
+  f !m x = M.insert (taxid x) x m
 
 -- | Imports taxonomy data.
+
+eneeSpecies :: Monad m => Enumeratee ByteString [Either String Species] m a
+eneeSpecies = enumLinesBS ><> mapStream (parseOnly mkSpecies)
+
+-- | Given a 'ByteString', create a species entry.
 --
 -- NOTE The taxonomy format is, for each species, a line consisting of: taxid -
 -- tab - species name - tab - semicolon separated list of classification names
 -- - dot - end of line.
 
-eeImport :: Monad m => E.Enumeratee BS.ByteString Species m b
-eeImport = E.sequence $ EAP.iterParser mkSpecies
-
--- | Given a 'ByteString', create a species entry.
-
-mkSpecies :: A.Parser Species
-mkSpecies = f <$> ptaxid <* tab <*> pname <* tab <*> A8.takeWhile (/='\n') <* A8.endOfLine where
+mkSpecies :: Parser Species
+mkSpecies = f <$> ptaxid <* tab <*> pname <* tab <*> takeByteString where
   f k n xs = let
-               cs = map (BS.copy . BS.dropWhile (==' ')) . BS.split ';' . BS.init $ xs
-             in Species (BS.copy n) cs k
-  ptaxid   = A8.decimal
+               cs = L.map (copy . BS.dropWhile (==' ')) . BS.split ';' . BS.init $ xs
+             in Species (copy n) cs k
+  ptaxid   = decimal
   pname    = A8.takeWhile (/='\t')
-  tab      = A8.char '\t'
+  tab      = char '\t'
 
+-- | Convenience function: given a taxonomy file, produce both maps simultanously.
 
+fromFile :: FilePath -> IO (M.Map ByteString Species, M.Map Int Species)
+fromFile fp = do
+  i <- enumFile 8192 fp
+    . joinI
+    . (eneeSpecies ><> I.filter isRight ><> mapStream fromRight)
+    $ I.zip iSpeciesMap iTaxIdMap
+  run i
 
 -- * Testing
 
+{-
 test :: IO ()
 test = do
-  m1 <- E.run_ $ (EB.enumFile "./Tests/Infernal/taxonomy" E.$$ (eeImport E.=$ iSpeciesMap))
-  m2 <- E.run_ $ (EB.enumFile "./Tests/Infernal/taxonomy" E.$$ (eeImport E.=$ iTaxIdMap))
-  print $ M.size m1
-  print $ m1 M.! BS.pack "Cenarchaeum symbiosum B"
-  -- print $ M.size $ M.mapKeys shortenName m1
-  -- print $ M.size m2
+  (s,t) <- fromFile "/home/choener/tmp/taxonomy"
+  print $ M.size s
+  print $ M.size t
   return ()
+-}
