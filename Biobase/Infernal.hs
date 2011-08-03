@@ -9,6 +9,7 @@ module Biobase.Infernal
   , vhFromFile
   , eneeVerboseHit
   , vhEneeByteString
+  , vhEneeByteStrings
   , Species(..)
   ) where
 
@@ -28,5 +29,7 @@ thFromFile = TH.fromFile
 vhFromFile = VH.fromFile
 vhEneeByteString :: Monad m => Enumeratee [VerboseHit] ByteString m a
 vhEneeByteString = VH.eneeByteString
+vhEneeByteStrings :: Monad m => Enumeratee [VerboseHit] [ByteString] m a
+vhEneeByteStrings = VH.eneeByteStrings
 
 tFromFile = T.fromFile
