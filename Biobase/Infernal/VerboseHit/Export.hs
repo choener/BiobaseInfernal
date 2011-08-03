@@ -28,11 +28,21 @@ import Biobase.Infernal.VerboseHit.Internal
 -- one element was printed?
 
 eneeByteString :: Monad m => Enumeratee [VerboseHit] BS.ByteString m a
-eneeByteString = unfoldConvStream f (AliGo BS.empty BS.empty '?') where
+eneeByteString = eneeByteStrings ><> mapChunks BS.concat
+
+-- | This transformer keeps a 1-1 relationship between each 'VerboseHit' and
+-- bytestring representation. Useful for merging different streams, if
+-- individual 'VerboseHit's are to be annotated.
+
+eneeByteStrings :: Monad m => Enumeratee [VerboseHit] [ByteString] m a
+eneeByteStrings = unfoldConvStream f (AliGo BS.empty BS.empty '?') where
   f acc = do
     h <- I.head
     let na = newAcc acc h
-    return (fst na , BS.unlines $ snd na ++ [showVerboseHit h])
+    return (fst na , return . BS.unlines $ snd na ++ [showVerboseHit h])
+
+-- | Given the current state "a" and verbose hit "h", determine if any state
+-- switches have to be emitted.
 
 newAcc a@(AliGo{..}) h@VerboseHit{..}
   | otherwise = ( AliGo vhCM vhScaffold vhStrand, ls )
