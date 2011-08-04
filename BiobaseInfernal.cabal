@@ -1,5 +1,5 @@
 name:           BiobaseInfernal
-version:        0.5.2.0
+version:        0.5.3.0
 author:         Christian Hoener zu Siederdissen
 maintainer:     choener@tbi.univie.ac.at
 homepage:       http://www.tbi.univie.ac.at/~choener/
@@ -40,6 +40,8 @@ library
 
   exposed-modules:
     Biobase.Infernal
+    Biobase.Infernal.Clan
+    Biobase.Infernal.Clan.Import
     Biobase.Infernal.TabularHit
     Biobase.Infernal.TabularHit.Import
     Biobase.Infernal.Taxonomy

@@ -23,16 +23,3 @@ data Clan = Clan
   , strings :: [BS.ByteString]
   } deriving (Read,Show,Eq)
 
--- |
---
--- TODO return Maybe, make crash-safe
-
-{-
-mkRfamClan :: [BS.ByteString] -> RfamClan
-mkRfamClan xs = RfamClan
-  { accession  = (!!1) . BS.words . head . filter ((=="AC") . BS.take 2) $ xs
-  , identifier = (!!1) . BS.words . head . filter ((=="ID") . BS.take 2) $ xs
-  , members    = map BS.init . map (!!1) . filter ((=="MB") . (!!0)) . map BS.words $ xs
-  , strings    = xs
-  }
--}

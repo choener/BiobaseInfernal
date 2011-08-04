@@ -11,6 +11,9 @@ module Biobase.Infernal
   , vhEneeByteString
   , vhEneeByteStrings
   , Species(..)
+  , tFromFile
+  , Clan(..)
+  , cFromFile
   ) where
 
 import Data.ByteString as BS
@@ -23,6 +26,8 @@ import Biobase.Infernal.VerboseHit.Import as VH
 import Biobase.Infernal.VerboseHit.Export as VH
 import Biobase.Infernal.Taxonomy
 import Biobase.Infernal.Taxonomy.Import as T
+import Biobase.Infernal.Clan
+import Biobase.Infernal.Clan.Import as C
 
 thFromFile = TH.fromFile
 
@@ -33,3 +38,5 @@ vhEneeByteStrings :: Monad m => Enumeratee [VerboseHit] [ByteString] m a
 vhEneeByteStrings = VH.eneeByteStrings
 
 tFromFile = T.fromFile
+
+cFromFile = C.fromFile
