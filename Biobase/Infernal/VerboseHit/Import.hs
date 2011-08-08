@@ -12,6 +12,7 @@ module Biobase.Infernal.VerboseHit.Import
   ) where
 
 import Control.Applicative
+import Control.Monad as M
 import Data.Attoparsec as A
 import Data.Attoparsec.Char8 as A8
 import Data.Attoparsec.Iteratee as EAP
@@ -84,15 +85,37 @@ qs query cm scaf pm = do
 
 -- | Parses multiple four-line elements.
 
-fourLines to = do
+fourLinesOld to = do
   I.dropWhile BS.null
   ls <- joinI $ I.take 4 stream2stream
   let ws = BS.length . BS.takeWhile isSpace . P.head $ ls
   let cs = BS.length . BS.dropWhile isSpace . P.head $ ls
   let xs = P.map (BS.take cs . BS.drop ws) ls
-  if (to == (read . BS.unpack . P.last . BS.words . P.last $ ls))
+  if (P.length ls /= 4) ||
+     ("-" == (P.last . BS.words . P.last $ ls)) ||
+     (to == (read . BS.unpack . P.last . BS.words . P.last $ ls))
   then return . P.map (:[]) $ xs
   else fourLines to >>= return . (P.zipWith (:) xs)
+
+fourLines to = do
+  I.dropWhile BS.null
+  mp <- I.peek
+  case mp of
+    Nothing -> return $ P.replicate 4 []
+    Just p
+      | "//" `isInfixOf` p
+      || "CM" `isInfixOf` p
+      || "Query" `isInfixOf` p
+      || ">" `isPrefixOf` p
+      || "strand" `isInfixOf` p
+      || "#" `isPrefixOf` p
+      -> return $ P.replicate 4 []
+      | otherwise
+      -> do ls <- joinI $ I.take 4 stream2stream
+            let ws = BS.length . BS.takeWhile isSpace . P.head $ ls
+            let cs = BS.length . BS.dropWhile isSpace . P.head $ ls
+            let xs = P.map (BS.take cs . BS.drop ws) ls
+            fourLines to >>= return . (P.zipWith (:) xs)
 
 -- | Convenience function: read all results into a single list.
 
@@ -101,12 +124,13 @@ fromFile fp = do
   i <- enumFile 8192 fp . joinI $ eneeVerboseHit stream2list
   run i
 
-{- How to use this enumeratee.
 
+
+-- How to use this enumeratee.
 
 test = do
-  i <- enumFile 8192 "/home/choener/tmp/infernal-1.0.2/tutorial/tmp.res" $ joinI $ eneeVerboseHit stream2list
+  i <- enumFile 8192 "test.vh" $ joinI $ eneeVerboseHit stream2list
   xs <- run i
-  print xs
+  P.mapM_ (\x -> print x >> P.putStrLn "\n\n\n") xs
   print $ P.length xs
--}
+
