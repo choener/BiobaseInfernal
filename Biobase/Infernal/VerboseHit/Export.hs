@@ -27,7 +27,7 @@ import Biobase.Infernal.VerboseHit.Internal
 -- TOOD How to append the last line "//" to the finished stream, if at least
 -- one element was printed?
 
-eneeByteString :: Monad m => Enumeratee [VerboseHit] BS.ByteString m a
+eneeByteString :: Monad m => Enumeratee [VerboseHit] ByteString m a
 eneeByteString = eneeByteStrings ><> mapChunks BS.concat
 
 -- | This transformer keeps a 1-1 relationship between each 'VerboseHit' and
@@ -35,17 +35,19 @@ eneeByteString = eneeByteStrings ><> mapChunks BS.concat
 -- individual 'VerboseHit's are to be annotated.
 
 eneeByteStrings :: Monad m => Enumeratee [VerboseHit] [ByteString] m a
-eneeByteStrings = unfoldConvStream f (AliGo BS.empty BS.empty '?') where
+eneeByteStrings = unfoldConvStream f (AliGo BS.empty BS.empty '?' []) where
   f acc = do
     h <- I.head
     let na = newAcc acc h
-    return (fst na , return . BS.unlines $ snd na ++ [showVerboseHit h])
+    return ( fst na
+           , return . BS.unlines $ snd na ++ P.map (append "## ") (vhAnnotation h)  ++ [showVerboseHit h]
+           )
 
 -- | Given the current state "a" and verbose hit "h", determine if any state
 -- switches have to be emitted.
 
 newAcc a@(AliGo{..}) h@VerboseHit{..}
-  | otherwise = ( AliGo vhCM vhScaffold vhStrand, ls )
+  | otherwise = ( AliGo vhCM vhScaffold vhStrand [], ls )
   where ls = [ "//" | aliCM /= BS.empty && aliCM /= vhCM ] ++
              [ "CM: " `BS.append` vhCM | aliCM /= vhCM ] ++
              [ ">" `BS.append` vhScaffold `BS.append` "\n" | aliScaffold /= vhScaffold ] ++

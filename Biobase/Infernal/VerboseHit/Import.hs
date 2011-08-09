@@ -35,25 +35,26 @@ import Biobase.Infernal.VerboseHit.Internal
 -- accumulator to keep track of the current CM, scaffold and strand.
 
 eneeVerboseHit :: (Functor m, Monad m) => Enumeratee BS.ByteString [VerboseHit] m a
-eneeVerboseHit = enumLinesBS ><> I.filter (not . BS.null) ><> unfoldConvStream f (AliGo BS.empty BS.empty '?') where
+eneeVerboseHit = enumLinesBS ><> I.filter (not . BS.null) ><> unfoldConvStream f (AliGo BS.empty BS.empty '?' []) where
   f acc = do
     h' <- tryHead
     case h' of
       Nothing -> return (acc, [])
       (Just h)
-        | "CM: "    `BS.isInfixOf` h -> return (acc{aliCM = BS.copy $ BS.drop 4 h}, [])
-        | ">"       `BS.isInfixOf` h -> return (acc{aliScaffold = BS.copy $ BS.drop 1 h}, [])
-        | "  Plus"  `BS.isInfixOf` h -> return (acc{aliStrand = '+'}, [])
-        | "  Minus" `BS.isInfixOf` h -> return (acc{aliStrand = '-'}, [])
-        | " Query"  `BS.isInfixOf` h -> do
-            x <- qs h (aliCM acc) (aliScaffold acc) (aliStrand acc)
-            return (acc,x)
+        | "##"      `isPrefixOf` h -> return (acc{aliAnnotation = aliAnnotation acc ++ [BS.drop 2 h]},[])
+        | "CM: "    `isInfixOf`  h -> return (acc{aliCM = BS.copy $ BS.drop 4 h, aliAnnotation = []}, [])
+        | ">"       `isInfixOf`  h -> return (acc{aliScaffold = BS.copy $ BS.drop 1 h, aliAnnotation = []}, [])
+        | "  Plus"  `isInfixOf`  h -> return (acc{aliStrand = '+', aliAnnotation = []}, [])
+        | "  Minus" `isInfixOf`  h -> return (acc{aliStrand = '-', aliAnnotation = []}, [])
+        | " Query"  `isInfixOf`  h -> do
+            x <- qs h (aliCM acc) (aliScaffold acc) (aliStrand acc) (aliAnnotation acc)
+            return (acc{aliAnnotation = []},x)
         | otherwise -> return (acc,[])
 
 -- | Parses one CM query result.
 
-qs :: Monad m => BS.ByteString -> BS.ByteString -> BS.ByteString -> Char -> Iteratee [BS.ByteString] m [VerboseHit]
-qs query cm scaf pm = do
+qs :: Monad m => ByteString -> ByteString -> ByteString -> Char -> [ByteString] -> Iteratee [ByteString] m [VerboseHit]
+qs query cm scaf pm anno = do
   let q = fromRight . parseOnly qt $ query
   s <- I.head >>= return . fromRight . parseOnly sepg
   l <- fourLines $ sel4 q
@@ -71,6 +72,7 @@ qs query cm scaf pm = do
     , vhConsensus = cpy $ l!!1
     , vhScoring = cpy $ l!!2
     , vhSequence = cpy $ l!!3
+    , vhAnnotation = anno
     }
   where
     cpy = BS.copy . BS.concat

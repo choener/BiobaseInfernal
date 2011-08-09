@@ -1,5 +1,5 @@
 name:           BiobaseInfernal
-version:        0.5.3.1
+version:        0.5.4.0
 author:         Christian Hoener zu Siederdissen
 maintainer:     choener@tbi.univie.ac.at
 homepage:       http://www.tbi.univie.ac.at/~choener/
@@ -15,6 +15,12 @@ description:
                 Provides import and export facilities for Infernal/Rfam data
                 formats. We include Stockholm, CM, verbose Infernal results,
                 and tabulated Infernal results. Some small tools are included.
+                .
+                The VerboseHit format is slightly extended to allow simple
+                annotations. This extension should be backward-compatible with
+                standard-compliant parsers.
+                .
+                .
                 .
                 With the BioHaskell library split, this package is officially
                 back! And the package is not feature-complete yet, take the
