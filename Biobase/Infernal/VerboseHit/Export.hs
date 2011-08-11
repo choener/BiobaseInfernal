@@ -40,7 +40,7 @@ eneeByteStrings = unfoldConvStream f (AliGo BS.empty BS.empty '?' []) where
     h <- I.head
     let na = newAcc acc h
     return ( fst na
-           , return . BS.unlines $ snd na ++ P.map (append "## ") (vhAnnotation h)  ++ [showVerboseHit h]
+           , return . BS.unlines $ snd na ++ P.map (append "##") (vhAnnotation h)  ++ [showVerboseHit h]
            )
 
 -- | Given the current state "a" and verbose hit "h", determine if any state
