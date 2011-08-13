@@ -48,10 +48,13 @@ eneeByteStrings = unfoldConvStream f (AliGo BS.empty BS.empty '?' []) where
 
 newAcc a@(AliGo{..}) h@VerboseHit{..}
   | otherwise = ( AliGo vhCM vhScaffold vhStrand [], ls )
-  where ls = [ "//" | aliCM /= BS.empty && aliCM /= vhCM ] ++
-             [ "CM: " `BS.append` vhCM | aliCM /= vhCM ] ++
-             [ ">" `BS.append` vhScaffold `BS.append` "\n" | aliScaffold /= vhScaffold ] ++
-             [ str `BS.append` " strand results:\n" | aliStrand /= vhStrand ]
+  where ls = [ "//" | aliCM /= BS.empty && bCM ] ++
+             [ "CM: " `BS.append` vhCM | bCM ] ++
+             [ ">" `BS.append` vhScaffold `BS.append` "\n" | bCM || bSc] ++
+             [ str `BS.append` " strand results:\n" | bCM || bSc || bSt ]
+        bCM = aliCM /= vhCM
+        bSc = aliScaffold /= vhScaffold
+        bSt = aliStrand /= vhStrand
         str
           | vhStrand == '+' = "Plus"
           | vhStrand == '-' = "Minus"
