@@ -41,12 +41,12 @@ eneeVerboseHit = enumLinesBS ><> I.filter (not . BS.null) ><> unfoldConvStream f
     case h' of
       Nothing -> return (acc, [])
       (Just h)
-        | "##"      `isPrefixOf` h -> return (acc{aliAnnotation = aliAnnotation acc ++ [BS.drop 2 h]},[])
-        | "CM: "    `isInfixOf`  h -> return (acc{aliCM = BS.copy $ BS.drop 4 h, aliAnnotation = []}, [])
-        | ">"       `isInfixOf`  h -> return (acc{aliScaffold = BS.copy $ BS.drop 1 h, aliAnnotation = []}, [])
-        | "  Plus"  `isInfixOf`  h -> return (acc{aliStrand = '+', aliAnnotation = []}, [])
-        | "  Minus" `isInfixOf`  h -> return (acc{aliStrand = '-', aliAnnotation = []}, [])
-        | " Query"  `isInfixOf`  h -> do
+        | "##"   `isPrefixOf` h -> return (acc{aliAnnotation = aliAnnotation acc ++ [BS.drop 2 h]},[])
+        | "CM: " `isPrefixOf` h -> return (acc{aliCM = BS.copy $ BS.drop 4 h, aliAnnotation = []}, [])
+        | ">"    `isPrefixOf` h -> return (acc{aliScaffold = BS.copy $ BS.drop 1 h, aliAnnotation = []}, [])
+        | "Plus strand results"  `isInfixOf` h -> return (acc{aliStrand = '+', aliAnnotation = []}, [])
+        | "Minus strand results" `isInfixOf` h -> return (acc{aliStrand = '-', aliAnnotation = []}, [])
+        | " Query" `isInfixOf` h -> do
             x <- qs h (aliCM acc) (aliScaffold acc) (aliStrand acc) (aliAnnotation acc)
             return (acc{aliAnnotation = []},x)
         | otherwise -> return (acc,[])
@@ -130,9 +130,10 @@ fromFile fp = do
 
 -- How to use this enumeratee.
 
+{-
 test = do
   i <- enumFile 8192 "test.vh" $ joinI $ eneeVerboseHit stream2list
   xs <- run i
   P.mapM_ (\x -> print x >> P.putStrLn "\n\n\n") xs
   print $ P.length xs
-
+-}

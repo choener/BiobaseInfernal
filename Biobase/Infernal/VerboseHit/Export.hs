@@ -86,14 +86,17 @@ showVerboseHit VerboseHit{..} = BS.unlines
 
 
 {-
-import Biobase.Infernal.VerboseHit.Import
+--import Biobase.Infernal.VerboseHit.Import
 
 test = do
   xs <- fromFile "/home/choener/tmp/infernal-1.0.2/tutorial/tmp.res"
   i <- enumList [xs] $ joinI $ eneeByteString stream2stream
   ys <- run i
+  {-
   BS.putStrLn ys
   print $ BS.length ys
   print $ P.length $ BS.lines ys
+  -}
+  BS.putStrLn $ BS.take 1000 ys
   return ()
 -}
