@@ -38,13 +38,16 @@ library
     either-unwrap,
     iteratee,
     transformers,
-    tuple
+    tuple,
+    vector,
+    PrimitiveArray
 
   exposed-modules:
     Biobase.Infernal
     Biobase.Infernal.Clan
     Biobase.Infernal.Clan.Import
     Biobase.Infernal.CM
+    Biobase.Infernal.CM.Export
     Biobase.Infernal.CM.Import
     Biobase.Infernal.TabularHit
     Biobase.Infernal.TabularHit.Import
