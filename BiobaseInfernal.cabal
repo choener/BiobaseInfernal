@@ -22,13 +22,9 @@ description:
                 .
                 .
                 .
-                With the BioHaskell library split, this package is officially
-                back! And the package is not feature-complete yet, take the
-                above as a will-include-soon list.
+                Changes in 0.5.5.0
                 .
-                The taxonomy importer makes use of Iteratee.zip, hence the
-                switch from Enumerator. (See the Biohaskell wiki pages for
-                discussion on Iteratee/Enumerator).
+                * Re-added parser for .CM-files (iteratee-based)
 
 extra-source-files:
 
@@ -48,6 +44,8 @@ library
     Biobase.Infernal
     Biobase.Infernal.Clan
     Biobase.Infernal.Clan.Import
+    Biobase.Infernal.CM
+    Biobase.Infernal.CM.Import
     Biobase.Infernal.TabularHit
     Biobase.Infernal.TabularHit.Import
     Biobase.Infernal.Taxonomy
