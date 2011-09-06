@@ -8,6 +8,7 @@ import Data.Iteratee.Char as I
 import Data.Iteratee.IO as I
 import Data.Iteratee.Iteratee as I
 import Data.Iteratee.ListLike as I
+import Data.ByteString as BS
 
 import Biobase.Infernal.CM
 
@@ -17,6 +18,11 @@ import Biobase.Infernal.CM
 
 -- | 
 
+eneeCM :: (Monad m) => Enumeratee ByteString [CM] m a
+eneeCM = enumLinesBS ><> convStream f where
+  f = do
+    th <- tryHead
+    return undefined
 
 
 -- * convenience functions
