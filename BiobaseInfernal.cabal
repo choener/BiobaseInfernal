@@ -22,9 +22,11 @@ description:
                 .
                 .
                 .
-                Changes in 0.5.5.0
+                Changes in 0.5.4.1
                 .
-                * Re-added parser for .CM-files (iteratee-based)
+                * fix-up for VH export
+                .
+                * half-baked CM type (not useful yet)
 
 extra-source-files:
 
