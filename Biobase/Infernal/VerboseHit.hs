@@ -1,4 +1,5 @@
 {-# LANGUAGE RecordWildCards #-}
+{-# OPTIONS_GHC -funbox-strict-fields #-}
 
 -- | Provides a datatype for cmsearch verbose output. The Import/Export system
 -- now allows for primitive annotations using "##" as the first two characters.

@@ -9,4 +9,4 @@
 -- TODO some of the notes above will become less problematic once we use
 -- newtypes, as a probability-CM will not be accepted by the exporter by then.
 
-module Biobase.Infernal.Export where
+module Biobase.Infernal.CM.Export where

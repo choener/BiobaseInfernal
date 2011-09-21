@@ -1,3 +1,4 @@
+{-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -100,3 +101,5 @@ test = do
   BS.putStrLn $ BS.take 1000 ys
   return ()
 -}
+
+
