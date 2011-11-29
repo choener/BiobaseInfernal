@@ -25,7 +25,7 @@ import Biobase.Infernal.VerboseHit.Internal
 
 -- | Transforms a list of verbose hits into a bytestring.
 --
--- TOOD How to append the last line "//" to the finished stream, if at least
+-- TODO How to append the last line "//" to the finished stream, if at least
 -- one element was printed?
 
 eneeByteString :: Monad m => Enumeratee [VerboseHit] ByteString m a
@@ -49,13 +49,13 @@ eneeByteStrings = unfoldConvStream f (AliGo BS.empty BS.empty '?' []) where
 -- switches have to be emitted.
 
 newAcc a@(AliGo{..}) h@VerboseHit{..}
-  | otherwise = ( AliGo vhCM vhScaffold vhStrand [], ls )
+  | otherwise = ( AliGo vhModel vhTarget vhStrand [], ls )
   where ls = [ "//" | aliCM /= BS.empty && bCM ] ++
-             [ "CM: " `BS.append` vhCM | bCM ] ++
-             [ ">" `BS.append` vhScaffold `BS.append` "\n" | bCM || bSc] ++
+             [ "CM: " `BS.append` vhModel | bCM ] ++
+             [ ">" `BS.append` vhTarget `BS.append` "\n" | bCM || bSc] ++
              [ str `BS.append` " strand results:\n" | bCM || bSc || bSt ]
-        bCM = aliCM /= vhCM
-        bSc = aliScaffold /= vhScaffold
+        bCM = aliCM /= vhModel
+        bSc = aliScaffold /= vhTarget
         bSt = aliStrand /= vhStrand
         str
           | vhStrand == '+' = "Plus"
@@ -70,18 +70,18 @@ newAcc a@(AliGo{..}) h@VerboseHit{..}
 showVerboseHit :: VerboseHit -> BS.ByteString
 showVerboseHit VerboseHit{..} = BS.unlines
   [ BS.pack $ printf " Query = %d - %d, Target = %d - %d"
-                (fst vhQuery) (snd vhQuery) (fst vhTarget) (snd vhTarget)
+                vhModelStart vhModelStop vhTargetStart vhTargetStop
   , BS.pack $ printf " Score = %.2f, E = %f, P = %.4e, GC = %d"
-                vhScore vhEvalue vhPvalue vhGC
+                vhBitScore vhEvalue vhPvalue vhGCpercent
   , ""
   , ws11 `BS.append` vhWuss
-  , (BS.pack $ printf "%10d " (fst vhQuery))
+  , (BS.pack $ printf "%10d " vhModelStart)
     `BS.append` vhConsensus
-    `BS.append` (BS.pack $ printf " %d" (snd vhQuery))
+    `BS.append` (BS.pack $ printf " %d" vhModelStop)
   , ws11 `BS.append` vhScoring
-  , (BS.pack $ printf "%10d " (fst vhTarget))
+  , (BS.pack $ printf "%10d " vhTargetStart)
     `BS.append` vhSequence
-    `BS.append` (BS.pack $ printf " %d" (snd vhTarget))
+    `BS.append` (BS.pack $ printf " %d" vhTargetStop)
   ] where
     ws11 = BS.pack $ P.replicate 11 ' '
 
@@ -102,5 +102,4 @@ test = do
   BS.putStrLn $ BS.take 1000 ys
   return ()
 -}
-
 

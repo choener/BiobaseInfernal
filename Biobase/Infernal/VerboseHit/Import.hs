@@ -59,15 +59,17 @@ qs query cm scaf pm anno = do
   s <- I.head >>= return . fromRight . parseOnly sepg
   l <- fourLines $ sel4 q
   return . pure $ VerboseHit
-    { vhScaffold = scaf
-    , vhCM = cm
+    { vhTarget = scaf
+    , vhModel = cm
     , vhStrand = pm
-    , vhQuery = (sel1 q, sel2 q)
-    , vhTarget = (sel3 q, sel4 q)
-    , vhScore = sel1 s
+    , vhModelStart = sel1 q
+    , vhModelStop = sel2 q
+    , vhTargetStart = sel3 q
+    , vhTargetStop = sel4 q
+    , vhBitScore = sel1 s
     , vhEvalue = sel2 s
     , vhPvalue = sel3 s
-    , vhGC = sel4 s
+    , vhGCpercent = sel4 s
     , vhWuss = cpy $ l!!0
     , vhConsensus = cpy $ l!!1
     , vhScoring = cpy $ l!!2

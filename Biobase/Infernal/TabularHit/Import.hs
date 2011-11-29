@@ -33,9 +33,9 @@ eneeTabularHit = enumLinesBS ><> I.filter (\x -> not $ BS.null x || isPrefixOf "
                  <*> pDouble -- bit score
                  <*> pDouble -- evalue
                  <*> pDecimal -- gc content
-  pString = A.skipSpace *> A.takeTill A.isSpace
+  pString  = A.skipSpace *> A.takeTill A.isSpace
   pDecimal = A.skipSpace *> A.decimal
-  pDouble = A.skipSpace *> A.double
+  pDouble  = A.skipSpace *> A.double
 
 -- | Convenience function to load from file and return a big list of tabular
 -- hits.
