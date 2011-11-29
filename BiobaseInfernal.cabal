@@ -1,5 +1,5 @@
 name:           BiobaseInfernal
-version:        0.5.4.1
+version:        0.6.0.0
 author:         Christian Hoener zu Siederdissen
 maintainer:     choener@tbi.univie.ac.at
 homepage:       http://www.tbi.univie.ac.at/~choener/
@@ -21,6 +21,10 @@ description:
                 standard-compliant parsers.
                 .
                 .
+                .
+                Changes in 0.6.0.0
+                .
+                * multiple changes to data representation and documentation
                 .
                 Changes in 0.5.4.1
                 .
