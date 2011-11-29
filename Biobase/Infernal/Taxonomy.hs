@@ -15,9 +15,9 @@ import Data.Char (toLower)
 -- taxon identifier (taxid).
 
 data Species = Species
-  { name :: BS.ByteString
-  , classification :: [BS.ByteString]
-  , taxid :: Int
+  { name           :: !BS.ByteString
+  , classification :: ![BS.ByteString]
+  , taxid          :: !Int
   } deriving (Show)
 
 -- | Given a name such as "Drosophila Melanogaster", returns "d.melanogaster".
