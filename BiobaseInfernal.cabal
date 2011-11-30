@@ -30,6 +30,10 @@ description:
                 .
                 * multiple changes to data representation and documentation
                 .
+                * load the Rfam.fasta.gz file (and prepare lookup structures)
+                .
+                * partial biocore integration
+                .
                 Changes in 0.5.4.1
                 .
                 * fix-up for VH export
