@@ -26,6 +26,7 @@ import Data.Iteratee.ListLike as I
 import Data.Tuple.Select
 import Prelude as P
 
+import Biobase.Infernal.Types
 import Biobase.Infernal.VerboseHit
 import Biobase.Infernal.VerboseHit.Internal
 
@@ -59,14 +60,14 @@ qs query cm scaf pm anno = do
   s <- I.head >>= return . fromRight . parseOnly sepg
   l <- fourLines $ sel4 q
   return . pure $ VerboseHit
-    { vhTarget = scaf
-    , vhModel = cm
+    { vhTarget = Scaffold scaf
+    , vhModel = ModelIdentification cm
     , vhStrand = pm
     , vhModelStart = sel1 q
     , vhModelStop = sel2 q
     , vhTargetStart = sel3 q
     , vhTargetStop = sel4 q
-    , vhBitScore = sel1 s
+    , vhBitScore = BitScore $ sel1 s
     , vhEvalue = sel2 s
     , vhPvalue = sel3 s
     , vhGCpercent = sel4 s

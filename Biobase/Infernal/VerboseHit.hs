@@ -4,6 +4,8 @@
 -- | Provides a datatype for cmsearch verbose output. The Import/Export system
 -- now allows for primitive annotations using "##" as the first two characters.
 -- Annotations are only accepted for individual hits.
+--
+-- TODE biocore / Strand for strand information?
 
 module Biobase.Infernal.VerboseHit where
 
@@ -11,6 +13,7 @@ import Data.ByteString.Char8 as BS
 import Text.Printf
 
 import Biobase.Infernal.Hit
+import Biobase.Infernal.Types
 
 
 
@@ -21,13 +24,13 @@ data VerboseHit = VerboseHit
   , vhTargetStop  :: !Int
   , vhModelStart  :: !Int          -- ^ which part of the CM/stk do we align to
   , vhModelStop   :: !Int          -- ^ which part of the CM/stk do we align to
-  , vhModel       :: !ByteString   -- ^ the CM for this alignment
+  , vhModel       :: !ModelIdentification   -- ^ the CM for this alignment
   , vhStrand      :: !Strand       -- ^ should be either '+' or '-'
-  , vhBitScore    :: !Double       -- ^ bit score
+  , vhBitScore    :: !BitScore     -- ^ bit score
   , vhEvalue      :: !Double       -- ^ number of hits we expect to find with 'score' or higher for 'targetSequence' length
   , vhPvalue      :: !Double       -- ^ ?
   , vhGCpercent   :: !Int          -- ^ ?
-  , vhTarget      :: !ByteString   -- ^ scaffold, chromosome, ... (the name of the sequence, not the sequence data!)
+  , vhTarget      :: !Scaffold     -- ^ scaffold, chromosome, ... (the name of the sequence, not the sequence data!)
   , vhWuss        :: !ByteString   -- ^ fancy secondary structure annotation using wuss notation
   , vhConsensus   :: !ByteString   -- ^ query consensus (upper: highly, lower: weak/no)
   , vhScoring     :: !ByteString   -- ^ represents where positive and negative scores come from

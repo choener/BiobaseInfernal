@@ -6,6 +6,7 @@ module Biobase.Infernal.TabularHit where
 import Data.ByteString.Char8 as BS
 
 import Biobase.Infernal.Hit
+import Biobase.Infernal.Types
 
 
 
@@ -13,13 +14,13 @@ import Biobase.Infernal.Hit
 -- individual fields.
 
 data TabularHit = TabularHit
-  { thModel       :: !ByteString
-  , thTarget      :: !ByteString
+  { thModel       :: !ModelIdentification
+  , thTarget      :: !Scaffold
   , thTargetStart :: !Int
   , thTargetStop  :: !Int
   , thModelStart  :: !Int
   , thModelStop   :: !Int
-  , thBitScore    :: !Double
+  , thBitScore    :: !BitScore
   , thEvalue      :: !Double
   , thGCpercent   :: !Int
   } deriving (Read,Show)

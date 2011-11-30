@@ -7,7 +7,9 @@
 
 module Biobase.Infernal.Clan where
 
-import qualified Data.ByteString.Char8 as BS
+import Data.ByteString.Char8 (ByteString)
+
+import Biobase.Infernal.Types
 
 
 
@@ -15,12 +17,12 @@ import qualified Data.ByteString.Char8 as BS
 
 data Clan = Clan
   -- | result of the "AC    CL00001" line, keeping "1" in this case.
-  { accession  :: Int -- BS.ByteString
+  { cAccession  :: !ClanAccession
   -- | the "ID    tRNA" line, keeping "tRNA".
-  , identifier :: BS.ByteString
+  , cIdentifier :: !ClanIdentification
   -- | all the "MB    RF00005;", "MB    RF00023;" lines, keeping "[5,23]".
-  , members    :: [Int] -- [BS.ByteString]
+  , cMembers    :: ![ModelAccession]
   -- | all lines of each clan, without any processing (except being in lines).
-  , strings    :: [BS.ByteString]
+  , cStrings    :: ![ByteString]
   } deriving (Read,Show,Eq)
 

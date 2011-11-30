@@ -1,3 +1,4 @@
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
 -- | All these different accession numbers and identifiers are confusing,
 -- newtype's to the rescue.
@@ -10,6 +11,20 @@ module Biobase.Infernal.Types where
 
 import Control.Arrow
 import Data.ByteString.Char8 as BS
+
+
+
+-- * Rfam Clans
+
+-- | Clan accession identifier
+
+newtype ClanAccession = ClanAccession {unClanAccession :: Int}
+  deriving (Eq,Ord,Read,Show)
+
+-- | Clan model name
+
+newtype ClanIdentification = ClanIdentification {unClanIdentification :: ByteString}
+  deriving (Eq,Ord,Read,Show)
 
 
 
@@ -58,3 +73,21 @@ newtype SpeciesName = SpeciesName {unSpeciesName :: ByteString}
 newtype StrictSeqData = StrictSeqData {unStrictSeqData :: ByteString}
   deriving (Eq,Ord,Read,Show)
 
+-- | Classification names (taxonomic classification)
+
+newtype Classification = Classification {unClassification :: ByteString}
+  deriving (Eq,Ord,Read,Show)
+
+
+
+-- * More generic newtypes, sequence identification, etc
+
+-- | Identifies a certain scaffold or chromosome where a hit occurs
+
+newtype Scaffold = Scaffold {unScaffold :: ByteString}
+  deriving (Eq,Ord,Read,Show)
+
+-- | Infernal bit score. Behaves like a double (deriving Num).
+
+newtype BitScore = BitScore {unBitScore :: Double}
+  deriving (Eq,Ord,Read,Show,Num)

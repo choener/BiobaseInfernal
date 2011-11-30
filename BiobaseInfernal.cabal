@@ -28,7 +28,8 @@ description:
                 .
                 Changes in 0.6.0.0
                 .
-                * multiple changes to data representation and documentation
+                * multiple changes to data representation (mostly newtypes) and
+                  documentation
                 .
                 * load the Rfam.fasta.gz file (and prepare lookup structures)
                 .

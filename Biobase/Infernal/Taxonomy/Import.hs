@@ -19,6 +19,7 @@ import Data.List as L
 import Data.Map as M
 
 import Biobase.Infernal.Taxonomy
+import Biobase.Infernal.Types
 
 
 
@@ -27,19 +28,19 @@ import Biobase.Infernal.Taxonomy
 -- TODO there are 9 duplicates in the names, let's find them and see what is
 -- going on
 
-iSpeciesMap :: Monad m => Iteratee [Species] m (M.Map ByteString Species)
+iSpeciesMap :: Monad m => Iteratee [SpeciesTaxonomy] m (M.Map SpeciesName SpeciesTaxonomy)
 iSpeciesMap = I.foldl' f M.empty where
-  f !m x = M.insert (name x) x m
+  f !m x = M.insert (stName x) x m
 
 -- | And a map based on taxon id
 
-iTaxIdMap :: Monad m => Iteratee [Species] m (M.Map Int Species)
+iTaxIdMap :: Monad m => Iteratee [SpeciesTaxonomy] m (M.Map SpeciesAccession SpeciesTaxonomy)
 iTaxIdMap = I.foldl' f M.empty where
-  f !m x = M.insert (taxid x) x m
+  f !m x = M.insert (stAccession x) x m
 
 -- | Imports taxonomy data.
 
-eneeSpecies :: Monad m => Enumeratee ByteString [Either String Species] m a
+eneeSpecies :: Monad m => Enumeratee ByteString [Either String SpeciesTaxonomy] m a
 eneeSpecies = enumLinesBS ><> mapStream (parseOnly mkSpecies)
 
 -- | Given a 'ByteString', create a species entry.
@@ -48,18 +49,18 @@ eneeSpecies = enumLinesBS ><> mapStream (parseOnly mkSpecies)
 -- tab - species name - tab - semicolon separated list of classification names
 -- - dot - end of line.
 
-mkSpecies :: Parser Species
+mkSpecies :: Parser SpeciesTaxonomy
 mkSpecies = f <$> ptaxid <* tab <*> pname <* tab <*> takeByteString where
   f k n xs = let
-               cs = L.map (copy . BS.dropWhile (==' ')) . BS.split ';' . BS.init $ xs
-             in Species (copy n) cs k
+               cs = L.map (Classification . copy . BS.dropWhile (==' ')) . BS.split ';' . BS.init $ xs
+             in SpeciesTaxonomy (SpeciesAccession k) (SpeciesName $ copy n) cs
   ptaxid   = decimal
   pname    = A8.takeWhile (/='\t')
   tab      = char '\t'
 
 -- | Convenience function: given a taxonomy file, produce both maps simultanously.
 
-fromFile :: FilePath -> IO (M.Map ByteString Species, M.Map Int Species)
+fromFile :: FilePath -> IO (M.Map SpeciesName SpeciesTaxonomy, M.Map SpeciesAccession SpeciesTaxonomy)
 fromFile fp = do
   i <- enumFile 8192 fp
     . joinI

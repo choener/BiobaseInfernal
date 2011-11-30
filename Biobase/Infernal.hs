@@ -10,7 +10,7 @@ module Biobase.Infernal
   , eneeVerboseHit
   , vhEneeByteString
   , vhEneeByteStrings
-  , Species(..)
+  , SpeciesTaxonomy(..)
   , tFromFile
   , Clan(..)
   , cFromFile

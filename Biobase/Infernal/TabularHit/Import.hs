@@ -16,6 +16,7 @@ import Control.Applicative
 import Data.Iteratee.IO as I
 
 import Biobase.Infernal.TabularHit
+import Biobase.Infernal.Types
 
 
 
@@ -24,15 +25,25 @@ import Biobase.Infernal.TabularHit
 eneeTabularHit :: (Functor m, Monad m) => Enumeratee ByteString [TabularHit] m a
 eneeTabularHit = enumLinesBS ><> I.filter (\x -> not $ BS.null x || isPrefixOf "#" x) ><> mapStream f where
   f = fromRight . parseOnly p
-  p = TabularHit <$> pString -- model name
-                 <*> pString -- target name
-                 <*> pDecimal -- target start
-                 <*> pDecimal -- target stop
-                 <*> pDecimal -- query start
-                 <*> pDecimal -- query stop
-                 <*> pDouble -- bit score
-                 <*> pDouble -- evalue
-                 <*> pDecimal -- gc content
+  mkTH mName tName tStart tStop qStart qStop bScore eValue gc = TabularHit
+    (ModelIdentification tName)
+    (Scaffold tName)
+    tStart
+    tStop
+    qStart
+    qStop
+    (BitScore bScore)
+    eValue
+    gc
+  p = mkTH <$> pString  -- model name
+           <*> pString  -- target name
+           <*> pDecimal -- target start
+           <*> pDecimal -- target stop
+           <*> pDecimal -- query start
+           <*> pDecimal -- query stop
+           <*> pDouble  -- bit score
+           <*> pDouble  -- evalue
+           <*> pDecimal -- gc content
   pString  = A.skipSpace *> A.takeTill A.isSpace
   pDecimal = A.skipSpace *> A.decimal
   pDouble  = A.skipSpace *> A.double

@@ -1,9 +1,15 @@
 
 -- | Accessors for Infernal hits.
+--
+-- TODO modelStartStop pair? same for target?
+--
+-- TODO newtypes for these returns?
 
 module Biobase.Infernal.Hit where
 
 import Data.ByteString.Char8 (ByteString)
+
+import Biobase.Infernal.Types
 
 
 
@@ -11,9 +17,9 @@ import Data.ByteString.Char8 (ByteString)
 
 class Hit a where
   -- | Model name (like 5S_rRNA).
-  model       :: a -> ByteString
+  model       :: a -> ModelIdentification
   -- | Target name, typically the scaffold or chromosome where the hit occurs.
-  target      :: a -> ByteString
+  target      :: a -> Scaffold
   -- | Start of submodel.
   modelStart  :: a -> Int
   -- | Stop of submodel.
@@ -23,7 +29,7 @@ class Hit a where
   -- | Stop of substring in target.
   targetStop  :: a -> Int
   -- | Bit score of the hit of model in target.
-  bitScore    :: a -> Double
+  bitScore    :: a -> BitScore
   -- | Evalue, expectation of bit score of higher in target sequence of length.
   evalue      :: a -> Double
   -- | G/C content in target.

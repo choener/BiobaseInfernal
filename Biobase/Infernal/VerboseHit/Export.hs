@@ -18,6 +18,7 @@ import Data.Maybe
 import Prelude as P
 import Text.Printf
 
+import Biobase.Infernal.Types
 import Biobase.Infernal.VerboseHit
 import Biobase.Infernal.VerboseHit.Internal
 
@@ -49,13 +50,13 @@ eneeByteStrings = unfoldConvStream f (AliGo BS.empty BS.empty '?' []) where
 -- switches have to be emitted.
 
 newAcc a@(AliGo{..}) h@VerboseHit{..}
-  | otherwise = ( AliGo vhModel vhTarget vhStrand [], ls )
+  | otherwise = ( AliGo (unModelIdentification vhModel) (unScaffold vhTarget) vhStrand [], ls )
   where ls = [ "//" | aliCM /= BS.empty && bCM ] ++
-             [ "CM: " `BS.append` vhModel | bCM ] ++
-             [ ">" `BS.append` vhTarget `BS.append` "\n" | bCM || bSc] ++
+             [ "CM: " `BS.append` unModelIdentification vhModel | bCM ] ++
+             [ ">" `BS.append` unScaffold vhTarget `BS.append` "\n" | bCM || bSc] ++
              [ str `BS.append` " strand results:\n" | bCM || bSc || bSt ]
-        bCM = aliCM /= vhModel
-        bSc = aliScaffold /= vhTarget
+        bCM = aliCM /= unModelIdentification vhModel
+        bSc = aliScaffold /= unScaffold vhTarget
         bSt = aliStrand /= vhStrand
         str
           | vhStrand == '+' = "Plus"
@@ -72,7 +73,7 @@ showVerboseHit VerboseHit{..} = BS.unlines
   [ BS.pack $ printf " Query = %d - %d, Target = %d - %d"
                 vhModelStart vhModelStop vhTargetStart vhTargetStop
   , BS.pack $ printf " Score = %.2f, E = %f, P = %.4e, GC = %d"
-                vhBitScore vhEvalue vhPvalue vhGCpercent
+                (unBitScore vhBitScore) vhEvalue vhPvalue vhGCpercent
   , ""
   , ws11 `BS.append` vhWuss
   , (BS.pack $ printf "%10d " vhModelStart)

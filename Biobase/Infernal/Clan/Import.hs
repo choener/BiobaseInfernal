@@ -11,6 +11,7 @@ import qualified Data.ByteString.Char8 as BS
 import Data.List
 
 import Biobase.Infernal.Clan
+import Biobase.Infernal.Types
 
 
 
@@ -33,10 +34,10 @@ fromByteString s = map mkClan
 
 mkClan :: [BS.ByteString] -> Clan
 mkClan xs = Clan
-  { accession  = f . BS.drop 2 . (!!1) . BS.words . head . filter ((=="AC") . BS.take 2) $ xs
-  , identifier = (!!1) . BS.words . head . filter ((=="ID") . BS.take 2) $ xs
-  , members    = map (f . BS.drop 2 . BS.init . (!!1)) . filter ((=="MB") . (!!0)) . map BS.words $ xs
-  , strings    = xs
+  { cAccession  = ClanAccession . f . BS.drop 2 . (!!1) . BS.words . head . filter ((=="AC") . BS.take 2) $ xs
+  , cIdentifier = ClanIdentification . (!!1) . BS.words . head . filter ((=="ID") . BS.take 2) $ xs
+  , cMembers    = map (ModelAccession . f . BS.drop 2 . BS.init . (!!1)) . filter ((=="MB") . (!!0)) . map BS.words $ xs
+  , cStrings    = xs
   } where
       f s
         | Just (k, _) <- BS.readInt s = k
