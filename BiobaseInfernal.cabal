@@ -1,5 +1,5 @@
 name:           BiobaseInfernal
-version:        0.6.0.0
+version:        0.6.0.1
 author:         Christian Hoener zu Siederdissen
 maintainer:     choener@tbi.univie.ac.at
 homepage:       http://www.tbi.univie.ac.at/~choener/
@@ -26,6 +26,10 @@ description:
                 .
                 .
                 .
+                Changes in 0.6.0.1
+                .
+                * haddock should finish now
+                .
                 Changes in 0.6.0.0
                 .
                 * multiple changes to data representation (mostly newtypes) and
@@ -34,12 +38,6 @@ description:
                 * load the Rfam.fasta.gz file (and prepare lookup structures)
                 .
                 * partial biocore integration
-                .
-                Changes in 0.5.4.1
-                .
-                * fix-up for VH export
-                .
-                * half-baked CM type (not useful yet)
 
 extra-source-files:
 

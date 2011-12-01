@@ -20,18 +20,12 @@ import Biobase.Infernal.Types
 -- | Rfam FASTA entry.
 
 data RfamFasta = RfamFasta
-  -- | Rfam accession number RFxxxxx (the xxxxx part).
-  { modelAccession    :: !ModelAccession
-  -- | Rfam identifier (like 5S_rRNA).
-  , modelIdentifier   :: !ModelIdentification
-  -- | EMBL sequence accession identifier and position.
-  , sequenceAccession :: !EmblAccession
-  -- | Rfam species accession.
-  , speciesAccession  :: !SpeciesAccession
-  -- | Species name.
-  , speciesName       :: !SpeciesName
-  -- | FASTA data
-  , fastaData         :: !StrictSeqData
+  { modelAccession    :: !ModelAccession      -- ^ Rfam accession number RFxxxxx (the xxxxx part).
+  , modelIdentifier   :: !ModelIdentification -- ^ Rfam identifier (like 5S_rRNA).
+  , sequenceAccession :: !EmblAccession       -- ^ EMBL sequence accession identifier and position.
+  , speciesAccession  :: !SpeciesAccession    -- ^ Rfam species accession.
+  , speciesName       :: !SpeciesName         -- ^ Species name.
+  , fastaData         :: !StrictSeqData       -- ^ FASTA data
   } deriving (Show)
 
 -- | Since RfamFasta entries are just fasta entries...

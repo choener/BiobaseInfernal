@@ -16,13 +16,9 @@ import Biobase.Infernal.Types
 -- | Simple Rfam clan data.
 
 data Clan = Clan
-  -- | result of the "AC    CL00001" line, keeping "1" in this case.
-  { cAccession  :: !ClanAccession
-  -- | the "ID    tRNA" line, keeping "tRNA".
-  , cIdentifier :: !ClanIdentification
-  -- | all the "MB    RF00005;", "MB    RF00023;" lines, keeping "[5,23]".
-  , cMembers    :: ![ModelAccession]
-  -- | all lines of each clan, without any processing (except being in lines).
-  , cStrings    :: ![ByteString]
+  { cAccession  :: !ClanAccession       -- ^ result of the "AC    CL00001" line, keeping "1" in this case.
+  , cIdentifier :: !ClanIdentification  -- ^ the "ID    tRNA" line, keeping "tRNA".
+  , cMembers    :: ![ModelAccession]    -- ^ all the "MB    RF00005;", "MB    RF00023;" lines, keeping "[5,23]".
+  , cStrings    :: ![ByteString]        -- ^ all lines of each clan, without any processing (except being in lines).
   } deriving (Read,Show,Eq)
 
