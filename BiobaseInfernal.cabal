@@ -1,5 +1,5 @@
 name:           BiobaseInfernal
-version:        0.6.0.1
+version:        0.6.1.0
 author:         Christian Hoener zu Siederdissen
 maintainer:     choener@tbi.univie.ac.at
 homepage:       http://www.tbi.univie.ac.at/~choener/
@@ -26,6 +26,10 @@ description:
                 .
                 .
                 .
+                Changes in 0.6.1.0
+                .
+                * added cmalign results parser
+                .
                 Changes in 0.6.0.1
                 .
                 * haddock should finish now
@@ -44,9 +48,9 @@ extra-source-files:
 library
   build-depends:
     base >3 && <5,
-    biocore,
     attoparsec,
     attoparsec-iteratee,
+    biocore,
     bytestring,
     containers,
     either-unwrap,
@@ -59,6 +63,8 @@ library
 
   exposed-modules:
     Biobase.Infernal
+    Biobase.Infernal.Align
+    Biobase.Infernal.Align.Import
     Biobase.Infernal.Clan
     Biobase.Infernal.Clan.Import
     Biobase.Infernal.CM
