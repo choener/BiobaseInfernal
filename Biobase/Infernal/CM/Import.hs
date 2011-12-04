@@ -20,6 +20,7 @@ import Data.Iteratee.ListLike as I
 import Data.Iteratee.ZLib as IZ
 import Data.Map as M
 import Prelude as P
+import Control.Monad.IO.Class (liftIO, MonadIO)
 
 import Data.PrimitiveArray
 import Data.PrimitiveArray.Ix
@@ -41,12 +42,12 @@ eneeCM = enumLinesBS ><> convStream f where
     let hs = M.fromList . P.map (second (BS.dropWhile (==' ')) . BS.break (==' ')) $ hs'
     -- model begins
     mb <- I.tryHead
-    unless (mb == Just "MODEL:") . error $ "model error: " ++ show hs
+    unless (mb == Just "MODEL:") . error $ "model error: " ++ show (hs,mb,"head")
     -- nodes
     ns <- iterNodes
     -- model ends
     me <- I.tryHead
-    unless (me == Just "//") . error $ "model error: " ++ show hs
+    unless (me == Just "//") . error $ "model error: " ++ show (hs,me,"tail")
     return . (:[]) $ CM
       { name = ModelIdentification $ hs M.! "NAME"
       , accession = ModelAccession . bsRead . BS.drop 2 $ hs M.! "ACCESSION"
@@ -62,13 +63,44 @@ eneeCM = enumLinesBS ><> convStream f where
       , nodes = error "not implemented yet"
       } where bsRead = read . BS.unpack
 
-iterNodes :: (Monad m) => Iteratee [ByteString] m [ByteString]
+iterNodes :: (Monad m) => Iteratee [ByteString] m [Node]
 iterNodes = do
-  th <- I.tryHead
-  -- TODO handle node header
-  xs <- I.takeWhile (BS.notElem '[')
-  return xs
+  hdr' <- I.head
+  let (ishdr,(hdr,nidx)) = isNodeHeader hdr'
+  unless ishdr $ error $ show hdr'
+  xs <- I.takeWhile (fst . isState)
+  pk <- I.peek
+  let n = Node
+            { nodeHeader = hdr
+            , nodeIndex = nidx
+            }
+  case pk of
+    Just "//" -> return []
+    Just x
+      | (True,_) <- isNodeHeader x -> do
+          ns <- iterNodes
+          return $ n:ns
+    e -> error $ show e
 
+data Node = Node
+  { nodeHeader :: ByteString
+  , nodeIndex :: Int
+  }
+
+isNodeHeader :: ByteString -> (Bool,(ByteString,Int))
+isNodeHeader xs = (isnh,(hdr,nidx)) where
+  isnh = BS.elem '[' xs && BS.elem ']' xs
+  [hdr,nidx'] = BS.words . BS.init . BS.takeWhile (/=']') . BS.drop 1 . BS.dropWhile (/='[') $ xs
+  nidx = read . BS.unpack $ nidx'
+
+isState :: ByteString -> (Bool,ByteString)
+isState xs'
+  | P.null xs = (False,"")
+  | P.head xs `P.elem` [ "[", "//" ] = (False,"")
+  | P.head xs `P.elem` [ "S", "IL", "IR", "MATR", "MR", "D", "MP", "ML", "B", "E" ] = (True,"")
+  | otherwise = error $ show xs
+  where
+    xs = BS.words xs'
 
 -- * convenience functions
 

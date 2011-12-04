@@ -36,6 +36,8 @@ import Biobase.Infernal.Types
 -- 'localBegin' is a transition score to certain states, all such transitions
 -- are in 'begins'. A 'localEnd' is a transition score to a local end state.
 --
+-- NOTE that trustedCutoff > gathering > noiseCutoff
+--
 -- TODO as with other projects, we should not use Double's but "Score" and
 -- "Probability" newtypes.
 
