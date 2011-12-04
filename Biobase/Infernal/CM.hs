@@ -3,12 +3,15 @@
 
 module Biobase.Infernal.CM where
 
+import Data.ByteString as BS
+import Data.Map as M
 import Data.Vector as V
 import Data.Vector.Unboxed as VU
-import Data.ByteString as BS
 
 import Data.PrimitiveArray
 import Data.PrimitiveArray.Ix
+
+import Biobase.Infernal.Types
 
 
 
@@ -37,11 +40,11 @@ import Data.PrimitiveArray.Ix
 -- "Probability" newtypes.
 
 data CM = CM
-  { name :: ByteString
-  , accession :: Int
-  , ga :: Double
-  , tc :: Double
-  , nc :: Double
+  { name          :: ModelIdentification  -- ^ name of model as in "tRNA"
+  , accession     :: ModelAccession       -- ^ RFxxxxx identification
+  , trustedCutoff :: BitScore -- ^ lowest score of true member
+  , gathering     :: BitScore -- ^ all scores at or above 'gathering' score are in the "full" alignment
+  , noiseCutoff   :: Maybe BitScore -- ^ highest score NOT included as member
   , transition :: PrimArray (Int,Int) Double
   , emission :: PrimArray (Int,Int) Double
   , paths :: V.Vector (VU.Vector Double)
@@ -51,3 +54,12 @@ data CM = CM
   , nodes :: V.Vector (VU.Vector Int)
   }
   deriving (Show)
+
+-- | Map of model names to individual CMs.
+
+type ID2CM = M.Map ModelIdentification CM
+
+-- | Map of model accession numbers to individual CMs.
+
+type AC2CM = M.Map ModelAccession CM
+
