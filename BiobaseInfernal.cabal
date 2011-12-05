@@ -1,5 +1,5 @@
 name:           BiobaseInfernal
-version:        0.6.2.0
+version:        0.6.2.1
 author:         Christian Hoener zu Siederdissen
 maintainer:     choener@tbi.univie.ac.at
 homepage:       http://www.tbi.univie.ac.at/~choener/
@@ -91,3 +91,6 @@ library
   ghc-options:
     -O2 -funbox-strict-fields
 
+source-repository head
+  type: git
+  location: git://github.com/choener/BiobaseInfernal
