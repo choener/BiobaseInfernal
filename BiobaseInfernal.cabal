@@ -1,5 +1,5 @@
 name:           BiobaseInfernal
-version:        0.6.2.1
+version:        0.6.3.0
 author:         Christian Hoener zu Siederdissen
 maintainer:     choener@tbi.univie.ac.at
 homepage:       http://www.tbi.univie.ac.at/~choener/
@@ -25,6 +25,12 @@ description:
                 Int64).
                 .
                 .
+                .
+                Changes in 0.6.3.0
+                .
+                * working CM parsing
+                .
+                * shortened a lot of type names
                 .
                 Changes in 0.6.2.0
                 .
@@ -53,18 +59,18 @@ extra-source-files:
 library
   build-depends:
     base >3 && <5,
-    attoparsec,
-    attoparsec-iteratee,
-    biocore,
+    attoparsec          == 0.10.* ,
+    attoparsec-iteratee == 0.4.* ,
+    biocore             == 0.2 ,
     bytestring,
     containers,
-    either-unwrap,
-    iteratee,
-    iteratee-compress,
-    transformers,
-    tuple,
-    vector,
-    PrimitiveArray
+    either-unwrap       == 1.1 ,
+    iteratee            == 0.8.9.* ,
+--    iteratee-compress   == 0.3.* ,
+    transformers        == 0.3.* ,
+    tuple               == 0.2.* ,
+    vector              == 0.9.* ,
+    PrimitiveArray      == 0.2.1.1
 
   exposed-modules:
     Biobase.Infernal

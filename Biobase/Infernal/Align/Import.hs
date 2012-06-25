@@ -10,7 +10,7 @@ module Biobase.Infernal.Align.Import where
 import Data.Iteratee as I
 import Data.Iteratee.Char as I
 import Data.Iteratee.IO as I
-import Data.Iteratee.ZLib as IZ
+--import Data.Iteratee.ZLib as IZ
 import Data.ByteString.Char8 as BS
 import Prelude as P
 

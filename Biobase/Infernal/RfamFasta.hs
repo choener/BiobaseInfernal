@@ -20,10 +20,10 @@ import Biobase.Infernal.Types
 -- | Rfam FASTA entry.
 
 data RfamFasta = RfamFasta
-  { modelAccession    :: !ModelAccession      -- ^ Rfam accession number RFxxxxx (the xxxxx part).
-  , modelIdentifier   :: !ModelIdentification -- ^ Rfam identifier (like 5S_rRNA).
-  , sequenceAccession :: !EmblAccession       -- ^ EMBL sequence accession identifier and position.
-  , speciesAccession  :: !SpeciesAccession    -- ^ Rfam species accession.
+  { modelAccession    :: !ModelAC      -- ^ Rfam accession number RFxxxxx (the xxxxx part).
+  , modelIdentifier   :: !ModelID -- ^ Rfam identifier (like 5S_rRNA).
+  , sequenceAccession :: !EmblAC       -- ^ EMBL sequence accession identifier and position.
+  , speciesAccession  :: !SpeciesAC    -- ^ Rfam species accession.
   , speciesName       :: !SpeciesName         -- ^ Species name.
   , fastaData         :: !StrictSeqData       -- ^ FASTA data
   } deriving (Show)
@@ -32,13 +32,13 @@ data RfamFasta = RfamFasta
 
 instance BioSeq RfamFasta where
   seqlabel RfamFasta{..}  = SeqLabel . BSL.fromChunks $ [BS.concat
-    [ BS.pack . printf "RF%05d" . unModelAccession $ modelAccession
+    [ BS.pack . printf "RF%05d" . unModelAC $ modelAccession
     , ";"
-    , unModelIdentification modelIdentifier
+    , unModelID modelIdentifier
     , ";"
-    , let (a,b,c) = unEmblAccession sequenceAccession in BS.concat [a, "/", BS.pack $ show b, "-", BS.pack $ show c]
+    , let (a,b,c) = unEmblAC sequenceAccession in BS.concat [a, "/", BS.pack $ show b, "-", BS.pack $ show c]
     , "   "
-    , BS.pack . show . unSpeciesAccession $ speciesAccession
+    , BS.pack . show . unSpeciesAC $ speciesAccession
     , ":"
     , unSpeciesName speciesName
     ] ]
@@ -51,18 +51,18 @@ instance BioSeq RfamFasta where
 
 -- | Model accession to model identifier
 
-type ModelAC2ID = Map ModelAccession ModelIdentification
+type ModelAC2ID = Map ModelAC ModelID
 
 -- | Model identifier to model accession
 
-type ModelID2AC = Map ModelIdentification ModelAccession
+type ModelID2AC = Map ModelID ModelAC
 
 -- | Model accession and sequence accession to 'RfamFasta' entry (and model
 -- accession to all entries for this accession).
 
-type ACAC2RfamFasta = Map ModelAccession (Map EmblAccession RfamFasta)
+type ACAC2RfamFasta = Map ModelAC (Map EmblAC RfamFasta)
 
 -- | Model identifier and sequence accession to 'RfamFasta' entry.
 
-type IDAC2RfamFasta = Map ModelIdentification (Map EmblAccession RfamFasta)
+type IDAC2RfamFasta = Map ModelID (Map EmblAC RfamFasta)
 

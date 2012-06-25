@@ -17,7 +17,7 @@ import Biobase.Infernal.Types
 
 class Hit a where
   -- | Model name (like 5S_rRNA).
-  model       :: a -> ModelIdentification
+  model       :: a -> ModelID
   -- | Target name, typically the scaffold or chromosome where the hit occurs.
   target      :: a -> Scaffold
   -- | Start of submodel.

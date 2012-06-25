@@ -17,13 +17,13 @@ import Data.Iteratee.Char as I
 import Data.Iteratee.IO as I
 import Data.Iteratee.Iteratee as I
 import Data.Iteratee.ListLike as I
-import Data.Iteratee.ZLib as IZ
+--import Data.Iteratee.ZLib as IZ
 import Data.Map as M
 import Prelude as P
 import Control.Monad.IO.Class (liftIO, MonadIO)
 
 import Data.PrimitiveArray
-import Data.PrimitiveArray.Ix
+import Data.PrimitiveArray.Zero
 
 import Biobase.Infernal.CM
 import Biobase.Infernal.Types
@@ -49,8 +49,8 @@ eneeCM = enumLinesBS ><> convStream f where
     me <- I.tryHead
     unless (me == Just "//") . error $ "model error: " ++ show (hs,me,"tail")
     return . (:[]) $ CM
-      { name = ModelIdentification $ hs M.! "NAME"
-      , accession = ModelAccession . bsRead . BS.drop 2 $ hs M.! "ACCESSION"
+      { name = ModelID $ hs M.! "NAME"
+      , accession = ModelAC . bsRead . BS.drop 2 $ hs M.! "ACCESSION"
       , gathering = BitScore . bsRead $ hs M.! "GA"
       , trustedCutoff = BitScore . bsRead $ hs M.! "TC"
       , noiseCutoff = let x = hs M.! "NC" in if x == "undefined" then Nothing else Just . BitScore . bsRead $ x
@@ -115,8 +115,12 @@ fromFile fp = run =<< ( enumFile 8192 fp
                       )
 
 -- | Read covariance models from a compressed file.
+--
+-- TODO currently unusable as iteratee-compress is to old
 
 fromFileZip :: FilePath -> IO (ID2CM, AC2CM)
+fromFileZip = undefined
+{-
 fromFileZip fp = run =<< ( enumFile 8192 fp
                          . joinI
                          . enumInflate GZipOrZlib defaultDecompressParams
@@ -124,6 +128,7 @@ fromFileZip fp = run =<< ( enumFile 8192 fp
                          . eneeCM
                          $ I.zip (mkMap name) (mkMap accession)
                          )
+-}
 
 -- | map creation helper
 

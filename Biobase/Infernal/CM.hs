@@ -1,3 +1,4 @@
+{-# LANGUAGE PackageImports #-}
 
 -- | Infernal CMs.
 
@@ -9,7 +10,8 @@ import Data.Vector as V
 import Data.Vector.Unboxed as VU
 
 import Data.PrimitiveArray
-import Data.PrimitiveArray.Ix
+import Data.PrimitiveArray.Unboxed.Zero
+import "PrimitiveArray" Data.Array.Repa.Index
 
 import Biobase.Infernal.Types
 
@@ -42,26 +44,25 @@ import Biobase.Infernal.Types
 -- "Probability" newtypes.
 
 data CM = CM
-  { name          :: ModelIdentification  -- ^ name of model as in "tRNA"
-  , accession     :: ModelAccession       -- ^ RFxxxxx identification
+  { name          :: ModelID  -- ^ name of model as in "tRNA"
+  , accession     :: ModelAC  -- ^ RFxxxxx identification
   , trustedCutoff :: BitScore -- ^ lowest score of true member
   , gathering     :: BitScore -- ^ all scores at or above 'gathering' score are in the "full" alignment
   , noiseCutoff   :: Maybe BitScore -- ^ highest score NOT included as member
-  , transition :: PrimArray (Int,Int) Double
-  , emission :: PrimArray (Int,Int) Double
+  , transition :: Arr0 DIM2 Double
+  , emission :: Arr0 DIM2 Double
   , paths :: V.Vector (VU.Vector Double)
   , localBegin :: VU.Vector Double
   , begins :: VU.Vector Int
   , localEnd :: VU.Vector (Double)
   , nodes :: V.Vector (VU.Vector Int)
   }
-  deriving (Show)
 
 -- | Map of model names to individual CMs.
 
-type ID2CM = M.Map ModelIdentification CM
+type ID2CM = M.Map ModelID CM
 
 -- | Map of model accession numbers to individual CMs.
 
-type AC2CM = M.Map ModelAccession CM
+type AC2CM = M.Map ModelAC CM
 

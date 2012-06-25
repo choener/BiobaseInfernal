@@ -1,11 +1,10 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 
--- | All these different accession numbers and identifiers are confusing,
--- newtype's to the rescue.
+-- | Infernal Stockholm files and covariance models, and other related files
+-- use a bunch of different identifiers. We provide newtypes for more type
+-- safety.
 --
--- TODO some of these names might have to change in the future...
---
--- TODO Use INT64 instead of Int...
+-- TODO Use (Bio.Core.Sequence.Offset) instead of Int for sequence info
 
 module Biobase.Infernal.Types where
 
@@ -14,16 +13,17 @@ import Data.ByteString.Char8 as BS
 
 
 
--- * Rfam Clans
+-- * Rfam Clans. A clan is a collection of biologically related RNA families.
 
--- | Clan accession identifier
+-- | The 'ClanAC' is the accession number. Accession numbers start at 1 and
+-- each new clan get a new 'ClanAC'.
 
-newtype ClanAccession = ClanAccession {unClanAccession :: Int}
+newtype ClanAC = ClanAC {unClanAC :: Int}
   deriving (Eq,Ord,Read,Show)
 
--- | Clan model name
+-- | The 'ClanID' is the name given to the clan.
 
-newtype ClanIdentification = ClanIdentification {unClanIdentification :: ByteString}
+newtype ClanID = ClanID {unClanID :: ByteString}
   deriving (Eq,Ord,Read,Show)
 
 
@@ -33,13 +33,13 @@ newtype ClanIdentification = ClanIdentification {unClanIdentification :: ByteStr
 -- | The numeric identifier of a covarience model or Stockholm multiple
 -- alignment as in RFxxxxx.
 
-newtype ModelAccession = ModelAccession {unModelAccession :: Int}
+newtype ModelAC = ModelAC {unModelAC :: Int}
   deriving (Eq,Ord,Read,Show)
 
 -- | String identifier of a covariance model or Stockholm multiple alignment as
 -- in "5S_rRNA".
 
-newtype ModelIdentification = ModelIdentification {unModelIdentification :: ByteString}
+newtype ModelID = ModelID {unModelID :: ByteString}
   deriving (Eq,Ord,Read,Show)
 
 
@@ -49,18 +49,18 @@ newtype ModelIdentification = ModelIdentification {unModelIdentification :: Byte
 -- | EMBL sequence accession based on sequence accession and sequence start to
 -- stop. (Should this then be RfamSequenceAccession?)
 
-newtype EmblAccession = EmblAccession {unEmblAccession :: (ByteString,Int,Int)}
+newtype EmblAC = EmblAC {unEmblAC :: (ByteString,Int,Int)}
   deriving (Eq,Ord,Read,Show)
 
 -- | Simple function to create 'EmblAccession' from a 'ByteString'.
 
-mkEmblAccession :: ByteString -> EmblAccession
-mkEmblAccession s = EmblAccession (sid,start,stop) where
+mkEmblAC :: ByteString -> EmblAC
+mkEmblAC s = EmblAC (sid,start,stop) where
   (sid,(Just (start,_),Just (stop,_))) = second ((BS.readInt *** (BS.readInt . BS.drop 1)) . BS.span (/='-') . BS.drop 1) . BS.span (/='/') $ s
 
 -- | Numeric species accession number.
 
-newtype SpeciesAccession = SpeciesAccession {unSpeciesAccession :: Int}
+newtype SpeciesAC = SpeciesAC {unSpeciesAC :: Int}
   deriving (Eq,Ord,Read,Show)
 
 -- | String name for species.

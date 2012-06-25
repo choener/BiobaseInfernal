@@ -11,7 +11,7 @@ import Data.ByteString.Char8 as BS
 import Data.Iteratee as I
 import Data.Iteratee.Char as I
 import Data.Iteratee.IO as I
-import Data.Iteratee.ZLib as IZ
+--import Data.Iteratee.ZLib as IZ
 import Data.Map as M
 import Prelude as P
 
