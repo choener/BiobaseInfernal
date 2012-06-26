@@ -1,4 +1,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE EmptyDataDecls #-}
 
 -- | Infernal Stockholm files and covariance models, and other related files
 -- use a bunch of different identifiers. We provide newtypes for more type
@@ -13,6 +16,29 @@ import Data.ByteString.Char8 as BS
 
 
 
+-- * 'Accession' and string 'Identifier' with phantom types.
+
+newtype Accession t = AC {unAC :: Int}
+  deriving (Eq,Ord,Read,Show)
+
+newtype Identification t = ID {unID :: ByteString}
+  deriving (Eq,Ord,Read,Show)
+
+data Clan
+
+data Pfam
+
+data Rfam
+
+
+
+
+-- | Infernal bit score. Behaves like a double (deriving Num).
+
+newtype BitScore = BitScore {unBitScore :: Double}
+  deriving (Eq,Ord,Read,Show,Num)
+
+{-
 -- * Rfam Clans. A clan is a collection of biologically related RNA families.
 
 -- | The 'ClanAC' is the accession number. Accession numbers start at 1 and
@@ -87,7 +113,4 @@ newtype Classification = Classification {unClassification :: ByteString}
 newtype Scaffold = Scaffold {unScaffold :: ByteString}
   deriving (Eq,Ord,Read,Show)
 
--- | Infernal bit score. Behaves like a double (deriving Num).
-
-newtype BitScore = BitScore {unBitScore :: Double}
-  deriving (Eq,Ord,Read,Show,Num)
+-}

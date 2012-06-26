@@ -44,8 +44,8 @@ import Biobase.Infernal.Types
 -- "Probability" newtypes.
 
 data CM = CM
-  { name          :: ModelID  -- ^ name of model as in "tRNA"
-  , accession     :: ModelAC  -- ^ RFxxxxx identification
+  { name          :: Identification Rfam  -- ^ name of model as in "tRNA"
+  , accession     :: Accession Rfam -- ^ RFxxxxx identification
   , trustedCutoff :: BitScore -- ^ lowest score of true member
   , gathering     :: BitScore -- ^ all scores at or above 'gathering' score are in the "full" alignment
   , noiseCutoff   :: Maybe BitScore -- ^ highest score NOT included as member
@@ -60,9 +60,9 @@ data CM = CM
 
 -- | Map of model names to individual CMs.
 
-type ID2CM = M.Map ModelID CM
+type ID2CM = M.Map (Identification Rfam) CM
 
 -- | Map of model accession numbers to individual CMs.
 
-type AC2CM = M.Map ModelAC CM
+type AC2CM = M.Map (Accession Rfam) CM
 

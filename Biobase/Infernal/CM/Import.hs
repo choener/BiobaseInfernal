@@ -1,3 +1,4 @@
+{-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -49,8 +50,8 @@ eneeCM = enumLinesBS ><> convStream f where
     me <- I.tryHead
     unless (me == Just "//") . error $ "model error: " ++ show (hs,me,"tail")
     return . (:[]) $ CM
-      { name = ModelID $ hs M.! "NAME"
-      , accession = ModelAC . bsRead . BS.drop 2 $ hs M.! "ACCESSION"
+      { name = ID $ hs M.! "NAME"
+      , accession = AC . bsRead . BS.drop 2 $ hs M.! "ACCESSION"
       , gathering = BitScore . bsRead $ hs M.! "GA"
       , trustedCutoff = BitScore . bsRead $ hs M.! "TC"
       , noiseCutoff = let x = hs M.! "NC" in if x == "undefined" then Nothing else Just . BitScore . bsRead $ x

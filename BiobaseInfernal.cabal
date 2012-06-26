@@ -73,26 +73,26 @@ library
     PrimitiveArray      == 0.2.1.1
 
   exposed-modules:
-    Biobase.Infernal
-    Biobase.Infernal.Align
-    Biobase.Infernal.Align.Import
-    Biobase.Infernal.Clan
-    Biobase.Infernal.Clan.Import
+--    Biobase.Infernal
+--    Biobase.Infernal.Align
+--    Biobase.Infernal.Align.Import
+--    Biobase.Infernal.Clan
+--    Biobase.Infernal.Clan.Import
     Biobase.Infernal.CM
     Biobase.Infernal.CM.Export
     Biobase.Infernal.CM.Import
-    Biobase.Infernal.Hit
-    Biobase.Infernal.RfamFasta
-    Biobase.Infernal.RfamFasta.Import
-    Biobase.Infernal.TabularHit
-    Biobase.Infernal.TabularHit.Import
-    Biobase.Infernal.Taxonomy
-    Biobase.Infernal.Taxonomy.Import
+--    Biobase.Infernal.Hit
+--    Biobase.Infernal.RfamFasta
+--    Biobase.Infernal.RfamFasta.Import
+--    Biobase.Infernal.TabularHit
+--    Biobase.Infernal.TabularHit.Import
+--    Biobase.Infernal.Taxonomy
+--    Biobase.Infernal.Taxonomy.Import
     Biobase.Infernal.Types
-    Biobase.Infernal.VerboseHit
-    Biobase.Infernal.VerboseHit.Export
-    Biobase.Infernal.VerboseHit.Import
-    Biobase.Infernal.VerboseHit.Internal
+--    Biobase.Infernal.VerboseHit
+--    Biobase.Infernal.VerboseHit.Export
+--    Biobase.Infernal.VerboseHit.Import
+--    Biobase.Infernal.VerboseHit.Internal
 
   ghc-options:
     -O2 -funbox-strict-fields
