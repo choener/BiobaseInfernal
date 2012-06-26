@@ -24,7 +24,7 @@ data VerboseHit = VerboseHit
   , vhTargetStop  :: !Int
   , vhModelStart  :: !Int          -- ^ which part of the CM/stk do we align to
   , vhModelStop   :: !Int          -- ^ which part of the CM/stk do we align to
-  , vhModel       :: !ModelIdentification   -- ^ the CM for this alignment
+  , vhModel       :: !ModelID      -- ^ the CM for this alignment
   , vhStrand      :: !Strand       -- ^ should be either '+' or '-'
   , vhBitScore    :: !BitScore     -- ^ bit score
   , vhEvalue      :: !Double       -- ^ number of hits we expect to find with 'score' or higher for 'targetSequence' length

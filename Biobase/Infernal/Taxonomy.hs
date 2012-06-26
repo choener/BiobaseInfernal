@@ -17,7 +17,7 @@ import Biobase.Infernal.Types
 -- taxon identifier (taxid).
 
 data SpeciesTaxonomy = SpeciesTaxonomy
-  { stAccession      :: !SpeciesAccession
+  { stAccession      :: !SpeciesAC
   , stName           :: !SpeciesName
   , stClassification :: ![Classification]
   } deriving (Show)

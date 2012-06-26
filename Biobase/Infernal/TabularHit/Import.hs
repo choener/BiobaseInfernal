@@ -26,7 +26,7 @@ eneeTabularHit :: (Functor m, Monad m) => Enumeratee ByteString [TabularHit] m a
 eneeTabularHit = enumLinesBS ><> I.filter (\x -> not $ BS.null x || isPrefixOf "#" x) ><> mapStream f where
   f = fromRight . parseOnly p
   mkTH mName tName tStart tStop qStart qStop bScore eValue gc = TabularHit
-    (ModelIdentification tName)
+    (ModelID tName)
     (Scaffold tName)
     tStart
     tStop

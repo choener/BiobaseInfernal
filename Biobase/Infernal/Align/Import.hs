@@ -32,7 +32,7 @@ eneeAlign = enumLinesBS ><> convStream go where
     xs <- I.takeWhile (/="//")
     x <- I.head
     return [Align
-      { modelIdentification = ModelIdentification ""
+      { modelIdentification = ModelID ""
       , sequenceScores = P.map mkScore ss
       , stockholmAlignment = BS.unlines $ xs++[x]
       }]
@@ -49,6 +49,7 @@ mkScore s = SequenceScore
 
 -- | Convenience function creating all maps.
 
+{-
 fromFileZip :: FilePath -> IO [Align]
 fromFileZip fp = run =<< ( enumFile 8192 fp
                          . joinI
@@ -57,6 +58,7 @@ fromFileZip fp = run =<< ( enumFile 8192 fp
                          . eneeAlign
                          $ stream2stream
                          )
+-}
 
 -- | Convenience function creating all maps.
 

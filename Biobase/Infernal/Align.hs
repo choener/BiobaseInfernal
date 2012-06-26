@@ -17,7 +17,7 @@ import Biobase.Infernal.Types
 -- parse using biostockholm.
 
 data Align = Align
-  { modelIdentification :: ModelIdentification
+  { modelIdentification :: ModelID
   , sequenceScores      :: [SequenceScore]
   , stockholmAlignment  :: ByteString
   }
@@ -27,7 +27,7 @@ data Align = Align
 -- TODO avgProbability should use Probability newtype
 
 data SequenceScore = SequenceScore
-  { sequenceName      :: !(ModelAccession,ModelIdentification,EmblAccession)  -- ^ sequence name, typically RFxxxxxx;RfamID;embl-accession
+  { sequenceName      :: !(ModelAC,ModelID,EmblAC)  -- ^ sequence name, typically RFxxxxxx;RfamID;embl-accession
   , sLength           :: !Int       -- ^ aligned sequence length
   , totalBitScore     :: !BitScore  -- ^ total alignment bitscore
   , structureBitScore :: !BitScore  -- ^ structural score part

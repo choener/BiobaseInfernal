@@ -50,12 +50,12 @@ eneeByteStrings = unfoldConvStream f (AliGo BS.empty BS.empty '?' []) where
 -- switches have to be emitted.
 
 newAcc a@(AliGo{..}) h@VerboseHit{..}
-  | otherwise = ( AliGo (unModelIdentification vhModel) (unScaffold vhTarget) vhStrand [], ls )
+  | otherwise = ( AliGo (unModelID vhModel) (unScaffold vhTarget) vhStrand [], ls )
   where ls = [ "//" | aliCM /= BS.empty && bCM ] ++
-             [ "CM: " `BS.append` unModelIdentification vhModel | bCM ] ++
+             [ "CM: " `BS.append` unModelID vhModel | bCM ] ++
              [ ">" `BS.append` unScaffold vhTarget `BS.append` "\n" | bCM || bSc] ++
              [ str `BS.append` " strand results:\n" | bCM || bSc || bSt ]
-        bCM = aliCM /= unModelIdentification vhModel
+        bCM = aliCM /= unModelID vhModel
         bSc = aliScaffold /= unScaffold vhTarget
         bSt = aliStrand /= vhStrand
         str

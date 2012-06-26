@@ -61,7 +61,7 @@ qs query cm scaf pm anno = do
   l <- fourLines $ sel4 q
   return . pure $ VerboseHit
     { vhTarget = Scaffold scaf
-    , vhModel = ModelIdentification cm
+    , vhModel = ModelID cm
     , vhStrand = pm
     , vhModelStart = sel1 q
     , vhModelStop = sel2 q

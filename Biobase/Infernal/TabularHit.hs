@@ -14,7 +14,7 @@ import Biobase.Infernal.Types
 -- individual fields.
 
 data TabularHit = TabularHit
-  { thModel       :: !ModelIdentification
+  { thModel       :: !ModelID
   , thTarget      :: !Scaffold
   , thTargetStart :: !Int
   , thTargetStop  :: !Int

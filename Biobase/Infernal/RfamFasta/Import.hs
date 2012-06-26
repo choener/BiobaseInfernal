@@ -32,11 +32,11 @@ eneeRfamFasta = enumLinesBS ><> convStream f where
                    let (ana,sps) = (BS.split ';' *** BS.split ':' . BS.dropWhile (==' ')) . BS.break (==' ') $ h
                    fs <- I.takeWhile (\s -> ">" /= BS.take 1 s)
                    return . (:[]) $ RfamFasta
-                     { modelAccession    = ModelAccession . read . P.drop 2 . unpack $ ana!!0
-                     , modelIdentifier   = ModelIdentification $ ana!!1
-                     , sequenceAccession = mkEmblAccession $ ana!!2
+                     { modelAccession    = ModelAC . read . P.drop 2 . unpack $ ana!!0
+                     , modelIdentifier   = ModelID $ ana!!1
+                     , sequenceAccession = mkEmblAC $ ana!!2
                      -- , speciesAC = maybe (error $ "ERROR: " ++ show (unpack $ sps!!0,unpack s)) fst . readInt $ sps!!0
-                     , speciesAccession  = SpeciesAccession . maybe (-1) fst . readInt $ sps!!0
+                     , speciesAccession  = SpeciesAC . maybe (-1) fst . readInt $ sps!!0
                      , speciesName = SpeciesName $ sps!!1
                      , fastaData = StrictSeqData . BS.copy . BS.concat $ fs
                      }
@@ -79,6 +79,7 @@ iIDAC2RfamFasta = I.foldl' f M.empty where
 
 -- | Convenience function creating all maps.
 
+{-
 fromFileZip :: FilePath -> IO (ModelAC2ID, ModelID2AC, ACAC2RfamFasta, IDAC2RfamFasta)
 fromFileZip fp = run =<< ( enumFile 8192 fp
                          . joinI
@@ -87,6 +88,7 @@ fromFileZip fp = run =<< ( enumFile 8192 fp
                          . eneeRfamFasta
                          $ I.zip4 iModelAC2ID iModelID2AC iACAC2RfamFasta iIDAC2RfamFasta
                          )
+-}
 
 -- | Convenience function creating all maps.
 

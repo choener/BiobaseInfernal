@@ -34,7 +34,7 @@ iSpeciesMap = I.foldl' f M.empty where
 
 -- | And a map based on taxon id
 
-iTaxIdMap :: Monad m => Iteratee [SpeciesTaxonomy] m (M.Map SpeciesAccession SpeciesTaxonomy)
+iTaxIdMap :: Monad m => Iteratee [SpeciesTaxonomy] m (M.Map SpeciesAC SpeciesTaxonomy)
 iTaxIdMap = I.foldl' f M.empty where
   f !m x = M.insert (stAccession x) x m
 
@@ -53,14 +53,14 @@ mkSpecies :: Parser SpeciesTaxonomy
 mkSpecies = f <$> ptaxid <* tab <*> pname <* tab <*> takeByteString where
   f k n xs = let
                cs = L.map (Classification . copy . BS.dropWhile (==' ')) . BS.split ';' . BS.init $ xs
-             in SpeciesTaxonomy (SpeciesAccession k) (SpeciesName $ copy n) cs
+             in SpeciesTaxonomy (SpeciesAC k) (SpeciesName $ copy n) cs
   ptaxid   = decimal
   pname    = A8.takeWhile (/='\t')
   tab      = char '\t'
 
 -- | Convenience function: given a taxonomy file, produce both maps simultanously.
 
-fromFile :: FilePath -> IO (M.Map SpeciesName SpeciesTaxonomy, M.Map SpeciesAccession SpeciesTaxonomy)
+fromFile :: FilePath -> IO (M.Map SpeciesName SpeciesTaxonomy, M.Map SpeciesAC SpeciesTaxonomy)
 fromFile fp = do
   i <- enumFile 8192 fp
     . joinI
