@@ -1,6 +1,12 @@
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE PackageImports #-}
 
 -- | Infernal CMs.
+--
+-- TODO order of nucleotides? ACGU?
+--
+-- TODO "fastCM :: CM -> FastCM" to make a data structure that is suitable for
+-- high-performance applications.
 
 module Biobase.Infernal.CM where
 
@@ -8,6 +14,7 @@ import Data.ByteString as BS
 import Data.Map as M
 import Data.Vector as V
 import Data.Vector.Unboxed as VU
+import Prelude as P
 
 import Data.PrimitiveArray
 import Data.PrimitiveArray.Unboxed.Zero
@@ -15,9 +22,67 @@ import "PrimitiveArray" Data.Array.Repa.Index
 
 import Biobase.Infernal.Types
 
+import Data.Lens.Common
+import Data.Lens.Template
 
 
--- | A datatype representing Infernal covariance models. This is a new
+
+-- | Encode CM node types.
+
+newtype Node = Node {unNode :: Int}
+  deriving (Eq,Ord,Show)
+
+(nBIF:nMATP:nMATL:nMATR:nBEGL:nBEGR:nROOT:nEND:_) = P.map Node [0..]
+
+-- | Encode CM state types.
+
+newtype State = State {unState :: Int}
+  deriving (Eq,Ord,Show)
+
+(sD:sMP:sML:sMR:sIL:sIR:sS:sE:sB:sEL:_) = P.map State [0..]
+
+-- | Certain states (IL,IR,ML,MR) emit a single nucleotide, one state emits a
+-- pair (MP), other states emit nothing.
+
+data Emits
+  = EmitsSingle [(Char, BitScore)]
+  | EmitsPair   [((Char,Char), BitScore)]
+  | EmitNothing
+  deriving (Eq,Ord,Show)
+
+-- | This is an Infernal covariance model. We have a number of blocks:
+--
+-- - basic information like the name of the CMA
+--
+-- - advanced information: nodes, transitions between states, emissions for
+-- some states
+--
+-- - unsorted information from the header / blasic block
+--
+-- The 'CM' data structure is not suitable for high-performance applications.
+--
+-- - score inequalities: trusted (lowest seed score) >= gathering (lowest full
+-- score) >= noise (random strings)
+
+data CM = CM
+  { _name           :: Identification Rfam  -- ^ name of model as in "tRNA"
+  , _accession      :: Accession Rfam       -- ^ RFxxxxx identification
+  , _trustedCutoff  :: BitScore             -- ^ lowest score of any seed member
+  , _gathering      :: BitScore             -- ^ all scores at or above 'gathering' score are in the "full" alignment
+  , _noiseCutoff    :: Maybe BitScore       -- ^ highest score NOT included as member
+  , _nullModel      :: VU.Vector BitScore   -- ^ Null-model: categorical distribution on ACGU
+
+  , _nodes        :: M.Map Node [State]             -- ^ each node has a set of states
+  , _transitions  :: M.Map State [(State,BitScore)] -- ^ transition scores. Given a state, what are reachable states and the transition cost
+  , _emissions    :: M.Map State Emits              -- ^ Given a state, what is emitted: a single nucleotide, a pair of nucleotides, or nothing
+
+  , _unsorted       :: M.Map ByteString ByteString  -- ^ all lines that are not handled. Multiline entries are key->multi-line entry
+  }
+
+$( makeLens ''CM )
+
+
+-- A datatype representing Infernal covariance models. This is a new
 -- representation that is incompatible with the one once found in "Biobase".
 -- The most important difference is that lookups are mapped onto efficient data
 -- structures, currently "PrimitiveArray".
@@ -43,20 +108,7 @@ import Biobase.Infernal.Types
 -- TODO as with other projects, we should not use Double's but "Score" and
 -- "Probability" newtypes.
 
-data CM = CM
-  { name          :: Identification Rfam  -- ^ name of model as in "tRNA"
-  , accession     :: Accession Rfam -- ^ RFxxxxx identification
-  , trustedCutoff :: BitScore -- ^ lowest score of true member
-  , gathering     :: BitScore -- ^ all scores at or above 'gathering' score are in the "full" alignment
-  , noiseCutoff   :: Maybe BitScore -- ^ highest score NOT included as member
-  , transition :: Arr0 DIM2 Double
-  , emission :: Arr0 DIM2 Double
-  , paths :: V.Vector (VU.Vector Double)
-  , localBegin :: VU.Vector Double
-  , begins :: VU.Vector Int
-  , localEnd :: VU.Vector (Double)
-  , nodes :: V.Vector (VU.Vector Int)
-  }
+
 
 -- | Map of model names to individual CMs.
 

@@ -18,22 +18,38 @@ import Data.ByteString.Char8 as BS
 
 -- * 'Accession' and string 'Identifier' with phantom types.
 
+-- | Accession number, in the format of RFxxxxx, PFxxxxx, or CLxxxxx. We keep
+-- only the Int-part. A phantom type specifies which kind of accession number
+-- this is.
+
 newtype Accession t = AC {unAC :: Int}
   deriving (Eq,Ord,Read,Show)
+
+-- | One word name for the family or clan. Phantom-typed with the correct type
+-- of model.
 
 newtype Identification t = ID {unID :: ByteString}
   deriving (Eq,Ord,Read,Show)
 
+-- | Tag as being a clan.
+
 data Clan
 
+-- | Tag as being a Pfam model.
+
 data Pfam
+
+-- | Tag as being an Rfam model. Used for Stockholm and CM files.
 
 data Rfam
 
 
 
-
 -- | Infernal bit score. Behaves like a double (deriving Num).
+--
+-- Infernal users guide, p.42: log-odds score in log_2 (aka bits).
+--
+-- S = log_2 (P(seq|CM) / P(seq|null))
 
 newtype BitScore = BitScore {unBitScore :: Double}
   deriving (Eq,Ord,Read,Show,Num)

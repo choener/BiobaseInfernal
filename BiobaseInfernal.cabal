@@ -30,7 +30,9 @@ description:
                 .
                 * working CM parsing
                 .
-                * shortened a lot of type names
+                * type defns have changed. using phantom types to specify what kind of model we are working with
+                .
+                * using conduit instead of iteratee
                 .
                 Changes in 0.6.2.0
                 .
@@ -47,8 +49,7 @@ description:
                 .
                 Changes in 0.6.0.0
                 .
-                * multiple changes to data representation (mostly newtypes) and
-                  documentation
+                * multiple changes to data representation (mostly newtypes) and documentation
                 .
                 * load the Rfam.fasta.gz file (and prepare lookup structures)
                 .
@@ -60,14 +61,15 @@ library
   build-depends:
     base >3 && <5,
     attoparsec          == 0.10.* ,
---    attoparsec-iteratee == 0.4.* ,
+    attoparsec-conduit  == 0.4.* ,
     biocore             == 0.2 ,
     bytestring,
+    conduit             == 0.4.* ,
     containers,
+    data-lens           == 2.* ,
+    data-lens-template  == 2.* ,
     either-unwrap       == 1.1 ,
---    iteratee            == 0.8.9.* ,
---    iteratee-compress   == 0.3.* ,
---    transformers        == 0.3.* ,
+    transformers        == 0.3.* ,
     tuple               == 0.2.* ,
     vector              == 0.9.* ,
     PrimitiveArray      == 0.2.1.1

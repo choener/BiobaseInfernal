@@ -3,31 +3,27 @@
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE OverloadedStrings #-}
 
--- | Iteratee-based parsing of Infernal covariance models.
---
--- TODO does not create working CMs yet. Only partial key/value parsing is
--- implemented.
+-- | Parses text-based covariance-model descriptions.
 
 module Biobase.Infernal.CM.Import where
 
 import Control.Arrow
 import Control.Monad (unless)
 import Data.ByteString.Char8 as BS
---import Data.Iteratee as I
---import Data.Iteratee.Char as I
---import Data.Iteratee.IO as I
---import Data.Iteratee.Iteratee as I
---import Data.Iteratee.ListLike as I
---import Data.Iteratee.ZLib as IZ
 import Data.Map as M
 import Prelude as P
---import Control.Monad.IO.Class (liftIO, MonadIO)
+import Control.Monad.IO.Class (liftIO, MonadIO)
 
 import Data.PrimitiveArray
 import Data.PrimitiveArray.Zero
 
 import Biobase.Infernal.CM
 import Biobase.Infernal.Types
+
+
+
+-- * conduit-based parser for human-readable CMs.
+
 
 
 
