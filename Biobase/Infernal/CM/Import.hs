@@ -13,15 +13,15 @@ module Biobase.Infernal.CM.Import where
 import Control.Arrow
 import Control.Monad (unless)
 import Data.ByteString.Char8 as BS
-import Data.Iteratee as I
-import Data.Iteratee.Char as I
-import Data.Iteratee.IO as I
-import Data.Iteratee.Iteratee as I
-import Data.Iteratee.ListLike as I
+--import Data.Iteratee as I
+--import Data.Iteratee.Char as I
+--import Data.Iteratee.IO as I
+--import Data.Iteratee.Iteratee as I
+--import Data.Iteratee.ListLike as I
 --import Data.Iteratee.ZLib as IZ
 import Data.Map as M
 import Prelude as P
-import Control.Monad.IO.Class (liftIO, MonadIO)
+--import Control.Monad.IO.Class (liftIO, MonadIO)
 
 import Data.PrimitiveArray
 import Data.PrimitiveArray.Zero
@@ -35,6 +35,7 @@ import Biobase.Infernal.Types
 
 -- | iteratee-based parsing of human-readable CMs.
 
+{-
 eneeCM :: (Monad m) => Enumeratee ByteString [CM] m a
 eneeCM = enumLinesBS ><> convStream f where
   f = do
@@ -134,4 +135,4 @@ fromFileZip fp = run =<< ( enumFile 8192 fp
 -- | map creation helper
 
 mkMap f = I.foldl' (\ !m x -> M.insert (f x) x m) M.empty
-
+-}

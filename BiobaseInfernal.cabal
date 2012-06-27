@@ -60,14 +60,14 @@ library
   build-depends:
     base >3 && <5,
     attoparsec          == 0.10.* ,
-    attoparsec-iteratee == 0.4.* ,
+--    attoparsec-iteratee == 0.4.* ,
     biocore             == 0.2 ,
     bytestring,
     containers,
     either-unwrap       == 1.1 ,
-    iteratee            == 0.8.9.* ,
+--    iteratee            == 0.8.9.* ,
 --    iteratee-compress   == 0.3.* ,
-    transformers        == 0.3.* ,
+--    transformers        == 0.3.* ,
     tuple               == 0.2.* ,
     vector              == 0.9.* ,
     PrimitiveArray      == 0.2.1.1
