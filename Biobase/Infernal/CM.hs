@@ -67,6 +67,7 @@ data Emits
 data CM = CM
   { _name           :: Identification Rfam  -- ^ name of model as in "tRNA"
   , _accession      :: Accession Rfam       -- ^ RFxxxxx identification
+  , _version        :: ByteString           -- ^ We can parse version 1.0 and 1.1 CMs
   , _trustedCutoff  :: BitScore             -- ^ lowest score of any seed member
   , _gathering      :: BitScore             -- ^ all scores at or above 'gathering' score are in the "full" alignment
   , _noiseCutoff    :: Maybe BitScore       -- ^ highest score NOT included as member

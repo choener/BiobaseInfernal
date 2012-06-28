@@ -20,12 +20,37 @@ import Data.PrimitiveArray.Zero
 import Biobase.Infernal.CM
 import Biobase.Infernal.Types
 
+import Data.Conduit as C
+import Data.Conduit.Binary as CB
+import Data.Conduit.Attoparsec
+import Data.Attoparsec.ByteString as AB
+import System.IO (stdout)
 
 
 -- * conduit-based parser for human-readable CMs.
 
+parseCM :: (MonadIO m, MonadThrow m) => Conduit ByteString m ByteString
+parseCM = C.sequence go where
+  go = do
+    version <- getL
+    case version of
+      "INFERNAL-1 [1.0]" -> parseCM10
+      -- "INFERNAL-1 [1.1]" -> parseCM11
+      _                  -> error $ "can not parse Infernal CM, versioned: " ++ BS.unpack version
 
+parseCM10 = do
+  l <- getL
+  case l of
 
+-- | Get a single line of the input
+
+getL = do
+  l <- CB.takeWhile (/=10) =$ sinkParser takeByteString
+  CB.dropWhile (==10)
+  return l
+
+test :: IO ()
+test = runResourceT $ sourceFile "test.cm" $= parseCM $$ sinkHandle stdout
 
 -- * iteratee stuff
 
