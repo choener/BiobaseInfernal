@@ -26,25 +26,42 @@ import Data.Conduit.Attoparsec
 import Data.Attoparsec.ByteString as AB
 import System.IO (stdout)
 
+import Data.Lens.Common
+import Data.Char (isSpace)
+
+
 
 -- * conduit-based parser for human-readable CMs.
 
 parseCM :: (MonadIO m, MonadThrow m) => Conduit ByteString m ByteString
 parseCM = C.sequence go where
   go = do
-    version <- getL
+    version <- line
     case version of
-      "INFERNAL-1 [1.0]" -> parseCM10
+      "INFERNAL-1 [1.0]" -> parseCM10 (CM {_version = version})
       -- "INFERNAL-1 [1.1]" -> parseCM11
       _                  -> error $ "can not parse Infernal CM, versioned: " ++ BS.unpack version
 
-parseCM10 = do
-  l <- getL
-  case l of
+-- parseCM10 :: (MonadIO m, MonadThrow m) => 
+parseCM10 cm = do
+  l <- line
+  let (h,t) = second (BS.dropWhile isSpace) . BS.break (==' ') $ l
+  case h of
+    "NAME"      -> parseCM10 $ (name ^= ID t) cm
+    "ACCESSION" -> parseCM10 $ (accession ^= (AC . bsread $ t)) cm
+    "GA"        -> parseCM10 $ (gathering ^= (BitScore . bsread $ t)) cm
+    "TC"        -> parseCM10 $ (trustedCutoff ^= (BitScore . bsread $ t)) cm
+    "NC"        -> parseCM10 $ (noiseCutoff ^= (Just . BitScore . bsread $ t)) cm
+--    "//"   -> return $ cm ^. name
+    x      -> error $ show (h,t)
+
+-- |
+
+bsread = read . BS.unpack
 
 -- | Get a single line of the input
 
-getL = do
+line = do
   l <- CB.takeWhile (/=10) =$ sinkParser takeByteString
   CB.dropWhile (==10)
   return l
