@@ -1,3 +1,4 @@
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
@@ -27,9 +28,17 @@ import Data.Attoparsec.ByteString as AB
 import System.IO (stdout)
 
 import Data.Lens.Common
+import Data.Lens.Template
 import Data.Char (isSpace)
 
 
+
+data BuildingCM = BuildingCM
+  { _cm :: CM
+  , _numStates :: Int
+  }
+
+$( makeLens ''BuildingCM )
 
 -- * conduit-based parser for human-readable CMs.
 
@@ -38,7 +47,7 @@ parseCM = C.sequence go where
   go = do
     version <- line
     case version of
-      "INFERNAL-1 [1.0]" -> parseCM10 (CM {_version = version})
+      "INFERNAL-1 [1.0]" -> parseCM10 $ BuildingCM {_cm = (CM {_version = version}) }
       -- "INFERNAL-1 [1.1]" -> parseCM11
       _                  -> error $ "can not parse Infernal CM, versioned: " ++ BS.unpack version
 
