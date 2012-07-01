@@ -61,10 +61,10 @@ library
   build-depends:
     base >3 && <5,
     attoparsec          == 0.10.* ,
-    attoparsec-conduit  == 0.4.* ,
+    attoparsec-conduit  == 0.5.* ,
     biocore             == 0.2 ,
     bytestring,
-    conduit             == 0.4.* ,
+    conduit             == 0.5.* ,
     containers,
     data-lens           == 2.* ,
     data-lens-template  == 2.* ,
