@@ -1,3 +1,4 @@
+{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE FlexibleInstances #-}
@@ -13,6 +14,10 @@ module Biobase.Infernal.Types where
 
 import Control.Arrow
 import Data.ByteString.Char8 as BS
+import Data.Vector.Unboxed.Base
+import Data.Vector.Generic as VG
+import Data.Vector.Generic.Mutable as VGM
+import Data.Vector.Unboxed as VU
 
 
 
@@ -53,6 +58,10 @@ data Rfam
 
 newtype BitScore = BitScore {unBitScore :: Double}
   deriving (Eq,Ord,Read,Show,Num)
+
+deriving instance Unbox BitScore
+deriving instance VGM.MVector VU.MVector BitScore
+deriving instance VG.Vector VU.Vector BitScore
 
 {-
 -- * Rfam Clans. A clan is a collection of biologically related RNA families.

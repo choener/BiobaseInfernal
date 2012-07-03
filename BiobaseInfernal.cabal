@@ -64,6 +64,7 @@ library
     attoparsec-conduit  == 0.5.* ,
     biocore             == 0.2 ,
     bytestring,
+    bytestring-lexing   == 0.4.* ,
     conduit             == 0.5.* ,
     containers,
     data-lens           == 2.* ,

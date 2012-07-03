@@ -1,3 +1,4 @@
+{-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE BangPatterns #-}
@@ -11,6 +12,7 @@ module Biobase.Infernal.CM.Import where
 import Control.Arrow
 import Control.Monad (unless)
 import Data.ByteString.Char8 as BS
+import Data.ByteString.Lex.Double as BS
 import Data.Map as M
 import Prelude as P
 import Control.Monad.IO.Class (liftIO, MonadIO)
@@ -23,16 +25,102 @@ import Biobase.Infernal.Types
 
 import Data.Conduit as C
 import Data.Conduit.Binary as CB
+import Data.Conduit.List as CL
 import Data.Conduit.Attoparsec
 import Data.Attoparsec.ByteString as AB
 import System.IO (stdout)
 
 import Data.Lens.Common
 import Data.Lens.Template
-import Data.Char (isSpace)
+import Data.Char (isSpace,isAlpha,isDigit)
+import Data.Maybe (fromJust)
+import Data.Vector.Unboxed as VU (fromList)
 
 
 
+-- * Covariance model parsing.
+
+-- ** Infernal 1.0 covariance model parser
+
+-- | Top-level parser for Infernal 1.0 human-readable covariance models. Reads
+-- all lines first, then builds up the CM.
+
+parseCM10 :: (Monad m, MonadIO m) => Conduit ByteString m CM
+parseCM10 = CB.lines =$= CL.sequence go where
+  go = do
+    infernal10 <- CL.head
+    unless (infernal10 == Just "INFERNAL-1 [1.0]") . error $ "unexpected, no CM start at: " ++ show infernal10
+    h  <- parseHeader []
+    ns <- parseNodes  []
+    return CM
+      { _name          = ID $ h M.! "NAME"
+      , _accession     = AC . readAccession $ h M.! "ACCESSION"
+      , _version       = fromJust infernal10
+      , _trustedCutoff = BitScore . readBS $ h M.! "TC"
+      , _gathering     = BitScore . readBS $ h M.! "GA"
+      , _noiseCutoff   = (BitScore . readBS) `fmap` (M.lookup "NC" h)
+      , _nullModel     = VU.fromList . P.map readBS . BS.words $ h M.! "NULL"
+
+      , _nodes = undefined
+      }
+
+readBS = read . BS.unpack
+
+readAccession xs
+  | BS.length xs /= 7 = error $ "can't read accession: " ++ BS.unpack xs
+  | "RF" == hdr && P.all isDigit tl = read tl
+  | otherwise = error $ "readAccession: " ++ BS.unpack xs
+  where (hdr,tl) = second BS.unpack . BS.splitAt 2 $ xs
+
+-- | Infernal 1.0 header parser. Greps all lines until the "MODEL:" line, then
+-- return lines to top-level parser. Parses three lines at once in case of
+-- "FT-" lines.
+
+parseHeader hs = do
+  p <- CL.head
+  case p of
+    Nothing -> error $ "unexpected end of header, until here:" -- ++ show hs
+    Just "MODEL:" -> return . M.fromList . P.map (second (BS.dropWhile isSpace) . BS.break isSpace) . P.reverse $ hs
+    Just "" -> error "empty line"
+    Just l  -> do ls <- if ("FT-" `isPrefixOf` l) then CL.take 2 else return []
+                  let lls = BS.concat $ l:ls
+                  parseHeader (lls:hs)
+
+-- | Parses nodes. Will terminate on "//" which ends a CM. The state parser
+-- will just peek on "//", not remove it from the stream.
+--
+-- A node is (node type, node id, set of states)
+
+parseNodes ns = do
+  p <- CL.head
+  case (BS.dropWhile isAlpha `fmap` p) of
+    Nothing -> error "unexpected empty line"
+    Just "//" -> return . P.reverse $ ns
+    (isNode -> Just (ntype,nid)) -> do ss <- parseStates ntype nid []
+                                       parseNodes $ (ntype,nid,ss):ns
+
+-- | Parses all states for a node. We peek at the first line, then handle
+-- accordingly: if "//" the model will be done; is a node is coming up, return
+-- the state lines read until now.
+
+parseStates ntype nid xs = do
+  p <- CL.peek
+  case (BS.dropWhile isSpace `fmap` p) of
+    Nothing -> error "unexpected empty state"
+    Just "//" -> return . P.reverse $ xs
+    (isNode -> Just _) -> return . P.reverse $ xs
+    _                  -> CL.take 1 >>= \x -> parseStates ntype nid (x:xs)
+
+-- | Determine if a line is a node line ('Just'). If yes, we'll get the node
+-- type as string and the node identifier, too.
+
+isNode :: Maybe ByteString -> Maybe (BS.ByteString, Node)
+isNode (Just xs)
+  | BS.null xs = Nothing
+  | ["[",ntype,nid,"]"] <- BS.words xs = Just (ntype,Node . read . BS.unpack $ nid)
+isNode _ = Nothing
+
+{-
 data BuildingCM = BuildingCM
   { _cm :: CM
   , _numStates :: Int
@@ -74,9 +162,12 @@ line = do
   l <- CB.takeWhile (/=10) =$ sinkParser takeByteString
   CB.dropWhile (==10)
   return l
+-}
 
 test :: IO ()
-test = runResourceT $ sourceFile "test.cm" $= parseCM $$ sinkHandle stdout
+test = do
+  xs <- runResourceT $ sourceFile "test.cm" $= parseCM10 $$ consume -- sinkHandle stdout
+  return () --print xs
 
 -- * iteratee stuff
 
