@@ -35,6 +35,7 @@ import Data.Lens.Template
 import Data.Char (isSpace,isAlpha,isDigit)
 import Data.Maybe (fromJust)
 import Data.Vector.Unboxed as VU (fromList)
+import Data.Tuple.Select
 
 
 
@@ -50,18 +51,21 @@ parseCM10 = CB.lines =$= CL.sequence go where
   go = do
     infernal10 <- CL.head
     unless (infernal10 == Just "INFERNAL-1 [1.0]") . error $ "unexpected, no CM start at: " ++ show infernal10
-    h  <- parseHeader []
+    hs <- parseHeaders []
     ns <- parseNodes  []
+    liftIO $ print ns
     return CM
-      { _name          = ID $ h M.! "NAME"
-      , _accession     = AC . readAccession $ h M.! "ACCESSION"
+      { _name          = ID $ hs M.! "NAME"
+      , _accession     = AC . readAccession $ hs M.! "ACCESSION"
       , _version       = fromJust infernal10
-      , _trustedCutoff = BitScore . readBS $ h M.! "TC"
-      , _gathering     = BitScore . readBS $ h M.! "GA"
-      , _noiseCutoff   = (BitScore . readBS) `fmap` (M.lookup "NC" h)
-      , _nullModel     = VU.fromList . P.map readBS . BS.words $ h M.! "NULL"
+      , _trustedCutoff = BitScore . readBS $ hs M.! "TC"
+      , _gathering     = BitScore . readBS $ hs M.! "GA"
+      , _noiseCutoff   = (BitScore . readBS) `fmap` (M.lookup "NC" hs)
+      , _nullModel     = VU.fromList . P.map readBS . BS.words $ hs M.! "NULL"
 
-      , _nodes = undefined
+      , _nodes = M.fromList . P.map (\n -> (sel2 n, (sel1 n, undefined))) $ ns
+
+      , _unsorted = M.filter (not . flip P.elem ["NAME","ACCESSION","TC","GA","NC","NULL"]) hs
       }
 
 readBS = read . BS.unpack
@@ -76,7 +80,7 @@ readAccession xs
 -- return lines to top-level parser. Parses three lines at once in case of
 -- "FT-" lines.
 
-parseHeader hs = do
+parseHeaders hs = do
   p <- CL.head
   case p of
     Nothing -> error $ "unexpected end of header, until here:" -- ++ show hs
@@ -84,7 +88,7 @@ parseHeader hs = do
     Just "" -> error "empty line"
     Just l  -> do ls <- if ("FT-" `isPrefixOf` l) then CL.take 2 else return []
                   let lls = BS.concat $ l:ls
-                  parseHeader (lls:hs)
+                  parseHeaders (lls:hs)
 
 -- | Parses nodes. Will terminate on "//" which ends a CM. The state parser
 -- will just peek on "//", not remove it from the stream.
@@ -114,10 +118,10 @@ parseStates ntype nid xs = do
 -- | Determine if a line is a node line ('Just'). If yes, we'll get the node
 -- type as string and the node identifier, too.
 
-isNode :: Maybe ByteString -> Maybe (BS.ByteString, Node)
+isNode :: Maybe ByteString -> Maybe (NodeType, NodeID)
 isNode (Just xs)
   | BS.null xs = Nothing
-  | ["[",ntype,nid,"]"] <- BS.words xs = Just (ntype,Node . read . BS.unpack $ nid)
+  | ["[",ntype,nid,"]"] <- BS.words xs = Just (nodeTypeFromString . BS.unpack $ ntype, NodeID . read . BS.unpack $ nid)
 isNode _ = Nothing
 
 {-

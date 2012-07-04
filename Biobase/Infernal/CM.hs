@@ -29,17 +29,39 @@ import Data.Lens.Template
 
 -- | Encode CM node types.
 
-newtype Node = Node {unNode :: Int}
+newtype NodeType = NodeType {unNodeType :: Int}
   deriving (Eq,Ord,Show)
 
-(nBIF:nMATP:nMATL:nMATR:nBEGL:nBEGR:nROOT:nEND:_) = P.map Node [0..]
+(nBIF:nMATP:nMATL:nMATR:nBEGL:nBEGR:nROOT:nEND:_) = P.map NodeType [0..]
+
+nodeTypeFromString :: String -> NodeType
+nodeTypeFromString = f where
+  f "BIF"  = nBIF
+  f "MATP" = nMATP
+  f "MATL" = nMATL
+  f "MATR" = nMATR
+  f "BEGL" = nBEGL
+  f "BEGR" = nBEGR
+  f "ROOT" = nROOT
+  f "END"  = nEND
+  f xs     = error $ "unknown node type: " P.++ xs
+
+-- | Node IDs
+
+newtype NodeID = NodeID {unNodeID :: Int}
+  deriving (Eq,Ord,Show)
 
 -- | Encode CM state types.
 
-newtype State = State {unState :: Int}
+newtype StateType = StateType {unStateType :: Int}
   deriving (Eq,Ord,Show)
 
-(sD:sMP:sML:sMR:sIL:sIR:sS:sE:sB:sEL:_) = P.map State [0..]
+(sD:sMP:sML:sMR:sIL:sIR:sS:sE:sB:sEL:_) = P.map StateType [0..]
+
+-- | State IDs
+
+newtype StateID = StateID {stateID :: Int}
+  deriving (Eq,Ord,Show)
 
 -- | Certain states (IL,IR,ML,MR) emit a single nucleotide, one state emits a
 -- pair (MP), other states emit nothing.
@@ -73,9 +95,9 @@ data CM = CM
   , _noiseCutoff    :: Maybe BitScore       -- ^ highest score NOT included as member
   , _nullModel      :: VU.Vector BitScore   -- ^ Null-model: categorical distribution on ACGU
 
-  , _nodes        :: M.Map Node [State]             -- ^ each node has a set of states
-  , _transitions  :: M.Map State [(State,BitScore)] -- ^ transition scores. Given a state, what are reachable states and the transition cost
-  , _emissions    :: M.Map State Emits              -- ^ Given a state, what is emitted: a single nucleotide, a pair of nucleotides, or nothing
+  , _nodes        :: M.Map NodeID (NodeType,[StateID])             -- ^ each node has a set of states
+  , _transitions  :: M.Map StateID [(StateType,BitScore)] -- ^ transition scores. Given a state, what are reachable states and the transition cost
+  , _emissions    :: M.Map StateID Emits              -- ^ Given a state, what is emitted: a single nucleotide, a pair of nucleotides, or nothing
 
   , _unsorted       :: M.Map ByteString ByteString  -- ^ all lines that are not handled. Multiline entries are key->multi-line entry
   }
