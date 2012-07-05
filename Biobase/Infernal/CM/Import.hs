@@ -69,6 +69,8 @@ parseCM10 = CB.lines =$= CL.sequence go where
       }
 
 readBS = read . BS.unpack
+readBitScore "*" = BitScore $ -1/0
+readBitScore x = BitScore . readBS $ x
 
 readAccession xs
   | BS.length xs /= 7 = error $ "can't read accession: " ++ BS.unpack xs
@@ -113,7 +115,34 @@ parseStates ntype nid xs = do
     Nothing -> error "unexpected empty state"
     Just "//" -> return . P.reverse $ xs
     (isNode -> Just _) -> return . P.reverse $ xs
-    _                  -> CL.take 1 >>= \x -> parseStates ntype nid (x:xs)
+    _                  -> CL.take 1 >>= \[x] -> parseStates ntype nid (parseState x:xs)
+
+parseState :: ByteString -> State
+parseState s
+  | P.null ws = error "parseState: no words"
+  | "B" == t && P.length ws == 6 = State { _stateID = StateID . readBS $ ws!!1
+                                         , _stateType = sB
+                                         , _transitions = [ ( StateID . readBS $ ws!!4, 0)
+                                                          , ( StateID . readBS $ ws!!5, 0)
+                                                          ]
+                                         , _emits = EmitNothing
+                                         }
+  | otherwise = State { _stateID = StateID . readBS $ ws!!1
+                      , _stateType = stateTypeFromString . BS.unpack $ t
+                      , _transitions = [ (StateID i, readBitScore $ ws!!(6+k))
+                                       | k <- [0 .. n-1] ]
+                      , _emits = e
+                      }
+  where
+    last k = P.map readBitScore . P.reverse . P.take k . P.reverse $ ws
+    ws = BS.words s
+    (t:_) = ws
+    n = readBS $ ws!!5 -- number of states
+    i = readBS $ ws!!4 -- first state
+    e = case t of
+          "MP" -> EmitsPair . P.zip [ (c1,c2) | c1 <- "ACGU", c2 <- "ACGU" ] $ last 16
+          ((flip P.elem ["ML","MR","IL","IR"]) -> True) -> EmitsSingle . P.zip "ACGU" $ last 4
+          _ -> EmitNothing
 
 -- | Determine if a line is a node line ('Just'). If yes, we'll get the node
 -- type as string and the node identifier, too.

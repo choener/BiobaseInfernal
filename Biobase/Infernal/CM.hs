@@ -58,9 +58,22 @@ newtype StateType = StateType {unStateType :: Int}
 
 (sD:sMP:sML:sMR:sIL:sIR:sS:sE:sB:sEL:_) = P.map StateType [0..]
 
+stateTypeFromString :: String -> StateType
+stateTypeFromString = f where
+  f "D"  = sD
+  f "MP" = sMP
+  f "ML" = sML
+  f "MR" = sMR
+  f "IL" = sIL
+  f "IR" = sIR
+  f "S"  = sS
+  f "E"  = sE
+  f "B"  = sB
+  f "E"  = sE
+
 -- | State IDs
 
-newtype StateID = StateID {stateID :: Int}
+newtype StateID = StateID {unStateID :: Int}
   deriving (Eq,Ord,Show)
 
 -- | Certain states (IL,IR,ML,MR) emit a single nucleotide, one state emits a
@@ -71,6 +84,17 @@ data Emits
   | EmitsPair   [((Char,Char), BitScore)]
   | EmitNothing
   deriving (Eq,Ord,Show)
+
+-- | A single state
+
+data State = State
+  { _stateID     :: StateID
+  , _stateType   :: StateType
+  , _transitions :: [(StateID,BitScore)]
+  , _emits       :: Emits
+  } deriving (Eq,Ord,Show)
+
+$( makeLens ''State )
 
 -- | This is an Infernal covariance model. We have a number of blocks:
 --
@@ -96,8 +120,7 @@ data CM = CM
   , _nullModel      :: VU.Vector BitScore   -- ^ Null-model: categorical distribution on ACGU
 
   , _nodes        :: M.Map NodeID (NodeType,[StateID])             -- ^ each node has a set of states
-  , _transitions  :: M.Map StateID [(StateType,BitScore)] -- ^ transition scores. Given a state, what are reachable states and the transition cost
-  , _emissions    :: M.Map StateID Emits              -- ^ Given a state, what is emitted: a single nucleotide, a pair of nucleotides, or nothing
+  , _states :: M.Map StateID ()
 
   , _unsorted       :: M.Map ByteString ByteString  -- ^ all lines that are not handled. Multiline entries are key->multi-line entry
   }
