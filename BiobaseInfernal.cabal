@@ -70,9 +70,11 @@ library
     data-lens           == 2.* ,
     data-lens-template  == 2.* ,
     either-unwrap       == 1.1 ,
+    primitive           == 0.4.* ,
     transformers        == 0.3.* ,
     tuple               == 0.2.* ,
     vector              == 0.9.* ,
+    BiobaseXNA          == 0.6.2.4 ,
     PrimitiveArray      == 0.2.1.1
 
   exposed-modules:

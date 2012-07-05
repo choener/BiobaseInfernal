@@ -18,6 +18,7 @@ import Data.Vector.Unboxed.Base
 import Data.Vector.Generic as VG
 import Data.Vector.Generic.Mutable as VGM
 import Data.Vector.Unboxed as VU
+import Data.Primitive.Types
 
 
 
@@ -57,7 +58,7 @@ data Rfam
 -- S = log_2 (P(seq|CM) / P(seq|null))
 
 newtype BitScore = BitScore {unBitScore :: Double}
-  deriving (Eq,Ord,Read,Show,Num)
+  deriving (Eq,Ord,Read,Show,Num,Prim)
 
 deriving instance Unbox BitScore
 deriving instance VGM.MVector VU.MVector BitScore

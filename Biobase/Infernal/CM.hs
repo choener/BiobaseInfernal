@@ -1,3 +1,7 @@
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE PackageImports #-}
 
@@ -24,6 +28,11 @@ import Biobase.Infernal.Types
 
 import Data.Lens.Common
 import Data.Lens.Template
+
+import Data.Array.Repa.Index as R
+import Data.Array.Repa.Shape as R
+import Data.ExtShape as R
+import GHC.Base (quotInt,remInt)
 
 
 
@@ -124,4 +133,69 @@ type ID2CM = M.Map (Identification Rfam) CM
 -- | Map of model accession numbers to individual CMs.
 
 type AC2CM = M.Map (Accession Rfam) CM
+
+
+
+
+
+
+-- Instances
+
+instance Shape sh => Shape (sh:.StateID) where
+
+  rank (sh:._) = rank sh + 1
+  {-# INLINE rank #-}
+
+  zeroDim = zeroDim :. (StateID 0)
+  {-# INLINE zeroDim #-}
+
+  unitDim = unitDim :. (StateID 1)
+  {-# INLINE unitDim #-}
+
+  intersectDim (sh1 :. StateID n1) (sh2 :. StateID n2) = intersectDim sh1 sh2 :. StateID (min n1 n2)
+  {-# INLINE intersectDim #-}
+
+  addDim (sh1 :. StateID n1) (sh2 :. StateID n2) = addDim sh1 sh2 :. StateID (n1+n2)
+  {-# INLINE addDim #-}
+
+  size (sh :. StateID n) = R.size sh * n
+  {-# INLINE size #-}
+
+  sizeIsValid (sh :. StateID n)
+    | R.size sh > 0 = n <= maxBound `div` R.size sh
+    | otherwise = False
+  {-# INLINE sizeIsValid #-}
+
+  toIndex (sh1 :. StateID n1) (sh2 :. StateID n2) = toIndex sh1 sh2 * n1 + n2
+  {-# INLINE toIndex #-}
+
+  fromIndex (ds :. StateID d) n = fromIndex ds (n `quotInt` d) :. StateID r where
+    r | rank ds == 0 = n
+      | otherwise    = n `remInt` d
+  {-# INLINE fromIndex #-}
+
+  inShapeRange (sh1 :. StateID n1) (sh2 :. StateID n2) (zs :. StateID z) = (z >= n1) && (z < n2) && inShapeRange sh1 sh2 zs
+  {-# INLINE inShapeRange #-}
+
+  listOfShape (sh :. StateID n) = n : listOfShape sh
+  {-# INLINE listOfShape #-}
+
+  shapeOfList xx
+    = case xx of
+        []     -> error $ "shapeOfList empty in StateID"
+        (x:xs) -> shapeOfList xs :. StateID x
+  {-# INLINE shapeOfList #-}
+
+  deepSeq (sh :. n) x = deepSeq sh (n `seq` x)
+  {-# INLINE deepSeq #-}
+
+
+
+instance ExtShape sh => ExtShape (sh:.StateID) where
+
+  subDim (sh1 :. StateID n1) (sh2 :. StateID n2) = subDim sh1 sh2 :. StateID (n1-n2)
+  {-# INLINE subDim #-}
+
+  rangeList (sh1 :. StateID n1) (sh2 :. StateID n2) = [sh :. StateID n | sh <- rangeList sh1 sh2, n <- [n1 .. (n1+n2)] ]
+  {-# INLINE rangeList #-}
 
