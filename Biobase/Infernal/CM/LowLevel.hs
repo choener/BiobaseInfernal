@@ -3,11 +3,15 @@
 
 module Biobase.Infernal.CM.LowLevel where
 
+import Data.PrimitiveArray
+import Data.PrimitiveArray.Unboxed.Zero
+
 import Biobase.Infernal.CM
 
 
 
--- | High-performance CM data structures.
+-- | High-performance CM data structures. We use 'PrimitiveArray's and
+-- flattened lookups.
 
 data CMll = CMll
   {
