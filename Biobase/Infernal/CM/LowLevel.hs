@@ -44,10 +44,11 @@ data CMll = CMll
 
 $( makeLens ''CMll )
 
--- |
+-- | Transform state type into low-level state type.
 
 fromStateType :: StateType -> STll
 fromStateType = STll . fromEnum
+{-# INLINE fromStateType #-}
 
 -- | Transform CM to low-level CM.
 
