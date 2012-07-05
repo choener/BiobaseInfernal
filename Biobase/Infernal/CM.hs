@@ -29,52 +29,41 @@ import Data.Lens.Template
 
 -- | Encode CM node types.
 
-newtype NodeType = NodeType {unNodeType :: Int}
-  deriving (Eq,Ord,Show)
-
-(nBIF:nMATP:nMATL:nMATR:nBEGL:nBEGR:nROOT:nEND:_) = P.map NodeType [0..]
-
-nodeTypeFromString :: String -> NodeType
-nodeTypeFromString = f where
-  f "BIF"  = nBIF
-  f "MATP" = nMATP
-  f "MATL" = nMATL
-  f "MATR" = nMATR
-  f "BEGL" = nBEGL
-  f "BEGR" = nBEGR
-  f "ROOT" = nROOT
-  f "END"  = nEND
-  f xs     = error $ "unknown node type: " P.++ xs
+data NodeType
+  = BIF
+  | MATP
+  | MATL
+  | MATR
+  | BEGL
+  | BEGR
+  | ROOT
+  | END
+  deriving (Eq,Ord,Enum,Show,Read)
 
 -- | Node IDs
 
 newtype NodeID = NodeID {unNodeID :: Int}
-  deriving (Eq,Ord,Show)
+  deriving (Eq,Ord,Show,Read)
 
 -- | Encode CM state types.
 
-newtype StateType = StateType {unStateType :: Int}
-  deriving (Eq,Ord,Show)
-
-(sD:sMP:sML:sMR:sIL:sIR:sS:sE:sB:sEL:_) = P.map StateType [0..]
-
-stateTypeFromString :: String -> StateType
-stateTypeFromString = f where
-  f "D"  = sD
-  f "MP" = sMP
-  f "ML" = sML
-  f "MR" = sMR
-  f "IL" = sIL
-  f "IR" = sIR
-  f "S"  = sS
-  f "E"  = sE
-  f "B"  = sB
-  f "E"  = sE
+data StateType
+  = D
+  | MP
+  | ML
+  | MR
+  | IL
+  | IR
+  | S
+  | E
+  | B
+  | EL
+  deriving (Eq,Ord,Enum,Show,Read)
 
 -- | State IDs
 
 newtype StateID = StateID {unStateID :: Int}
-  deriving (Eq,Ord,Show)
+  deriving (Eq,Ord,Show,Read)
 
 -- | Certain states (IL,IR,ML,MR) emit a single nucleotide, one state emits a
 -- pair (MP), other states emit nothing.
@@ -83,25 +72,24 @@ data Emits
   = EmitsSingle [(Char, BitScore)]
   | EmitsPair   [((Char,Char), BitScore)]
   | EmitNothing
-  deriving (Eq,Ord,Show)
+  deriving (Eq,Ord,Show,Read)
 
--- | A single state
+-- | A single state.
 
 data State = State
-  { _stateID     :: StateID
-  , _stateType   :: StateType
-  , _transitions :: [(StateID,BitScore)]
-  , _emits       :: Emits
-  } deriving (Eq,Ord,Show)
+  { _stateID     :: StateID               -- ^ The ID of this state
+  , _stateType   :: StateType             -- ^ type of the state
+  , _transitions :: [(StateID,BitScore)]  -- ^ which transitions, id and bitscore
+  , _emits       :: Emits                 -- ^ do we emit characters
+  } deriving (Eq,Ord,Show,Read)
 
 $( makeLens ''State )
 
 -- | This is an Infernal covariance model. We have a number of blocks:
 --
--- - basic information like the name of the CMA
+-- - basic information like the name of the CM, accession number, etc.
 --
--- - advanced information: nodes, transitions between states, emissions for
--- some states
+-- - advanced information: nodes and their states, and the states themselves.
 --
 -- - unsorted information from the header / blasic block
 --
@@ -119,40 +107,13 @@ data CM = CM
   , _noiseCutoff    :: Maybe BitScore       -- ^ highest score NOT included as member
   , _nullModel      :: VU.Vector BitScore   -- ^ Null-model: categorical distribution on ACGU
 
-  , _nodes        :: M.Map NodeID (NodeType,[StateID])             -- ^ each node has a set of states
-  , _states :: M.Map StateID ()
+  , _nodes  :: M.Map NodeID (NodeType,[StateID])  -- ^ each node has a set of states
+  , _states :: M.Map StateID State                -- ^ each state has a type, some emit characters, and some have children
 
   , _unsorted       :: M.Map ByteString ByteString  -- ^ all lines that are not handled. Multiline entries are key->multi-line entry
-  }
+  } deriving (Show,Read)
 
 $( makeLens ''CM )
-
-
--- A datatype representing Infernal covariance models. This is a new
--- representation that is incompatible with the one once found in "Biobase".
--- The most important difference is that lookups are mapped onto efficient data
--- structures, currently "PrimitiveArray".
---
--- [1] Each "State" of a covariance model has up to 6 transition scores, hence
--- we need s*6 cells for transitions.
---
--- [2] Each "State" of a covariance has up to 16 emission scores, so we have
--- s*16 cells for emissions, with unused cells set to a really high score.
---
--- On top of these basic structures, we then place additional high-level
--- constructs.
---
--- [3] 'paths' are allowed transitions. This can safe a check, if the
--- transition is encoded with a forbidden score.
---
--- [4] 'localBegin' and 'localEnd' are local entry and exit strategies. A
--- 'localBegin' is a transition score to certain states, all such transitions
--- are in 'begins'. A 'localEnd' is a transition score to a local end state.
---
--- NOTE that trustedCutoff > gathering > noiseCutoff
---
--- TODO as with other projects, we should not use Double's but "Score" and
--- "Probability" newtypes.
 
 
 
