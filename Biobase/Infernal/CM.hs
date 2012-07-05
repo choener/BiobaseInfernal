@@ -19,6 +19,7 @@ import Data.Map as M
 import Data.Vector as V
 import Data.Vector.Unboxed as VU
 import Prelude as P
+import Data.Primitive.Types
 
 import Data.PrimitiveArray
 import Data.PrimitiveArray.Unboxed.Zero
@@ -72,7 +73,9 @@ data StateType
 -- | State IDs
 
 newtype StateID = StateID {unStateID :: Int}
-  deriving (Eq,Ord,Show,Read)
+  deriving (Eq,Ord,Show,Read,Prim)
+
+illegalState = StateID $ -1
 
 -- | Certain states (IL,IR,ML,MR) emit a single nucleotide, one state emits a
 -- pair (MP), other states emit nothing.
