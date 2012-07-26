@@ -25,8 +25,6 @@ import Data.PrimitiveArray
 import Data.PrimitiveArray.Unboxed.Zero
 import "PrimitiveArray" Data.Array.Repa.Index
 
-import Biobase.Infernal.Types
-
 import Data.Lens.Common
 import Data.Lens.Template
 
@@ -34,6 +32,8 @@ import Data.Array.Repa.Index as R
 import Data.Array.Repa.Shape as R
 import Data.ExtShape as R
 import GHC.Base (quotInt,remInt)
+
+import Biobase.Infernal.Types
 
 
 

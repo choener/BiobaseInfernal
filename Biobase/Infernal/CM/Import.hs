@@ -129,7 +129,7 @@ parseState s
                                          }
   | otherwise = State { _stateID = StateID . readBS $ ws!!1
                       , _stateType = t -- stateTypeFromString . BS.unpack $ t
-                      , _transitions = [ (StateID i, readBitScore $ ws!!(6+k))
+                      , _transitions = [ (StateID (i+k), readBitScore $ ws!!(6+k))
                                        | k <- [0 .. n-1] ]
                       , _emits = e
                       }
