@@ -1,3 +1,5 @@
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE BangPatterns #-}
 
 -- | Iteratee-based importer. Provides a simple "fromFile" function that
@@ -6,75 +8,56 @@
 module Biobase.Infernal.Taxonomy.Import where
 
 import Control.Applicative
-import Data.Attoparsec as A
-import Data.Attoparsec.Char8 as A8
-import Data.Attoparsec.Iteratee
+import Control.Lens
+import Data.Attoparsec as A hiding (parse)
+import Data.Attoparsec.Char8 (char,decimal)
 import Data.ByteString.Char8 as BS
+import Data.Conduit as C
+import Data.Conduit.Attoparsec
+import Data.Conduit.Binary as CB
+import Data.Conduit.List as CL
+import Data.Conduit.Util as C
 import Data.Either.Unwrap as E
-import Data.Iteratee as I
-import Data.Iteratee.Char as I
-import Data.Iteratee.IO as I
-import Data.Iteratee.ListLike as I
 import Data.List as L
 import Data.Map as M
+import qualified Data.Attoparsec.ByteString as AB hiding (parse)
+import qualified Data.Attoparsec.Char8 as A8
 
 import Biobase.Infernal.Taxonomy
 import Biobase.Infernal.Types
 
 
 
--- | Provide name-based lookup as the most-common usage scenario.
---
--- TODO there are 9 duplicates in the names, let's find them and see what is
--- going on
+parse =  CB.lines
+      =$ CL.map (parseOnly mkTaxonomy)
+      =$ CL.filter isRight
+      =$ CL.map fromRight
+      =$ C.zipSinks mapIdTaxonomy mapAcTaxonomy
+{-# INLINE parse #-}
 
-iSpeciesMap :: Monad m => Iteratee [SpeciesTaxonomy] m (M.Map SpeciesName SpeciesTaxonomy)
-iSpeciesMap = I.foldl' f M.empty where
-  f !m x = M.insert (stName x) x m
-
--- | And a map based on taxon id
-
-iTaxIdMap :: Monad m => Iteratee [SpeciesTaxonomy] m (M.Map SpeciesAC SpeciesTaxonomy)
-iTaxIdMap = I.foldl' f M.empty where
-  f !m x = M.insert (stAccession x) x m
-
--- | Imports taxonomy data.
-
-eneeSpecies :: Monad m => Enumeratee ByteString [Either String SpeciesTaxonomy] m a
-eneeSpecies = enumLinesBS ><> mapStream (parseOnly mkSpecies)
-
--- | Given a 'ByteString', create a species entry.
---
--- NOTE The taxonomy format is, for each species, a line consisting of: taxid -
--- tab - species name - tab - semicolon separated list of classification names
--- - dot - end of line.
-
-mkSpecies :: Parser SpeciesTaxonomy
-mkSpecies = f <$> ptaxid <* tab <*> pname <* tab <*> takeByteString where
+mkTaxonomy :: Parser Taxonomy
+mkTaxonomy = f <$> ptaxid <* tab <*> pname <* tab <*> takeByteString where
   f k n xs = let
                cs = L.map (Classification . copy . BS.dropWhile (==' ')) . BS.split ';' . BS.init $ xs
-             in SpeciesTaxonomy (SpeciesAC k) (SpeciesName $ copy n) cs
+             in Taxonomy (AC k) (ID $ copy n) cs
   ptaxid   = decimal
   pname    = A8.takeWhile (/='\t')
   tab      = char '\t'
+{-# INLINE mkTaxonomy #-}
 
--- | Convenience function: given a taxonomy file, produce both maps simultanously.
+mapIdTaxonomy :: Monad m => GSink Taxonomy m (M.Map (Identification Species) Taxonomy)
+mapIdTaxonomy = CL.fold f M.empty where
+  f !mp x = M.insert (x ^. name) x mp
+{-# INLINE mapIdTaxonomy #-}
 
-fromFile :: FilePath -> IO (M.Map SpeciesName SpeciesTaxonomy, M.Map SpeciesAC SpeciesTaxonomy)
-fromFile fp = do
-  i <- enumFile 8192 fp
-    . joinI
-    . (eneeSpecies ><> I.filter isRight ><> mapStream fromRight)
-    $ I.zip iSpeciesMap iTaxIdMap
-  run i
+mapAcTaxonomy :: Monad m => GSink Taxonomy m (M.Map (Accession Species) Taxonomy)
+mapAcTaxonomy = CL.fold f M.empty where
+  f !mp x = M.insert (x ^. accession) x mp
+{-# INLINE mapAcTaxonomy #-}
 
--- * Testing
-
-{-
-test :: IO ()
-test = do
-  (s,t) <- fromFile "/home/choener/tmp/taxonomy"
-  print $ M.size s
-  print $ M.size t
-  return ()
--}
+fromFile :: String -> IO ( Map (Identification Species) Taxonomy
+                         , Map (Accession Species) Taxonomy
+                         )
+fromFile fname = do
+  runResourceT $ CB.sourceFile fname $$ parse
+{-# NOINLINE fromFile #-}

@@ -30,8 +30,7 @@ import Data.Conduit.Attoparsec
 import Data.Attoparsec.ByteString as AB
 import System.IO (stdout)
 
-import Data.Lens.Common
-import Data.Lens.Template
+import Control.Lens
 import Data.Char (isSpace,isAlpha,isDigit)
 import Data.Maybe (fromJust)
 import Data.Vector.Unboxed as VU (fromList)

@@ -1,5 +1,5 @@
 name:           BiobaseInfernal
-version:        0.6.3.0
+version:        0.7.0.0
 author:         Christian Hoener zu Siederdissen
 maintainer:     choener@tbi.univie.ac.at
 homepage:       http://www.tbi.univie.ac.at/~choener/
@@ -26,7 +26,7 @@ description:
                 .
                 .
                 .
-                Changes in 0.6.3.0
+                Changes in 0.7.0.0
                 .
                 * working CM parsing
                 .
@@ -60,22 +60,23 @@ extra-source-files:
 library
   build-depends:
     base >3 && <5,
-    attoparsec          == 0.10.* ,
-    attoparsec-conduit  == 0.5.* ,
-    biocore             == 0.2 ,
-    bytestring,
-    bytestring-lexing   == 0.4.* ,
-    conduit             == 0.5.* ,
+    attoparsec          == 0.10.*   ,
+    attoparsec-conduit  == 0.5.*    ,
+    biocore             == 0.2      ,
+    bytestring                      ,
+    bytestring-lexing   == 0.4.*    ,
+    conduit             == 0.5.*    ,
     containers,
-    data-lens           == 2.* ,
-    data-lens-template  == 2.* ,
-    either-unwrap       == 1.1 ,
-    primitive           == 0.4.* ,
-    transformers        == 0.3.* ,
-    tuple               == 0.2.* ,
-    vector              == 0.9.* ,
-    BiobaseXNA          == 0.6.2.4 ,
-    PrimitiveArray      == 0.2.1.1
+--    data-lens           == 2.* ,
+--    data-lens-template  == 2.* ,
+    either-unwrap       == 1.1      ,
+    lens                == 2.6      ,
+    primitive           == 0.4.*    ,
+    transformers        == 0.3.*    ,
+    tuple               == 0.2.*    ,
+    vector              == 0.9.*    ,
+    BiobaseXNA          == 0.6.3.*  ,
+    PrimitiveArray      == 0.3.0.0
 
   exposed-modules:
 --    Biobase.Infernal
@@ -89,10 +90,12 @@ library
 --    Biobase.Infernal.Hit
 --    Biobase.Infernal.RfamFasta
 --    Biobase.Infernal.RfamFasta.Import
+    Biobase.Infernal.RfamNames
+    Biobase.Infernal.RfamNames.Import
 --    Biobase.Infernal.TabularHit
 --    Biobase.Infernal.TabularHit.Import
---    Biobase.Infernal.Taxonomy
---    Biobase.Infernal.Taxonomy.Import
+    Biobase.Infernal.Taxonomy
+    Biobase.Infernal.Taxonomy.Import
     Biobase.Infernal.Types
 --    Biobase.Infernal.VerboseHit
 --    Biobase.Infernal.VerboseHit.Export

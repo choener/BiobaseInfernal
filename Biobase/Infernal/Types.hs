@@ -26,13 +26,13 @@ import Data.Primitive.Types
 
 -- | Accession number, in the format of RFxxxxx, PFxxxxx, or CLxxxxx. We keep
 -- only the Int-part. A phantom type specifies which kind of accession number
--- this is.
+-- this is. For Species, we just have an index, it seems.
 
 newtype Accession t = AC {unAC :: Int}
   deriving (Eq,Ord,Read,Show)
 
 -- | One word name for the family or clan. Phantom-typed with the correct type
--- of model.
+-- of model. Can be a longer name for species.
 
 newtype Identification t = ID {unID :: ByteString}
   deriving (Eq,Ord,Read,Show)
@@ -49,6 +49,9 @@ data Pfam
 
 data Rfam
 
+-- | Species have an accession number, too.
+
+data Species
 
 
 -- | Infernal bit score. Behaves like a double (deriving Num).
@@ -63,6 +66,11 @@ newtype BitScore = BitScore {unBitScore :: Double}
 deriving instance Unbox BitScore
 deriving instance VGM.MVector VU.MVector BitScore
 deriving instance VG.Vector VU.Vector BitScore
+
+-- | Classification names (taxonomic classification)
+
+newtype Classification = Classification {unClassification :: ByteString}
+  deriving (Eq,Ord,Read,Show)
 
 {-
 -- * Rfam Clans. A clan is a collection of biologically related RNA families.
@@ -123,11 +131,6 @@ newtype SpeciesName = SpeciesName {unSpeciesName :: ByteString}
 -- | Strict FASTA data.
 
 newtype StrictSeqData = StrictSeqData {unStrictSeqData :: ByteString}
-  deriving (Eq,Ord,Read,Show)
-
--- | Classification names (taxonomic classification)
-
-newtype Classification = Classification {unClassification :: ByteString}
   deriving (Eq,Ord,Read,Show)
 
 

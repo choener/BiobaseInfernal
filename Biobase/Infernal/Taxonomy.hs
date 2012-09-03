@@ -1,3 +1,4 @@
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE PatternGuards #-}
 
 -- | Infernal contains a taxonomy database. This is a simple module reflecting
@@ -7,6 +8,7 @@ module Biobase.Infernal.Taxonomy where
 
 import qualified Data.ByteString.Char8 as BS
 import Data.Char (toLower)
+import Control.Lens
 
 import Biobase.Infernal.Types
 
@@ -16,17 +18,19 @@ import Biobase.Infernal.Types
 -- general (head) to most specific (last). The database comes with the NCBI
 -- taxon identifier (taxid).
 
-data SpeciesTaxonomy = SpeciesTaxonomy
-  { stAccession      :: !SpeciesAC
-  , stName           :: !SpeciesName
-  , stClassification :: ![Classification]
+data Taxonomy = Taxonomy
+  { _accession      :: !(Accession Species)
+  , _name           :: !(Identification Species)
+  , _classification :: [Classification]
   } deriving (Show)
+
+makeLenses ''Taxonomy
 
 -- | Given a name such as "Drosophila Melanogaster", returns "d.melanogaster".
 
-shortenName :: SpeciesName -> SpeciesName
-shortenName (SpeciesName xs)
-  | null ws   = SpeciesName xs
-  | [w] <- ws = SpeciesName w
-  | otherwise = SpeciesName . BS.map toLower $ BS.take 1 (ws!!0) `BS.append` (BS.cons '.' $ ws!!1)
+shortenName :: Identification Species -> Identification Species
+shortenName (ID xs)
+  | null ws   = ID xs
+  | [w] <- ws = ID w
+  | otherwise = ID . BS.map toLower $ BS.take 1 (ws!!0) `BS.append` (BS.cons '.' $ ws!!1)
   where ws = BS.words xs

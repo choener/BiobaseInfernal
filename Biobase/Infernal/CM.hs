@@ -25,8 +25,7 @@ import Data.PrimitiveArray
 import Data.PrimitiveArray.Unboxed.Zero
 import "PrimitiveArray" Data.Array.Repa.Index
 
-import Data.Lens.Common
-import Data.Lens.Template
+import Control.Lens
 
 import Data.Array.Repa.Index as R
 import Data.Array.Repa.Shape as R
@@ -95,7 +94,7 @@ data State = State
   , _emits       :: Emits                 -- ^ do we emit characters
   } deriving (Eq,Ord,Show,Read)
 
-$( makeLens ''State )
+makeLenses ''State
 
 -- | This is an Infernal covariance model. We have a number of blocks:
 --
@@ -125,8 +124,7 @@ data CM = CM
   , _unsorted       :: M.Map ByteString ByteString  -- ^ all lines that are not handled. Multiline entries are key->multi-line entry
   } deriving (Show,Read)
 
-$( makeLens ''CM )
-
+makeLenses ''CM
 
 
 -- | Map of model names to individual CMs.
