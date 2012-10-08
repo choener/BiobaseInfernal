@@ -67,14 +67,12 @@ library
     bytestring-lexing   == 0.4.*    ,
     conduit             == 0.5.*    ,
     containers,
---    data-lens           == 2.* ,
---    data-lens-template  == 2.* ,
     either-unwrap       == 1.1      ,
-    lens                == 2.6      ,
-    primitive           == 0.4.*    ,
+    lens                == 3.*      ,
+    primitive           >= 0.5      ,
     transformers        == 0.3.*    ,
     tuple               == 0.2.*    ,
-    vector              == 0.9.*    ,
+    vector              >= 0.10     ,
     BiobaseXNA          == 0.6.3.*  ,
     PrimitiveArray      == 0.3.0.0
 
@@ -84,6 +82,8 @@ library
 --    Biobase.Infernal.Align.Import
 --    Biobase.Infernal.Clan
 --    Biobase.Infernal.Clan.Import
+    Biobase.Hmmer.HMM
+    Biobase.Hmmer.HMM.Import
     Biobase.Infernal.CM
     Biobase.Infernal.CM.Export
     Biobase.Infernal.CM.Import

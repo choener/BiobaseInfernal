@@ -1,3 +1,5 @@
+{-# LANGUAGE DoAndIfThenElse #-}
+{-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE PatternGuards #-}
@@ -22,6 +24,7 @@ import Data.PrimitiveArray.Zero
 
 import Biobase.Infernal.CM
 import Biobase.Infernal.Types
+import Biobase.Hmmer.HMM.Import
 
 import Data.Conduit as C
 import Data.Conduit.Binary as CB
@@ -29,6 +32,7 @@ import Data.Conduit.List as CL
 import Data.Conduit.Attoparsec
 import Data.Attoparsec.ByteString as AB
 import System.IO (stdout)
+import Control.Monad.IO.Class
 
 import Control.Lens
 import Data.Char (isSpace,isAlpha,isDigit)
@@ -40,22 +44,24 @@ import Data.Tuple.Select
 
 -- * Covariance model parsing.
 
--- ** Infernal 1.0 covariance model parser
+-- ** Infernal 1.0 and 1.1 covariance model parser
 
--- | Top-level parser for Infernal 1.0 human-readable covariance models. Reads
--- all lines first, then builds up the CM.
+-- | Top-level parser for Infernal 1.0 and 1.1 human-readable covariance
+-- models. Reads all lines first, then builds up the CM.
 
-parseCM10 :: (Monad m, MonadIO m) => Conduit ByteString m CM
-parseCM10 = CB.lines =$= CL.sequence go where
+parseCM1x :: (Monad m, MonadIO m) => Conduit ByteString m CM
+parseCM1x = CB.lines =$= CL.sequence go where
   go = do
-    infernal10 <- CL.head
-    unless (infernal10 == Just "INFERNAL-1 [1.0]") . error $ "unexpected, no CM start at: " ++ show infernal10
+    infernal1x <- CL.head
+    unless (legalCM infernal1x) . error $ "unexpected, no CM start at: " ++ show infernal1x
     hs <- parseHeaders []
     ns <- parseNodes  []
+    -- if we have Infernal 1.1, a HMM should come now ...
+    -- hmm <- parseHMM3 -- TODO: write me!
     return CM
       { _name          = ID $ hs M.! "NAME"
       , _accession     = AC . readAccession $ hs M.! "ACCESSION"
-      , _version       = fromJust infernal10
+      , _version       = fromJust infernal1x
       , _trustedCutoff = BitScore . readBS $ hs M.! "TC"
       , _gathering     = BitScore . readBS $ hs M.! "GA"
       , _noiseCutoff   = (BitScore . readBS) `fmap` (M.lookup "NC" hs)
@@ -66,6 +72,17 @@ parseCM10 = CB.lines =$= CL.sequence go where
 
       , _unsorted = M.filter (not . flip P.elem ["NAME","ACCESSION","TC","GA","NC","NULL"]) hs
       }
+
+legalCM :: Maybe ByteString -> Bool
+legalCM x = legalCM10 x || legalCM11 x
+
+legalCM10 :: Maybe ByteString -> Bool
+legalCM10 (Just "INFERNAL-1 [1.0]") = True
+legalCM10 _ = False
+
+legalCM11 :: Maybe ByteString -> Bool
+legalCM11 (Just "INFERNAL1/a [1.1rc1 | June 2012]") = True
+legalCM11 _ = False
 
 readBS = read . BS.unpack
 readBitScore "*" = BitScore $ -1/0
@@ -84,12 +101,23 @@ readAccession xs
 parseHeaders hs = do
   p <- CL.head
   case p of
-    Nothing -> error $ "unexpected end of header, until here:" -- ++ show hs
-    Just "MODEL:" -> return . M.fromList . P.map (second (BS.dropWhile isSpace) . BS.break isSpace) . P.reverse $ hs
+    (finishedHeader -> True) -> return . M.fromList 
+                                       . P.map (second (BS.dropWhile isSpace)
+                                       . BS.break isSpace)
+                                       . P.reverse
+                                       $ hs
+    Nothing -> error $ "unexpected end of header, until here:" ++ (show $ P.reverse hs)
     Just "" -> error "empty line"
     Just l  -> do ls <- if ("FT-" `isPrefixOf` l) then CL.take 2 else return []
                   let lls = BS.concat $ l:ls
                   parseHeaders (lls:hs)
+
+finishedHeader :: Maybe ByteString -> Bool
+finishedHeader (Just x) = go x where
+  go "MODEL:" = True
+  go "CM" = True
+  go _ = False
+finishedHeader _ = False
 
 -- | Parses nodes. Will terminate on "//" which ends a CM. The state parser
 -- will just peek on "//", not remove it from the stream.
@@ -150,13 +178,13 @@ parseState s
 isNode :: Maybe ByteString -> Maybe (NodeType, NodeID)
 isNode (Just xs)
   | BS.null xs = Nothing
-  | ["[",ntype,nid,"]"] <- BS.words xs = Just (readBS ntype, NodeID . readBS $ nid)
+  | ("[":ntype:nid:"]":cm11) <- BS.words xs = Just (readBS ntype, NodeID . readBS $ nid)
 isNode _ = Nothing
 
 
 
 test :: IO ()
 test = do
-  xs <- runResourceT $ sourceFile "test.cm" $= parseCM10 $$ consume -- sinkHandle stdout
+  xs <- runResourceT $ sourceFile "test.cm" $= parseCM1x $$ consume -- sinkHandle stdout
   print xs
 
