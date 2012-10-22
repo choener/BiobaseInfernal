@@ -28,13 +28,13 @@ import Data.Primitive.Types
 -- only the Int-part. A phantom type specifies which kind of accession number
 -- this is. For Species, we just have an index, it seems.
 
-newtype Accession t = AC {unAC :: Int}
+newtype Accession t = ACC {unACC :: Int}
   deriving (Eq,Ord,Read,Show)
 
 -- | One word name for the family or clan. Phantom-typed with the correct type
 -- of model. Can be a longer name for species.
 
-newtype Identification t = ID {unID :: ByteString}
+newtype Identification t = IDD {unIDD :: ByteString}
   deriving (Eq,Ord,Read,Show)
 
 -- | Tag as being a clan.
