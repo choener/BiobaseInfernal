@@ -11,4 +11,4 @@ module Biobase.Hmmer.HMM where
 
 data HMM3 = HMM3
   {
-  }
+  } deriving (Show)
