@@ -85,12 +85,13 @@ readBoolean = f . BS.map toLower where
 -- | Determine which alphabet is in use by the HMM.
 
 readAlph = f . BS.map toLower where
-  f "dna"   = DNA
-  f "rna"   = RNA
-  f "coins" = Coins
-  f "dice"  = Dice
-  f "amino" = Amino
-  f a       = error $ "unknown alph: " ++ show a
+  f "dna"    = DNA
+  f "rna"    = RNA
+  f "coins"  = Coins
+  f "dice"   = Dice
+  f "amino"  = Amino
+  f "custom" = Custom
+  f a        = error $ "unknown alph: " ++ show a
 
 -- | Read from a bytestring into a structure.
 

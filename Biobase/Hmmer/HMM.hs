@@ -46,6 +46,8 @@ data Node = Node
   }
   deriving (Show)
 
+makeLenses ''Node
+
 -- | The HMM3 data structure in ``slow mode''.
 
 data HMM3 = HMM3
