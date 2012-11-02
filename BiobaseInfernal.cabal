@@ -83,7 +83,6 @@ library
 --    Biobase.Infernal.Clan
 --    Biobase.Infernal.Clan.Import
     Biobase.SElab.CM
-    Biobase.SElab.CM.Export
     Biobase.SElab.CM.Import
     Biobase.SElab.HMM
     Biobase.SElab.HMM.Import
