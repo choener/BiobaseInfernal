@@ -4,13 +4,13 @@
 -- | Infernal contains a taxonomy database. This is a simple module reflecting
 -- said database.
 
-module Biobase.Infernal.Taxonomy where
+module Biobase.SElab.Taxonomy where
 
-import qualified Data.ByteString.Char8 as BS
-import Data.Char (toLower)
 import Control.Lens
+import Data.Char (toLower)
+import qualified Data.ByteString.Char8 as BS
 
-import Biobase.Infernal.Types
+import Biobase.SElab.Types
 
 
 
@@ -29,8 +29,8 @@ makeLenses ''Taxonomy
 -- | Given a name such as "Drosophila Melanogaster", returns "d.melanogaster".
 
 shortenName :: Identification Species -> Identification Species
-shortenName (ID xs)
-  | null ws   = ID xs
-  | [w] <- ws = ID w
-  | otherwise = ID . BS.map toLower $ BS.take 1 (ws!!0) `BS.append` (BS.cons '.' $ ws!!1)
+shortenName (IDD xs)
+  | null ws   = IDD xs
+  | [w] <- ws = IDD w
+  | otherwise = IDD . BS.map toLower $ BS.take 1 (ws!!0) `BS.append` (BS.cons '.' $ ws!!1)
   where ws = BS.words xs

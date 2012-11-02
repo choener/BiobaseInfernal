@@ -4,4 +4,4 @@
 --
 -- TODO write me
 
-module Biobase.Infernal.CM.Export where
+module Biobase.SElab.CM.Export where

@@ -5,7 +5,7 @@
 -- | Iteratee-based importer. Provides a simple "fromFile" function that
 -- produces both maps in one pass.
 
-module Biobase.Infernal.Taxonomy.Import where
+module Biobase.SElab.Taxonomy.Import where
 
 import Control.Applicative
 import Control.Lens
@@ -23,8 +23,8 @@ import Data.Map as M
 import qualified Data.Attoparsec.ByteString as AB hiding (parse)
 import qualified Data.Attoparsec.Char8 as A8
 
-import Biobase.Infernal.Taxonomy
-import Biobase.Infernal.Types
+import Biobase.SElab.Taxonomy
+import Biobase.SElab.Types
 
 
 
@@ -39,7 +39,7 @@ mkTaxonomy :: Parser Taxonomy
 mkTaxonomy = f <$> ptaxid <* tab <*> pname <* tab <*> takeByteString where
   f k n xs = let
                cs = L.map (Classification . copy . BS.dropWhile (==' ')) . BS.split ';' . BS.init $ xs
-             in Taxonomy (AC k) (ID $ copy n) cs
+             in Taxonomy (ACC k) (IDD $ copy n) cs
   ptaxid   = decimal
   pname    = A8.takeWhile (/='\t')
   tab      = char '\t'

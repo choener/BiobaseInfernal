@@ -9,36 +9,33 @@
 
 -- | Parses text-based covariance-model descriptions.
 
-module Biobase.Infernal.CM.Import where
+module Biobase.SElab.CM.Import where
 
 import Control.Arrow
+import Control.Lens
+import Control.Monad.IO.Class
+import Control.Monad.IO.Class (liftIO, MonadIO)
 import Control.Monad (unless)
+import Data.Attoparsec.ByteString as AB
 import Data.ByteString.Char8 as BS
 import Data.ByteString.Lex.Double as BS
+import Data.Char (isSpace,isAlpha,isDigit)
+import Data.Conduit as C
+import Data.Conduit.Attoparsec
+import Data.Conduit.Binary as CB
+import Data.Conduit.List as CL
 import Data.Map as M
+import Data.Maybe (fromJust)
+import Data.Tuple.Select
+import Data.Vector.Unboxed as VU (fromList)
 import Prelude as P
-import Control.Monad.IO.Class (liftIO, MonadIO)
+import System.IO (stdout)
 
 import Data.PrimitiveArray
 import Data.PrimitiveArray.Zero
 
-import Biobase.Infernal.CM
-import Biobase.Infernal.Types
-import Biobase.Hmmer.HMM.Import
-
-import Data.Conduit as C
-import Data.Conduit.Binary as CB
-import Data.Conduit.List as CL
-import Data.Conduit.Attoparsec
-import Data.Attoparsec.ByteString as AB
-import System.IO (stdout)
-import Control.Monad.IO.Class
-
-import Control.Lens
-import Data.Char (isSpace,isAlpha,isDigit)
-import Data.Maybe (fromJust)
-import Data.Vector.Unboxed as VU (fromList)
-import Data.Tuple.Select
+import Biobase.SElab.CM
+import Biobase.SElab.Types
 
 
 
@@ -59,8 +56,8 @@ parseCM1x = CB.lines =$= CL.sequence go where
     -- if we have Infernal 1.1, a HMM should come now ...
     -- hmm <- parseHMM3 -- TODO: write me!
     return CM
-      { _name          = ID $ hs M.! "NAME"
-      , _accession     = AC . readAccession $ hs M.! "ACCESSION"
+      { _name          = IDD $ hs M.! "NAME"
+      , _accession     = ACC . readAccession $ hs M.! "ACCESSION"
       , _version       = fromJust infernal1x
       , _trustedCutoff = BitScore . readBS $ hs M.! "TC"
       , _gathering     = BitScore . readBS $ hs M.! "GA"
@@ -74,15 +71,11 @@ parseCM1x = CB.lines =$= CL.sequence go where
       }
 
 legalCM :: Maybe ByteString -> Bool
-legalCM x = legalCM10 x || legalCM11 x
-
-legalCM10 :: Maybe ByteString -> Bool
-legalCM10 (Just "INFERNAL-1 [1.0]") = True
-legalCM10 _ = False
-
-legalCM11 :: Maybe ByteString -> Bool
-legalCM11 (Just "INFERNAL1/a [1.1rc1 | June 2012]") = True
-legalCM11 _ = False
+legalCM (Just x)
+  | w == "INFERNAL-1"  = True -- infernal 1.0
+  | w == "INFERNAL1/a" = True -- infernal 1.1 rc1
+  where (w:_) = BS.words x
+legalCM _ = False
 
 readBS = read . BS.unpack
 readBitScore "*" = BitScore $ -1/0
@@ -185,6 +178,8 @@ isNode _ = Nothing
 
 test :: IO ()
 test = do
-  xs <- runResourceT $ sourceFile "test.cm" $= parseCM1x $$ consume -- sinkHandle stdout
-  print xs
+  xs10 <- runResourceT $ sourceFile "test10.cm" $= parseCM1x $$ consume -- sinkHandle stdout
+  xs11 <- runResourceT $ sourceFile "test11.cm" $= parseCM1x $$ consume -- sinkHandle stdout
+  --print xs10
+  print xs11
 

@@ -4,7 +4,7 @@
 
 -- | Low-level covariance models suitable for high-performance computation.
 
-module Biobase.Infernal.CM.LowLevel where
+module Biobase.SElab.CM.LowLevel where
 
 import Data.PrimitiveArray
 import Data.PrimitiveArray.Unboxed.Zero
@@ -17,8 +17,8 @@ import Control.Arrow
 
 import Biobase.Primary
 
-import Biobase.Infernal.CM
-import Biobase.Infernal.Types
+import Biobase.SElab.CM
+import Biobase.SElab.Types
 
 import Data.Lens.Common
 import Data.Lens.Template

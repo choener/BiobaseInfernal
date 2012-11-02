@@ -4,7 +4,7 @@
 
 -- | Import HMMER3 HMM models.
 
-module Biobase.Hmmer.HMM.Import where
+module Biobase.SElab.HMM.Import where
 
 import Control.Monad.IO.Class (liftIO, MonadIO)
 import Data.ByteString.Char8 as BS
@@ -18,8 +18,8 @@ import Control.Arrow
 import qualified Data.Map as M
 import Data.Char (toLower)
 
-import Biobase.Hmmer.HMM
-import Biobase.Infernal.Types
+import Biobase.SElab.HMM
+import Biobase.SElab.Types
 
 
 

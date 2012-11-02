@@ -4,11 +4,11 @@
 -- sequences it is built of, what the AC of the species is, and its name (or
 -- ID).
 
-module Biobase.Infernal.RfamNames where
+module Biobase.SElab.RfamNames where
 
 import Control.Lens
 
-import Biobase.Infernal.Types
+import Biobase.SElab.Types
 
 
 data ModelNames = ModelNames

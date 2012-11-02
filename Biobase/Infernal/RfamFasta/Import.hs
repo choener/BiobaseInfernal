@@ -32,8 +32,8 @@ eneeRfamFasta = enumLinesBS ><> convStream f where
                    let (ana,sps) = (BS.split ';' *** BS.split ':' . BS.dropWhile (==' ')) . BS.break (==' ') $ h
                    fs <- I.takeWhile (\s -> ">" /= BS.take 1 s)
                    return . (:[]) $ RfamFasta
-                     { modelAccession    = ModelAC . read . P.drop 2 . unpack $ ana!!0
-                     , modelIdentifier   = ModelID $ ana!!1
+                     { modelAccession    = ACC . read . P.drop 2 . unpack $ ana!!0
+                     , modelIdentifier   = IDD $ ana!!1
                      , sequenceAccession = mkEmblAC $ ana!!2
                      -- , speciesAC = maybe (error $ "ERROR: " ++ show (unpack $ sps!!0,unpack s)) fst . readInt $ sps!!0
                      , speciesAccession  = SpeciesAC . maybe (-1) fst . readInt $ sps!!0

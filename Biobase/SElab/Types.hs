@@ -10,7 +10,7 @@
 --
 -- TODO Use (Bio.Core.Sequence.Offset) instead of Int for sequence info
 
-module Biobase.Infernal.Types where
+module Biobase.SElab.Types where
 
 import Control.Arrow
 import Data.ByteString.Char8 as BS

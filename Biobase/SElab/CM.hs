@@ -12,7 +12,7 @@
 -- TODO "fastCM :: CM -> FastCM" to make a data structure that is suitable for
 -- high-performance applications.
 
-module Biobase.Infernal.CM where
+module Biobase.SElab.CM where
 
 import Data.ByteString as BS
 import Data.Map as M
@@ -32,7 +32,7 @@ import Data.Array.Repa.Shape as R
 import Data.ExtShape as R
 import GHC.Base (quotInt,remInt)
 
-import Biobase.Infernal.Types
+import Biobase.SElab.Types
 
 
 

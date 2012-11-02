@@ -2,26 +2,25 @@
 {-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
 
-module Biobase.Infernal.RfamNames.Import where
+module Biobase.SElab.RfamNames.Import where
 
+import Control.Applicative
 import Control.Lens
+import Data.Attoparsec as A hiding (parse)
+import Data.Attoparsec.Char8 as A8 hiding (parse)
 import Data.Conduit as C
 import Data.Conduit.Attoparsec
 import Data.Conduit.Binary as CB
 import Data.Conduit.List as CL
 import Data.Conduit.Util as C
 import Data.Either.Unwrap as E
-import Data.Attoparsec as A hiding (parse)
-import qualified Data.Map as M
-import Control.Applicative
-import Data.Attoparsec.Char8 as A8 hiding (parse)
-import qualified Data.ByteString.Char8 as BS
 import Data.Map (Map)
+import qualified Data.ByteString.Char8 as BS
+import qualified Data.Map as M
 
-import Biobase.Infernal.RfamNames
-import Biobase.Infernal.Types
+import Biobase.SElab.RfamNames
+import Biobase.SElab.Types
 
-import Debug.Trace
 
 
 parse =  CB.lines
@@ -33,11 +32,11 @@ parse =  CB.lines
 
 mkRfamName = f <$> rfamAC <* char ';' <*> rfamID <* char ';' <*> seqident <* spaces <*> specAC <* char ':' <*> specID where
   f rfac rfid sid spac spid = ModelNames rfac rfid spac spid
-  rfamAC = AC <$ string "RF" <*> decimal
-  rfamID = ID <$> A8.takeTill (==';')
+  rfamAC = ACC <$ string "RF" <*> decimal
+  rfamID = IDD <$> A8.takeTill (==';')
   seqident = A8.takeTill isSpace
-  specAC = (fmap (AC . read . BS.unpack) . maybeBS) <$> A8.takeTill (==':')
-  specID = (fmap ID . maybeBS) <$> takeByteString
+  specAC = (fmap (ACC . read . BS.unpack) . maybeBS) <$> A8.takeTill (==':')
+  specID = (fmap IDD . maybeBS) <$> takeByteString
   spaces = many1 space
   maybeBS s
     | BS.null s = Nothing

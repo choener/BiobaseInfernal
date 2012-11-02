@@ -9,12 +9,12 @@
 -- HMMER and "//" and handling in-between. We need extraction of individual
 -- models and similar fun.
 
-module Biobase.Hmmer.HMM where
+module Biobase.SElab.HMM where
 
 import Data.ByteString.Char8 as BS
 import Control.Lens
 
-import Biobase.Infernal.Types
+import Biobase.SElab.Types
 
 
 
