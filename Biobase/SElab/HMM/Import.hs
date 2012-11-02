@@ -32,8 +32,8 @@ import Biobase.SElab.Types
 -- TODO not everything is currently being parsed. Notably the rf,cs,alignmap
 -- annotations.
 
-parseHMM3 :: (Monad m, MonadIO m) => Conduit ByteString m HMM3
-parseHMM3 = CB.lines =$= CL.sequence go where
+-- parseHMM3 :: (Monad m, MonadIO m) => Conduit ByteString m HMM3
+parseHMM3 = go where
   go = do
     hdr' <- CL.head
     unless (legalHMM hdr') . error $ "no legal HMM at header: " ++ show hdr'
@@ -173,6 +173,6 @@ headerLines = go [] where
 
 test :: IO ()
 test = do
-  xs <- runResourceT $ sourceFile "test.hmm" $= parseHMM3 $$ consume -- sinkHandle stdout
+  xs <- runResourceT $ sourceFile "test.hmm" =$= CB.lines $= CL.sequence parseHMM3 $$ consume -- sinkHandle stdout
   print xs
 

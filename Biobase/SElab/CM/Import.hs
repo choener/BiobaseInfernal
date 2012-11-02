@@ -25,7 +25,7 @@ import Data.Conduit.Attoparsec
 import Data.Conduit.Binary as CB
 import Data.Conduit.List as CL
 import Data.Map as M
-import Data.Maybe (fromJust)
+import Data.Maybe as M
 import Data.Tuple.Select
 import Data.Vector.Unboxed as VU (fromList)
 import Prelude as P
@@ -36,6 +36,8 @@ import Data.PrimitiveArray.Zero
 
 import Biobase.SElab.CM
 import Biobase.SElab.Types
+import qualified Biobase.SElab.HMM as HMM
+import qualified Biobase.SElab.HMM.Import as HMM
 
 
 
@@ -53,11 +55,16 @@ parseCM1x = CB.lines =$= CL.sequence go where
     unless (legalCM infernal1x) . error $ "unexpected, no CM start at: " ++ show infernal1x
     hs <- parseHeaders []
     ns <- parseNodes  []
+    Just "//" <- CL.head
+    pk <- CL.peek
+    hmm <- case HMM.legalHMM pk of
+      True -> Just `fmap` HMM.parseHMM3
+      False -> return Nothing
     -- if we have Infernal 1.1, a HMM should come now ...
     -- hmm <- parseHMM3 -- TODO: write me!
     return CM
       { _name          = IDD $ hs M.! "NAME"
-      , _accession     = ACC . readAccession $ hs M.! "ACCESSION"
+      , _accession     = ACC . readAccession . P.head . M.catMaybes $ P.map (`M.lookup` hs) ["ACC", "ACCESSION"]
       , _version       = fromJust infernal1x
       , _trustedCutoff = BitScore . readBS $ hs M.! "TC"
       , _gathering     = BitScore . readBS $ hs M.! "GA"
@@ -68,6 +75,7 @@ parseCM1x = CB.lines =$= CL.sequence go where
       , _states = M.fromList . P.map ((^. stateID) &&& id) .  P.concatMap (sel3) $ ns
 
       , _unsorted = M.filter (not . flip P.elem ["NAME","ACCESSION","TC","GA","NC","NULL"]) hs
+      , _hmm = hmm
       }
 
 legalCM :: Maybe ByteString -> Bool
@@ -118,11 +126,12 @@ finishedHeader _ = False
 -- A node is (node type, node id, set of states)
 
 parseNodes ns = do
-  p <- CL.head
+  p <- CL.peek
   case (BS.dropWhile isAlpha `fmap` p) of
     Nothing -> error "unexpected empty line"
     Just "//" -> return . P.reverse $ ns
-    (isNode -> Just (ntype,nid)) -> do ss <- parseStates ntype nid []
+    (isNode -> Just (ntype,nid)) -> do _ <- CL.head -- kill the line
+                                       ss <- parseStates ntype nid []
                                        parseNodes $ (ntype,nid,ss):ns
 
 -- | Parses all states for a node. We peek at the first line, then handle
@@ -135,18 +144,20 @@ parseStates ntype nid xs = do
     Nothing -> error "unexpected empty state"
     Just "//" -> return . P.reverse $ xs
     (isNode -> Just _) -> return . P.reverse $ xs
-    _                  -> CL.take 1 >>= \[x] -> parseStates ntype nid (parseState x:xs)
+    _                  -> do Just x <- CL.head
+                             let psx = parseState x
+                             parseStates ntype nid (psx:xs)
 
 parseState :: ByteString -> State
 parseState s
   | P.null ws = error "parseState: no words"
-  | B == t && P.length ws == 6 = State { _stateID = StateID . readBS $ ws!!1
-                                         , _stateType = B
-                                         , _transitions = [ ( StateID . readBS $ ws!!4, 0)
-                                                          , ( StateID . readBS $ ws!!5, 0)
-                                                          ]
-                                         , _emits = EmitNothing
-                                         }
+  | B == t = State { _stateID = StateID . readBS $ ws!!1
+                   , _stateType = B
+                   , _transitions = [ ( StateID . readBS $ ws!!4, 0)
+                                    , ( StateID . readBS $ ws!!5, 0)
+                                    ]
+                   , _emits = EmitNothing
+                   }
   | otherwise = State { _stateID = StateID . readBS $ ws!!1
                       , _stateType = t -- stateTypeFromString . BS.unpack $ t
                       , _transitions = [ (StateID (i+k), readBitScore $ ws!!(6+k))
@@ -180,6 +191,7 @@ test :: IO ()
 test = do
   xs10 <- runResourceT $ sourceFile "test10.cm" $= parseCM1x $$ consume -- sinkHandle stdout
   xs11 <- runResourceT $ sourceFile "test11.cm" $= parseCM1x $$ consume -- sinkHandle stdout
-  --print xs10
+  print xs10
   print xs11
+  return ()
 

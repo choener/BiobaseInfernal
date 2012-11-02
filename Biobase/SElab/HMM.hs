@@ -27,14 +27,14 @@ data Alphabet
   | Coins
   | Dice
   | Custom
-  deriving (Eq,Show)
+  deriving (Eq,Show,Read)
 
 -- | Negated natural logarithm of probability.
 --
 -- TODO put into types stuff
 
 newtype NegLogProb = NLP Double
-  deriving (Show)
+  deriving (Show,Read)
 
 -- | The nodes in an HMM. Starting with Node "0" for BEGIN.
 
@@ -44,11 +44,15 @@ data Node = Node
   , _insertE :: [NegLogProb] -- insertions
   , _trans :: [NegLogProb] -- transitions: B->M1 B->I0 B->D1 I0->M1 I0->I0 0.0 * ||| Mk->Mk+1 Mk->Ik Mk->Dk+1 Ik->Mk+1 Ik->Ik Dk->Mk+1 Dk->Dk+1
   }
-  deriving (Show)
+  deriving (Show,Read)
 
 makeLenses ''Node
 
 -- | The HMM3 data structure in ``slow mode''.
+--
+-- TODO shouldn't this be "Identification Pfam" ?
+--
+-- TODO maybe redo the whole "idd" idea and just keep the string?
 
 data HMM3 = HMM3
   { _version :: (ByteString,ByteString)
@@ -65,6 +69,6 @@ data HMM3 = HMM3
   , _transHeaders :: [ByteString]
   , _compo :: [NegLogProb]
   , _nodes :: [Node]
-  } deriving (Show)
+  } deriving (Show,Read)
 
 makeLenses ''HMM3

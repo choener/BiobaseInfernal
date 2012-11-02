@@ -33,6 +33,7 @@ import Data.ExtShape as R
 import GHC.Base (quotInt,remInt)
 
 import Biobase.SElab.Types
+import qualified Biobase.SElab.HMM as HMM
 
 
 
@@ -122,6 +123,7 @@ data CM = CM
   , _states :: M.Map StateID State                -- ^ each state has a type, some emit characters, and some have children
 
   , _unsorted       :: M.Map ByteString ByteString  -- ^ all lines that are not handled. Multiline entries are key->multi-line entry
+  , _hmm            :: Maybe HMM.HMM3
   } deriving (Show,Read)
 
 makeLenses ''CM
