@@ -23,6 +23,7 @@ import Data.Vector as V
 import Data.Vector.Unboxed as VU
 import GHC.Base (quotInt,remInt)
 import Prelude as P
+import Data.List (genericLength)
 
 import Data.PrimitiveArray
 import Data.PrimitiveArray.Unboxed.Zero
@@ -154,6 +155,32 @@ type ID2CM = M.Map (Identification Rfam) CM
 -- | Map of model accession numbers to individual CMs.
 
 type AC2CM = M.Map (Accession Rfam) CM
+
+-- | Make a CM have local start/end behaviour, with "pbegin" and "pend"
+-- probabilities given.
+
+makeLocal :: Double -> Double -> CM -> CM
+makeLocal pbegin pend cm = makeLocalEnd pend $ makeLocalBegin pbegin cm
+
+-- | Insert all legal local beginnings, disable root node (and root states).
+-- The 'pbegin' probability the the total probability for local begins. The
+-- remaining "1-pbegin" is the probability to start with node 1.
+
+makeLocalBegin :: Double -> CM -> CM
+makeLocalBegin pbegin cm = cm{_localBegin = lb} where
+  lb = M.fromList . P.map (\s -> (s^.stateID, if s^.nodeID==NodeID 1 then prob2Score 1 (1-pbegin) else prob2Score 1 (pbegin/l))) $ ss
+  l  = genericLength ss
+  ss = P.filter (\s -> s^.stateType `P.elem` [MP,ML,MR,B]) . M.elems $ cm ^. states
+
+-- | Insert all legal local ends.
+
+makeLocalEnd :: Double -> CM -> CM
+makeLocalEnd pend cm = cm{_localEnd = le} where
+  le = M.fromList . P.map (\s -> (s^.stateID, prob2Score 1 (pend/l))) $ ss
+  l  = genericLength ss
+  ss = P.filter (\s -> s^.stateType `P.elem` [MP,MP,MR,S] && s^.nodeType/=ROOT && notEnding s) . M.elems $ cm^.states
+  -- no local end, if the next node ends anyway
+  notEnding s = not . P.any (==E) . P.map ((^.stateType) . ((cm^.states) M.!) . fst) $ s^.transitions
 
 
 
