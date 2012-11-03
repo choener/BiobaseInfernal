@@ -54,14 +54,14 @@ parseCM1x = CB.lines =$= CL.sequence go where
     infernal1x <- CL.head
     unless (legalCM infernal1x) . error $ "unexpected, no CM start at: " ++ show infernal1x
     hs <- parseHeaders []
-    ns <- parseNodes  []
+    ns <- parseNodes []
+    let nsMap = M.fromList . P.map (\n -> (sel2 n, (sel1 n, P.map (^. stateID) $ sel3 n))) $ ns
+    let ssMap = M.fromList . P.map ((^. stateID) &&& id) .  P.concatMap (sel3) $ ns
     Just "//" <- CL.head
     pk <- CL.peek
     hmm <- case HMM.legalHMM pk of
       True -> Just `fmap` HMM.parseHMM3
       False -> return Nothing
-    -- if we have Infernal 1.1, a HMM should come now ...
-    -- hmm <- parseHMM3 -- TODO: write me!
     return CM
       { _name          = IDD $ hs M.! "NAME"
       , _accession     = ACC . readAccession . P.head . M.catMaybes $ P.map (`M.lookup` hs) ["ACC", "ACCESSION"]
@@ -71,8 +71,11 @@ parseCM1x = CB.lines =$= CL.sequence go where
       , _noiseCutoff   = (BitScore . readBS) `fmap` (M.lookup "NC" hs)
       , _nullModel     = VU.fromList . P.map readBitScore . BS.words $ hs M.! "NULL"
 
-      , _nodes = M.fromList . P.map (\n -> (sel2 n, (sel1 n, P.map (^. stateID) $ sel3 n))) $ ns
-      , _states = M.fromList . P.map ((^. stateID) &&& id) .  P.concatMap (sel3) $ ns
+      , _nodes  = nsMap
+      , _states = ssMap
+
+      , _localBegin = flip M.singleton (BitScore 0) . (^.stateID) . P.head . P.filter (\s -> s^.stateType == S && s^.nodeID == NodeID 0 ) . M.elems $ ssMap
+      , _localEnd = M.empty
 
       , _unsorted = M.filter (not . flip P.elem ["NAME","ACCESSION","TC","GA","NC","NULL"]) hs
       , _hmm = hmm

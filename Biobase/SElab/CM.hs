@@ -113,6 +113,16 @@ makeLenses ''State
 --
 -- - score inequalities: trusted (lowest seed score) >= gathering (lowest full
 -- score) >= noise (random strings)
+--
+--
+--
+-- Local entries into the CM.
+--
+-- The "localBegin" lens returns a map of state id's. We either have just the
+-- root node (with the "S" state), or a set of states with type: MP,ML,MR,B.
+--
+-- The "localEnd" lens on the other hand is the set of possible early exits
+-- from the model.
 
 data CM = CM
   { _name           :: Identification Rfam  -- ^ name of model as in "tRNA"
@@ -125,6 +135,9 @@ data CM = CM
 
   , _nodes  :: M.Map NodeID (NodeType,[StateID])  -- ^ each node has a set of states
   , _states :: M.Map StateID State                -- ^ each state has a type, some emit characters, and some have children
+
+  , _localBegin :: M.Map StateID BitScore -- ^ Entries into the CM.
+  , _localEnd   :: M.Map StateID BitScore -- ^ Exits out of the CM.
 
   , _unsorted       :: M.Map ByteString ByteString  -- ^ all lines that are not handled. Multiline entries are key->multi-line entry
   , _hmm            :: Maybe HMM.HMM3
