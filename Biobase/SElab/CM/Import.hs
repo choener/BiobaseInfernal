@@ -145,14 +145,16 @@ parseStates ntype nid xs = do
     Just "//" -> return . P.reverse $ xs
     (isNode -> Just _) -> return . P.reverse $ xs
     _                  -> do Just x <- CL.head
-                             let psx = parseState x
+                             let psx = parseState ntype nid x
                              parseStates ntype nid (psx:xs)
 
-parseState :: ByteString -> State
-parseState s
+-- parseState :: ByteString -> State
+parseState ntype nid s
   | P.null ws = error "parseState: no words"
   | B == t = State { _stateID = StateID . readBS $ ws!!1
                    , _stateType = B
+                   , _nodeID = nid
+                   , _nodeType = ntype
                    , _transitions = [ ( StateID . readBS $ ws!!4, 0)
                                     , ( StateID . readBS $ ws!!5, 0)
                                     ]
@@ -160,6 +162,8 @@ parseState s
                    }
   | otherwise = State { _stateID = StateID . readBS $ ws!!1
                       , _stateType = t -- stateTypeFromString . BS.unpack $ t
+                      , _nodeID = nid
+                      , _nodeType = ntype
                       , _transitions = [ (StateID (i+k), readBitScore $ ws!!(6+k))
                                        | k <- [0 .. n-1] ]
                       , _emits = e
@@ -172,7 +176,7 @@ parseState s
     n = readBS $ ws!!5 -- number of states
     i = readBS $ ws!!4 -- first state
     e = case t of
-          MP -> EmitsPair . P.zip [ (c1,c2) | c1 <- "ACGU", c2 <- "ACGU" ] $ last 16
+          MP -> EmitsPair $ P.zipWith (\(c1,c2) k -> (c1,c2,k)) [ (c1,c2) | c1 <- "ACGU", c2 <- "ACGU" ] (last 16)
           ((flip P.elem [ML,MR,IL,IR]) -> True) -> EmitsSingle . P.zip "ACGU" $ last 4
           _ -> EmitNothing
 
@@ -185,7 +189,9 @@ isNode (Just xs)
   | ("[":ntype:nid:"]":cm11) <- BS.words xs = Just (readBS ntype, NodeID . readBS $ nid)
 isNode _ = Nothing
 
-
+fromFile :: FilePath -> IO [CM]
+fromFile fp = do
+  runResourceT $ sourceFile fp $= parseCM1x $$ consume
 
 test :: IO ()
 test = do

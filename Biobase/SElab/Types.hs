@@ -9,6 +9,8 @@
 -- safety.
 --
 -- TODO Use (Bio.Core.Sequence.Offset) instead of Int for sequence info
+--
+-- TODO move 'BitScore's, null models, probabilities into its own library.
 
 module Biobase.SElab.Types where
 
@@ -67,79 +69,25 @@ deriving instance Unbox BitScore
 deriving instance VGM.MVector VU.MVector BitScore
 deriving instance VG.Vector VU.Vector BitScore
 
+-- | Given a null model and a probability, calculate the corresponding
+-- 'BitScore'.
+
+prob2Score :: Double -> Double -> BitScore
+prob2Score null x
+  | x==0      = BitScore $ -10000
+  | otherwise = BitScore $ log (x/null) / log 2
+{-# INLINE prob2Score #-}
+
+-- | Given a null model and a 'BitScore' return the corresponding probability.
+
+score2Prob :: Double -> BitScore -> Double
+score2Prob null (BitScore x)
+  | x<=(-9999) = 0
+  | otherwise  = null * exp (x * log 2)
+{-# INLINE score2Prob #-}
+
 -- | Classification names (taxonomic classification)
 
 newtype Classification = Classification {unClassification :: ByteString}
   deriving (Eq,Ord,Read,Show)
 
-{-
--- * Rfam Clans. A clan is a collection of biologically related RNA families.
-
--- | The 'ClanAC' is the accession number. Accession numbers start at 1 and
--- each new clan get a new 'ClanAC'.
-
-newtype ClanAC = ClanAC {unClanAC :: Int}
-  deriving (Eq,Ord,Read,Show)
-
--- | The 'ClanID' is the name given to the clan.
-
-newtype ClanID = ClanID {unClanID :: ByteString}
-  deriving (Eq,Ord,Read,Show)
-
-
-
--- * Covariance models or Stockholm multiple alignments.
-
--- | The numeric identifier of a covarience model or Stockholm multiple
--- alignment as in RFxxxxx.
-
-newtype ModelAC = ModelAC {unModelAC :: Int}
-  deriving (Eq,Ord,Read,Show)
-
--- | String identifier of a covariance model or Stockholm multiple alignment as
--- in "5S_rRNA".
-
-newtype ModelID = ModelID {unModelID :: ByteString}
-  deriving (Eq,Ord,Read,Show)
-
-
-
--- * Individual sequence information
-
--- | EMBL sequence accession based on sequence accession and sequence start to
--- stop. (Should this then be RfamSequenceAccession?)
-
-newtype EmblAC = EmblAC {unEmblAC :: (ByteString,Int,Int)}
-  deriving (Eq,Ord,Read,Show)
-
--- | Simple function to create 'EmblAccession' from a 'ByteString'.
-
-mkEmblAC :: ByteString -> EmblAC
-mkEmblAC s = EmblAC (sid,start,stop) where
-  (sid,(Just (start,_),Just (stop,_))) = second ((BS.readInt *** (BS.readInt . BS.drop 1)) . BS.span (/='-') . BS.drop 1) . BS.span (/='/') $ s
-
--- | Numeric species accession number.
-
-newtype SpeciesAC = SpeciesAC {unSpeciesAC :: Int}
-  deriving (Eq,Ord,Read,Show)
-
--- | String name for species.
-
-newtype SpeciesName = SpeciesName {unSpeciesName :: ByteString}
-  deriving (Eq,Ord,Read,Show)
-
--- | Strict FASTA data.
-
-newtype StrictSeqData = StrictSeqData {unStrictSeqData :: ByteString}
-  deriving (Eq,Ord,Read,Show)
-
-
-
--- * More generic newtypes, sequence identification, etc
-
--- | Identifies a certain scaffold or chromosome where a hit occurs
-
-newtype Scaffold = Scaffold {unScaffold :: ByteString}
-  deriving (Eq,Ord,Read,Show)
-
--}

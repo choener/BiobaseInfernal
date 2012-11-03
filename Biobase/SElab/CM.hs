@@ -14,23 +14,23 @@
 
 module Biobase.SElab.CM where
 
+import Control.Lens
 import Data.ByteString as BS
+import Data.Ix (Ix)
 import Data.Map as M
+import Data.Primitive.Types
 import Data.Vector as V
 import Data.Vector.Unboxed as VU
+import GHC.Base (quotInt,remInt)
 import Prelude as P
-import Data.Primitive.Types
 
 import Data.PrimitiveArray
 import Data.PrimitiveArray.Unboxed.Zero
 import "PrimitiveArray" Data.Array.Repa.Index
 
-import Control.Lens
-
 import Data.Array.Repa.Index as R
 import Data.Array.Repa.Shape as R
 import Data.ExtShape as R
-import GHC.Base (quotInt,remInt)
 
 import Biobase.SElab.Types
 import qualified Biobase.SElab.HMM as HMM
@@ -73,7 +73,7 @@ data StateType
 -- | State IDs
 
 newtype StateID = StateID {unStateID :: Int}
-  deriving (Eq,Ord,Show,Read,Prim)
+  deriving (Eq,Ord,Show,Read,Prim,Ix,Enum,Num)
 
 illegalState = StateID $ -1
 
@@ -81,15 +81,19 @@ illegalState = StateID $ -1
 -- pair (MP), other states emit nothing.
 
 data Emits
-  = EmitsSingle [(Char, BitScore)]
-  | EmitsPair   [((Char,Char), BitScore)]
+  = EmitsSingle { _single :: [(Char, BitScore)] }
+  | EmitsPair   { _pair :: [(Char, Char, BitScore)] }
   | EmitNothing
   deriving (Eq,Ord,Show,Read)
+
+makeLenses ''Emits
 
 -- | A single state.
 
 data State = State
   { _stateID     :: StateID               -- ^ The ID of this state
+  , _nodeID      :: NodeID                -- ^ to which node does this state belong
+  , _nodeType    :: NodeType              -- ^ node type for this state
   , _stateType   :: StateType             -- ^ type of the state
   , _transitions :: [(StateID,BitScore)]  -- ^ which transitions, id and bitscore
   , _emits       :: Emits                 -- ^ do we emit characters
@@ -129,6 +133,7 @@ data CM = CM
 makeLenses ''CM
 
 
+
 -- | Map of model names to individual CMs.
 
 type ID2CM = M.Map (Identification Rfam) CM
@@ -136,9 +141,6 @@ type ID2CM = M.Map (Identification Rfam) CM
 -- | Map of model accession numbers to individual CMs.
 
 type AC2CM = M.Map (Accession Rfam) CM
-
-
-
 
 
 
