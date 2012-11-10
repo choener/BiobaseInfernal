@@ -25,8 +25,6 @@ import GHC.Base (quotInt,remInt)
 import Prelude as P
 import Data.List (genericLength)
 
-import Data.PrimitiveArray
-import Data.PrimitiveArray.Unboxed.Zero
 import "PrimitiveArray" Data.Array.Repa.Index
 
 import Data.Array.Repa.Index as R

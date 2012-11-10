@@ -74,7 +74,7 @@ library
     tuple               == 0.2.*    ,
     vector              >= 0.10     ,
     BiobaseXNA          == 0.6.3.*  ,
-    PrimitiveArray      == 0.3.0.0
+    PrimitiveArray      == 0.4.0.0
 
   exposed-modules:
 --    Biobase.Infernal
