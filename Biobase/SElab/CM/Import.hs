@@ -1,3 +1,4 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE DoAndIfThenElse #-}
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE ViewPatterns #-}
@@ -11,6 +12,7 @@
 
 module Biobase.SElab.CM.Import where
 
+import Control.Applicative
 import Control.Arrow
 import Control.Lens
 import Control.Monad.IO.Class
@@ -45,19 +47,22 @@ import qualified Biobase.SElab.HMM.Import as HMM
 
 -- ** Infernal 1.0 and 1.1 covariance model parser
 
+parseHeader = ($) <$ AB.string "INFERNAL" *> (Infernal10 <$ AB.string "-1" <|> Infernal11 <$ AB.string "1/a") <*> AB.takeByteString <?> "INFERNAL line"
+
+lineParser p = CL.head >>= \x -> return . maybe (error "no more input") (either (\e -> error $ show (e,x)) id . AB.parseOnly p) $ x
+
 -- | Top-level parser for Infernal 1.0 and 1.1 human-readable covariance
 -- models. Reads all lines first, then builds up the CM.
 
 parseCM1x :: (Monad m, MonadIO m) => Conduit ByteString m CM
 parseCM1x = CB.lines =$= CL.sequence go where
   go = do
-    infernal1x <- CL.head
-    unless (legalCM infernal1x) . error $ "unexpected, no CM start at: " ++ show infernal1x
+    hdr <- lineParser parseHeader
     hs <- parseHeaders []
-    ns <- parseNodes []
+    ns <- parseNodes hdr []
     let nsMap = M.fromList . P.map (\n -> (sel2 n, (sel1 n, P.map (^. stateID) $ sel3 n))) $ ns
     let ssMap = M.fromList . P.map ((^. stateID) &&& id) .  P.concatMap (sel3) $ ns
-    Just "//" <- CL.head
+    lineParser $ (AB.string "//" <?> "model end")
     pk <- CL.peek
     hmm <- case HMM.legalHMM pk of
       True -> Just `fmap` HMM.parseHMM3
@@ -65,7 +70,7 @@ parseCM1x = CB.lines =$= CL.sequence go where
     return CM
       { _name          = IDD $ hs M.! "NAME"
       , _accession     = ACC . readAccession . P.head . M.catMaybes $ P.map (`M.lookup` hs) ["ACC", "ACCESSION"]
-      , _version       = fromJust infernal1x
+      , _version       = hdr
       , _trustedCutoff = BitScore . readBS $ hs M.! "TC"
       , _gathering     = BitScore . readBS $ hs M.! "GA"
       , _noiseCutoff   = (BitScore . readBS) `fmap` (M.lookup "NC" hs)
@@ -80,13 +85,6 @@ parseCM1x = CB.lines =$= CL.sequence go where
       , _unsorted = M.filter (not . flip P.elem ["NAME","ACCESSION","TC","GA","NC","NULL"]) hs
       , _hmm = hmm
       }
-
-legalCM :: Maybe ByteString -> Bool
-legalCM (Just x)
-  | w == "INFERNAL-1"  = True -- infernal 1.0
-  | w == "INFERNAL1/a" = True -- infernal 1.1 rc1
-  where (w:_) = BS.words x
-legalCM _ = False
 
 readBS = read . BS.unpack
 readBitScore "*" = BitScore $ -1/0
@@ -128,32 +126,71 @@ finishedHeader _ = False
 --
 -- A node is (node type, node id, set of states)
 
-parseNodes ns = do
+parseNodes hdr ns = do
   p <- CL.peek
   case (BS.dropWhile isAlpha `fmap` p) of
     Nothing -> error "unexpected empty line"
     Just "//" -> return . P.reverse $ ns
     (isNode -> Just (ntype,nid)) -> do _ <- CL.head -- kill the line
-                                       ss <- parseStates ntype nid []
-                                       parseNodes $ (ntype,nid,ss):ns
+                                       ss <- parseStates hdr ntype nid []
+                                       parseNodes hdr $ (ntype,nid,ss):ns
 
 -- | Parses all states for a node. We peek at the first line, then handle
 -- accordingly: if "//" the model will be done; is a node is coming up, return
 -- the state lines read until now.
 
-parseStates ntype nid xs = do
+parseStates hdr ntype nid xs = do
   p <- CL.peek
   case (BS.dropWhile isSpace `fmap` p) of
     Nothing -> error "unexpected empty state"
     Just "//" -> return . P.reverse $ xs
     (isNode -> Just _) -> return . P.reverse $ xs
     _                  -> do Just x <- CL.head
-                             let psx = parseState ntype nid x
-                             parseStates ntype nid (psx:xs)
+                             let psx = parseState hdr ntype nid x
+                             parseStates hdr ntype nid (psx:xs)
 
 -- parseState :: ByteString -> State
-parseState ntype nid s
+parseState hdr ntype nid s
   | P.null ws = error "parseState: no words"
+  | B == t    = State { _stateID = StateID . readBS $ pn!!0
+                      , _stateType = t
+                      , _nodeID = nid
+                      , _nodeType = ntype
+                      , _transitions = [ ( StateID . readBS $ pn!!3, 0)
+                                       , ( StateID . readBS $ pn!!4, 0)
+                                       ]
+                      , _emits = EmitNothing
+                      }
+  | otherwise = State { _stateID = StateID . readBS $ pn!!0
+                      , _stateType = t
+                      , _nodeID = nid
+                      , _nodeType = ntype
+                      , _transitions = [ (StateID (i+k), readBitScore $ ts!!k) | k <- [0..n-1]]
+                      , _emits = e
+                      }
+  where
+    ws = BS.words s
+    numPN = case hdr of
+      Infernal10 _ -> 5
+      Infernal11 _ -> 9 -- last 4 values are QDB values ...
+    numTS = readBS $ pn!!4
+    numES = case w of
+              "MP" -> 16
+              (flip P.elem ["ML","MR","IL","IR"] -> True) -> 4
+              _    -> 0
+    ~([w],~(pn,~(ts,es))) = second (second (second (P.map readBitScore) . P.splitAt numTS) . P.splitAt numPN) . P.splitAt 1 $ ws
+    t = readBS w :: StateType
+    i = readBS $ pn!!3
+    n = readBS $ pn!!4
+    e = case t of
+          MP -> EmitsPair $ P.zipWith (\(c1,c2) k -> (c1,c2,k)) [ (c1,c2) | c1 <- "ACGU", c2 <- "ACGU" ] es
+          ((flip P.elem [ML,MR,IL,IR]) -> True) -> EmitsSingle $ P.zip "ACGU" es
+          _ -> EmitNothing
+
+
+
+{-
+parseState hdr ntype nid s
   | B == t = State { _stateID = StateID . readBS $ ws!!1
                    , _stateType = B
                    , _nodeID = nid
@@ -173,15 +210,14 @@ parseState ntype nid s
                       }
   where
     last k = P.map readBitScore . P.reverse . P.take k . P.reverse $ ws
-    ws = BS.words s
     (t':_) = ws
-    t = readBS t' :: StateType
     n = readBS $ ws!!5 -- number of states
     i = readBS $ ws!!4 -- first state
     e = case t of
           MP -> EmitsPair $ P.zipWith (\(c1,c2) k -> (c1,c2,k)) [ (c1,c2) | c1 <- "ACGU", c2 <- "ACGU" ] (last 16)
           ((flip P.elem [ML,MR,IL,IR]) -> True) -> EmitsSingle . P.zip "ACGU" $ last 4
           _ -> EmitNothing
+-}
 
 -- | Determine if a line is a node line ('Just'). If yes, we'll get the node
 -- type as string and the node identifier, too.

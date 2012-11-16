@@ -15,7 +15,7 @@
 module Biobase.SElab.CM where
 
 import Control.Lens
-import Data.ByteString as BS
+import Data.ByteString.Char8 as BS
 import Data.Ix (Ix)
 import Data.Map as M
 import Data.Primitive.Types
@@ -35,6 +35,13 @@ import Biobase.SElab.Types
 import qualified Biobase.SElab.HMM as HMM
 
 
+
+-- | Encode the CM versions we can parse
+
+data CMVersion
+  = Infernal10 BS.ByteString
+  | Infernal11 BS.ByteString
+  deriving (Eq,Ord,Show,Read)
 
 -- | Encode CM node types.
 
@@ -126,7 +133,7 @@ makeLenses ''State
 data CM = CM
   { _name           :: Identification Rfam  -- ^ name of model as in "tRNA"
   , _accession      :: Accession Rfam       -- ^ RFxxxxx identification
-  , _version        :: ByteString           -- ^ We can parse version 1.0 and 1.1 CMs
+  , _version        :: CMVersion            -- ^ We can parse version 1.0 and 1.1 CMs
   , _trustedCutoff  :: BitScore             -- ^ lowest score of any seed member
   , _gathering      :: BitScore             -- ^ all scores at or above 'gathering' score are in the "full" alignment
   , _noiseCutoff    :: Maybe BitScore       -- ^ highest score NOT included as member
