@@ -28,32 +28,15 @@ description:
                 .
                 Changes in 0.7.0.0
                 .
+                * work-in-progress release (some features missing)
+                .
                 * working CM parsing
                 .
                 * type defns have changed. using phantom types to specify what kind of model we are working with
                 .
                 * using conduit instead of iteratee
-                .
-                Changes in 0.6.2.0
-                .
-                * added CM parsing (implementation and interface subject to
-                  change)
-                .
-                Changes in 0.6.1.0
-                .
-                * added cmalign results parser
-                .
-                Changes in 0.6.0.1
-                .
-                * haddock should finish now
-                .
-                Changes in 0.6.0.0
-                .
-                * multiple changes to data representation (mostly newtypes) and documentation
-                .
-                * load the Rfam.fasta.gz file (and prepare lookup structures)
-                .
-                * partial biocore integration
+
+
 
 extra-source-files:
 
