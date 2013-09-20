@@ -1,5 +1,5 @@
 name:           BiobaseInfernal
-version:        0.7.0.1
+version:        0.7.1.0
 author:         Christian Hoener zu Siederdissen
 maintainer:     choener@tbi.univie.ac.at
 homepage:       http://www.tbi.univie.ac.at/~choener/
@@ -25,6 +25,10 @@ description:
                 Int64).
                 .
                 .
+                .
+                Changes in 0.7.1.0
+                .
+                * bumped dependencies, compatible to newest BiobaseXNA, PrimitiveArray
                 .
                 Changes in 0.7.0.0
                 .
@@ -53,11 +57,12 @@ library
     either-unwrap       == 1.1      ,
     lens                == 3.*      ,
     primitive           >= 0.5      ,
+    repa                == 3.2.*    ,
     transformers        == 0.3.*    ,
     tuple               == 0.2.*    ,
     vector              >= 0.10     ,
-    BiobaseXNA          == 0.6.3.*  ,
-    PrimitiveArray      >= 0.4.0.1
+    BiobaseXNA          == 0.7.*    ,
+    PrimitiveArray      == 0.5.*
 
   exposed-modules:
 --    Biobase.Infernal

@@ -25,11 +25,11 @@ import GHC.Base (quotInt,remInt)
 import Prelude as P
 import Data.List (genericLength)
 
-import "PrimitiveArray" Data.Array.Repa.Index
+import Data.Array.Repa.Index
 
 import Data.Array.Repa.Index as R
 import Data.Array.Repa.Shape as R
-import Data.ExtShape as R
+import Data.Array.Repa.ExtShape as R
 
 import Biobase.SElab.Types
 import qualified Biobase.SElab.HMM as HMM
