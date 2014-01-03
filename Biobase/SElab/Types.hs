@@ -21,6 +21,7 @@ import Data.Vector.Generic as VG
 import Data.Vector.Generic.Mutable as VGM
 import Data.Vector.Unboxed as VU
 import Data.Primitive.Types
+import Data.Default.Class
 
 
 
@@ -64,6 +65,13 @@ data Species
 
 newtype BitScore = BitScore {unBitScore :: Double}
   deriving (Eq,Ord,Read,Show,Num,Prim)
+
+-- | A default bitscore of "-infinity".
+--
+-- TODO Check out the different "defaults" Infernal uses
+
+instance Default BitScore where
+  def = BitScore (-999999)
 
 deriving instance Unbox BitScore
 deriving instance VGM.MVector VU.MVector BitScore

@@ -1,3 +1,6 @@
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TupleSections #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE DoAndIfThenElse #-}
 {-# LANGUAGE ViewPatterns #-}
@@ -12,231 +15,186 @@
 
 module Biobase.SElab.CM.Import where
 
-import Control.Applicative
-import Control.Arrow
-import Control.Lens
-import Control.Monad.IO.Class
-import Control.Monad.IO.Class (liftIO, MonadIO)
-import Control.Monad (unless)
-import Data.Attoparsec.ByteString as AB
-import Data.ByteString.Char8 as BS
-import Data.ByteString.Lex.Double as BS
-import Data.Char (isSpace,isAlpha,isDigit)
-import Data.Conduit as C
-import Data.Conduit.Attoparsec
-import Data.Conduit.Binary as CB
-import Data.Conduit.List as CL
-import Data.Map as M
-import Data.Maybe as M
-import Data.Tuple.Select
-import Data.Vector.Unboxed as VU (fromList)
-import Prelude as P
-import System.IO (stdout)
+import           Control.Applicative
+import           Control.Lens (view,(^.))
+import           Control.Monad.IO.Class (MonadIO)
+import           Data.Attoparsec.ByteString.Char8 (endOfLine,skipSpace,decimal,double,rational,isEndOfLine,(.*>),signed)
+import           Data.Attoparsec.ByteString (takeTill,count,many1,(<?>),manyTill,option)
+import           Data.ByteString.Char8 (ByteString,unpack)
+import           Data.Char (isSpace,isAlpha,isDigit)
+import           Data.Conduit.Attoparsec (conduitParserEither)
+import           Data.Conduit.Binary (sourceFile)
+import           Data.Conduit.List (consume)
+import           Data.Conduit (yield,awaitForever,(=$=),Conduit,MonadThrow,($$),($=),runResourceT)
+import           Data.Conduit.Zlib (ungzip)
+import           Data.Vector.Unboxed (fromList)
+import qualified Data.Attoparsec.ByteString as AB
+import qualified Data.Attoparsec.ByteString.Char8 as ABC
+import qualified Data.Map as M
+import qualified Data.Vector.Unboxed as VU (fromList)
+import           System.FilePath (takeExtension)
 
-import Data.PrimitiveArray
-import Data.PrimitiveArray.Zero
-
-import Biobase.SElab.CM
-import Biobase.SElab.Types
+import           Biobase.SElab.CM
+import           Biobase.SElab.Types
 import qualified Biobase.SElab.HMM as HMM
 import qualified Biobase.SElab.HMM.Import as HMM
 
+import Debug.Trace
 
 
--- * Covariance model parsing.
-
--- ** Infernal 1.0 and 1.1 covariance model parser
-
-parseHeader = ($) <$ AB.string "INFERNAL" *> (Infernal10 <$ AB.string "-1" <|> Infernal11 <$ AB.string "1/a") <*> AB.takeByteString <?> "INFERNAL line"
-
-lineParser p = CL.head >>= \x -> return . maybe (error "no more input") (either (\e -> error $ show (e,x)) id . AB.parseOnly p) $ x
-
--- | Top-level parser for Infernal 1.0 and 1.1 human-readable covariance
--- models. Reads all lines first, then builds up the CM.
-
-parseCM1x :: (Monad m, MonadIO m) => Conduit ByteString m CM
-parseCM1x = CB.lines =$= CL.sequence go where
-  go = do
-    hdr <- lineParser parseHeader
-    hs <- parseHeaders []
-    ns <- parseNodes hdr []
-    let nsMap = M.fromList . P.map (\n -> (sel2 n, (sel1 n, P.map (^. stateID) $ sel3 n))) $ ns
-    let ssMap = M.fromList . P.map ((^. stateID) &&& id) .  P.concatMap (sel3) $ ns
-    lineParser $ (AB.string "//" <?> "model end")
-    pk <- CL.peek
-    hmm <- case HMM.legalHMM pk of
-      True -> Just `fmap` HMM.parseHMM3
-      False -> return Nothing
-    return CM
-      { _name          = IDD $ hs M.! "NAME"
-      , _accession     = ACC . readAccession . P.head . M.catMaybes $ P.map (`M.lookup` hs) ["ACC", "ACCESSION"]
-      , _version       = hdr
-      , _trustedCutoff = BitScore . readBS $ hs M.! "TC"
-      , _gathering     = BitScore . readBS $ hs M.! "GA"
-      , _noiseCutoff   = (BitScore . readBS) `fmap` (M.lookup "NC" hs)
-      , _nullModel     = VU.fromList . P.map readBitScore . BS.words $ hs M.! "NULL"
-
-      , _nodes  = nsMap
-      , _states = ssMap
-
-      , _localBegin = flip M.singleton (BitScore 0) . (^.stateID) . P.head . P.filter (\s -> s^.stateType == S && s^.nodeID == NodeID 0 ) . M.elems $ ssMap
-      , _localEnd = M.empty
-
-      , _unsorted = M.filter (not . flip P.elem ["NAME","ACCESSION","TC","GA","NC","NULL"]) hs
-      , _hmm = hmm
-      }
-
-readBS = read . BS.unpack
-readBitScore "*" = BitScore $ -1/0
-readBitScore x = BitScore . readBS $ x
-
-readAccession xs
-  | BS.length xs /= 7 = error $ "can't read accession: " ++ BS.unpack xs
-  | "RF" == hdr && P.all isDigit tl = read tl
-  | otherwise = error $ "readAccession: " ++ BS.unpack xs
-  where (hdr,tl) = second BS.unpack . BS.splitAt 2 $ xs
-
--- | Infernal 1.0 header parser. Greps all lines until the "MODEL:" line, then
--- return lines to top-level parser. Parses three lines at once in case of
--- "FT-" lines.
-
-parseHeaders hs = do
-  p <- CL.head
-  case p of
-    (finishedHeader -> True) -> return . M.fromList 
-                                       . P.map (second (BS.dropWhile isSpace)
-                                       . BS.break isSpace)
-                                       . P.reverse
-                                       $ hs
-    Nothing -> error $ "unexpected end of header, until here:" ++ (show $ P.reverse hs)
-    Just "" -> error "empty line"
-    Just l  -> do ls <- if ("FT-" `isPrefixOf` l) then CL.take 2 else return []
-                  let lls = BS.concat $ l:ls
-                  parseHeaders (lls:hs)
-
-finishedHeader :: Maybe ByteString -> Bool
-finishedHeader (Just x) = go x where
-  go "MODEL:" = True
-  go "CM" = True
-  go _ = False
-finishedHeader _ = False
-
--- | Parses nodes. Will terminate on "//" which ends a CM. The state parser
--- will just peek on "//", not remove it from the stream.
---
--- A node is (node type, node id, set of states)
-
-parseNodes hdr ns = do
-  p <- CL.peek
-  case (BS.dropWhile isAlpha `fmap` p) of
-    Nothing -> error "unexpected empty line"
-    Just "//" -> return . P.reverse $ ns
-    (isNode -> Just (ntype,nid)) -> do _ <- CL.head -- kill the line
-                                       ss <- parseStates hdr ntype nid []
-                                       parseNodes hdr $ (ntype,nid,ss):ns
-
--- | Parses all states for a node. We peek at the first line, then handle
--- accordingly: if "//" the model will be done; is a node is coming up, return
--- the state lines read until now.
-
-parseStates hdr ntype nid xs = do
-  p <- CL.peek
-  case (BS.dropWhile isSpace `fmap` p) of
-    Nothing -> error "unexpected empty state"
-    Just "//" -> return . P.reverse $ xs
-    (isNode -> Just _) -> return . P.reverse $ xs
-    _                  -> do Just x <- CL.head
-                             let psx = parseState hdr ntype nid x
-                             parseStates hdr ntype nid (psx:xs)
-
--- parseState :: ByteString -> State
-parseState hdr ntype nid s
-  | P.null ws = error "parseState: no words"
-  | B == t    = State { _stateID = StateID . readBS $ pn!!0
-                      , _stateType = t
-                      , _nodeID = nid
-                      , _nodeType = ntype
-                      , _transitions = [ ( StateID . readBS $ pn!!3, 0)
-                                       , ( StateID . readBS $ pn!!4, 0)
-                                       ]
-                      , _emits = EmitNothing
-                      }
-  | otherwise = State { _stateID = StateID . readBS $ pn!!0
-                      , _stateType = t
-                      , _nodeID = nid
-                      , _nodeType = ntype
-                      , _transitions = [ (StateID (i+k), readBitScore $ ts!!k) | k <- [0..n-1]]
-                      , _emits = e
-                      }
-  where
-    ws = BS.words s
-    numPN = case hdr of
-      Infernal10 _ -> 5
-      Infernal11 _ -> 9 -- last 4 values are QDB values ...
-    numTS = readBS $ pn!!4
-    numES = case w of
-              "MP" -> 16
-              (flip P.elem ["ML","MR","IL","IR"] -> True) -> 4
-              _    -> 0
-    ~([w],~(pn,~(ts,es))) = second (second (second (P.map readBitScore) . P.splitAt numTS) . P.splitAt numPN) . P.splitAt 1 $ ws
-    t = readBS w :: StateType
-    i = readBS $ pn!!3
-    n = readBS $ pn!!4
-    e = case t of
-          MP -> EmitsPair $ P.zipWith (\(c1,c2) k -> (c1,c2,k)) [ (c1,c2) | c1 <- "ACGU", c2 <- "ACGU" ] es
-          ((flip P.elem [ML,MR,IL,IR]) -> True) -> EmitsSingle $ P.zip "ACGU" es
-          _ -> EmitNothing
-
-
-
-{-
-parseState hdr ntype nid s
-  | B == t = State { _stateID = StateID . readBS $ ws!!1
-                   , _stateType = B
-                   , _nodeID = nid
-                   , _nodeType = ntype
-                   , _transitions = [ ( StateID . readBS $ ws!!4, 0)
-                                    , ( StateID . readBS $ ws!!5, 0)
-                                    ]
-                   , _emits = EmitNothing
-                   }
-  | otherwise = State { _stateID = StateID . readBS $ ws!!1
-                      , _stateType = t -- stateTypeFromString . BS.unpack $ t
-                      , _nodeID = nid
-                      , _nodeType = ntype
-                      , _transitions = [ (StateID (i+k), readBitScore $ ws!!(6+k))
-                                       | k <- [0 .. n-1] ]
-                      , _emits = e
-                      }
-  where
-    last k = P.map readBitScore . P.reverse . P.take k . P.reverse $ ws
-    (t':_) = ws
-    n = readBS $ ws!!5 -- number of states
-    i = readBS $ ws!!4 -- first state
-    e = case t of
-          MP -> EmitsPair $ P.zipWith (\(c1,c2) k -> (c1,c2,k)) [ (c1,c2) | c1 <- "ACGU", c2 <- "ACGU" ] (last 16)
-          ((flip P.elem [ML,MR,IL,IR]) -> True) -> EmitsSingle . P.zip "ACGU" $ last 4
-          _ -> EmitNothing
--}
-
--- | Determine if a line is a node line ('Just'). If yes, we'll get the node
--- type as string and the node identifier, too.
-
-isNode :: Maybe ByteString -> Maybe (NodeType, NodeID)
-isNode (Just xs)
-  | BS.null xs = Nothing
-  | ("[":ntype:nid:"]":cm11) <- BS.words xs = Just (readBS ntype, NodeID . readBS $ nid)
-isNode _ = Nothing
-
-fromFile :: FilePath -> IO [CM]
-fromFile fp = do
-  runResourceT $ sourceFile fp $= parseCM1x $$ consume
 
 test :: IO ()
 test = do
-  xs10 <- runResourceT $ sourceFile "test10.cm" $= parseCM1x $$ consume -- sinkHandle stdout
-  xs11 <- runResourceT $ sourceFile "test11.cm" $= parseCM1x $$ consume -- sinkHandle stdout
-  print xs10
+  --xs11 <- runResourceT $ sourceFile "trna.cm" $= parseCM $$ consume
+  --xs11 <- fromFile "rfam-all.cm"
+  --xs11 <- fromFile "trna.cm"
+  xs11 <- fromFile "two.cm"
   print xs11
-  return ()
+
+-- | Helper function to simplify parsing CMs from a (possibly gzipped) file.
+
+fromFile f
+  | ext == ".cm.gz" = runResourceT $ sourceFile f $= ungzip =$= parseCM $$ consume
+  | ext == ".cm"    = runResourceT $ sourceFile f $=            parseCM $$ consume
+  | otherwise       = error $ "can't read from: " ++ f
+  where ext = takeExtension f
+
+-- | TODO this parser currently parses only 1.1 models
+
+parseCM :: (Monad m, MonadIO m, MonadThrow m) => Conduit ByteString m CM
+parseCM = conduitParserEither (go <?> "CM parser") =$= awaitForever (either (error . show) (yield . snd)) where -- CL.sequence (sinkParser go) where
+  go = do
+    _version     <-  (1,1) <$ "INFERNAL1/a" <* eolS
+                 <?> "CM: _version"
+    _name        <-  IDD <$> "NAME" ..*> eolS
+    _accession   <-  optional $ ACC <$ "ACC" ..*> "RF" <*> decimal <* endOfLine
+    _description <-  option "" $  "DESC" ..*> eolS
+    states   <- "STATES"   ..*> eolD  -- number of states
+    nodes    <- "NODES"    ..*> eolD  -- number of nodes
+    clen     <- "CLEN"     ..*> eolD  -- consensus model length (matl + matr + 2*matp)
+    w        <- "W"        ..*> eolD  -- maximum expected size of hit
+    alph     <- "ALPH"     ..*> eolS  -- currently only "RNA"
+    rf       <- option False $ "RF" ..*> eolB
+    cons     <- "CONS"     ..*> eolB
+    mapp     <- option False $ "MAP"  ..*> eolB
+    date     <- option ""    $ "DATE" ..*> eolS
+    com      <- many $ "COM" ..*> eolS
+    pbegin   <- option 0.05 $ "PBEGIN" ..*> eolR
+    pend     <- option 0.05 $ "PEND"   ..*> eolR
+    wbeta    <- "WBETA"    ..*> eolR
+    qdbbeta2 <- "QDBBETA1" ..*> eolR
+    qdbbeta2 <- "QDBBETA2" ..*> eolR
+    n2omega  <- "N2OMEGA"  ..*> eolR
+    n3omega  <- "N3OMEGA"  ..*> eolR
+    elself   <- "ELSELF"   ..*> eolR
+    nseq     <- optional $ "NSEQ"  ..*> eolN
+    effn     <- optional $ "EFFN"  ..*> eolR
+    cksum    <- optional $ "CKSUM" ..*> eolN
+    _nullModel     <- "NULL" ..*> (VU.fromList <$> count 4 (BitScore <$> ssRational) <* eolS)
+    _gathering     <- optional $ "GA" ..*> (BitScore <$> eolR)
+    _trustedCutoff <- optional $ "TC" ..*> (BitScore <$> eolR)
+    _noiseCutoff   <- optional $ "NC" ..*> (BitScore <$> eolR)
+    efp7gf   <- "EFP7GF"   ..*> count 2 (ssRational) <* eolS
+    ecmlc    <- optional $ "ECMLC" ..*> statParam
+    ecmgc    <- optional $ "ECMGC" ..*> statParam
+    ecmli    <- optional $ "ECMLI" ..*> statParam
+    ecmgi    <- optional $ "ECMGI" ..*> statParam
+    "CM" *> endOfLine
+    ns <- manyTill parseNode "//" <* endOfLine <?> "nodes"
+    let _nodes      = M.fromList $ map (\(n,_) -> (n^.nID,n)) ns
+    let _states     = M.fromList $ concatMap (map (\s -> (s^.sID,s)) . snd) ns
+    let _localBegin = M.empty
+    let _localEnd   = M.empty
+    hmm <- manyTill infoLine "//" <* endOfLine <?> "hmm"
+    let _hmm = Nothing
+--    rest <- takeByteString
+--    error $ ("\n"++) $ L.take 100 $ BS.unpack rest
+    return CM{..}
+
+-- | Parses nodes, including the states belonging to each node.
+
+parseNode = do
+  skipSpace
+  "[ "
+  nctor <-  Root <$ "ROOT" <|> Bif  <$ "BIF"  <|> End  <$ "END"
+        <|> BegL <$ "BEGL" <|> BegR <$ "BEGR" <|> MatL <$ "MATL" <|> MatR <$ "MATR" <|> MatP <$ "MATP"
+  nid <- NodeID <$> ssDecimal
+  skipSpace
+  "]"
+  colL <- xDecimal  -- left consensus column from alignment ('-' or column number) ("MAP")
+  colR <- xDecimal  -- right consensus column from alignment ('-' or column number)
+  resL <- xString   -- left consensus residue ("CONS")
+  resR <- xString   -- right consensus residue
+  rfL  <- xString   -- left reference
+  rfR  <- xString   -- right reference
+  eolS
+  ss <- many1 $ parseState nid
+  return $ (nctor nid (map (view sID) ss), ss)
+
+-- | Parses individual states. Parsers are grouped according to their
+-- ``family''.
+
+parseState nid = skipSpace *> (sde <|> mi <|> mp <|> b)
+  where
+  sde = do
+    sctor <- S <$ "S" <|> D <$ "D" <|> E <$ "E"
+    (s,p,tids) <- upDown
+    ts <- trans (length tids)
+    eolS
+    return $ sctor s nid (zip tids ts)
+  mi = do
+    sctor <- IL <$ "IL" <|> IR <$ "IR" <|> ML <$ "ML" <|> MR <$ "MR"
+    (s,p,tids) <- upDown
+    ts <- trans (length tids)
+    es <- emit 4
+    return $ sctor s nid (zip tids ts) (rnaEs es)
+  mp = do
+    sctor <- MP <$ "MP"
+    (s,p,tids) <- upDown
+    ts <- trans (length tids)
+    es <- emit 16
+    return $ sctor s nid (zip tids ts) (rnaPs es)
+  b = do
+    sctor <- B <$ "B"
+    (s,p,l,r) <- (,,,) <$> sid <*> parent <* ssDecimal
+                       <*> (StateID <$> ssDecimal) <*> (StateID <$> ssDecimal)
+                       <*  ssDecimal <* ssDecimal <* ssDecimal <* ssDecimal
+    return $ sctor s nid (l,r)
+                -- state id, highest numbered parent, number of parents,
+  upDown = (,,) <$> sid <*> parent <* ssDecimal
+                -- lowest numbered child, number of children (or right begin for @b@)
+                <*> ((\f n -> map StateID . take n $ [f, f+1 ..]) <$> ssIntegral <*> ssDecimal)
+                -- QDB values:
+                <*  ssDecimal <* ssDecimal <* ssDecimal <* ssDecimal
+  trans c = count c $ skipSpace *> (BitScore <$> double <|> BitScore (-999999) <$ "*")
+  emit  c = count c (BitScore <$ skipSpace <*> double)
+  sid = StateID <$> ssDecimal
+  numTs = ssDecimal
+  parent = skipSpace *> (Nothing <$ "-1" <|> Just <$> decimal)
+  firstChild = skipSpace *> (Nothing <$ "-1" <|> Just <$> decimal)
+  rnaEs = M.fromList . zip "ACGU"
+  rnaPs = M.fromList . zip [ (l,r) | l<-"ACGU",r<-"ACGU" ]
+
+
+
+-- * Helper functions
+
+ssDecimal = skipSpace *> decimal
+ssIntegral = skipSpace *> signed decimal
+ssRational = skipSpace *> rational
+ssString = skipSpace *> ABC.takeTill isSpace
+
+xDecimal = skipSpace *> (Nothing <$ "-" <|> Just <$> decimal)
+xString  = skipSpace *> (Nothing <$ "-" <|> Just <$> ABC.takeTill isSpace)
+
+infoLine = (,) <$> ABC.takeWhile isAlpha <* skipSpace <*> takeTill isEndOfLine <* endOfLine
+
+(..*>) s t = s .*> skipSpace *> t
+
+statParam = (,,,,) <$> ssRational <*> ssRational <*> ssDecimal <*> ssDecimal <*> ssRational <* eolS
+eolS = takeTill isEndOfLine <* endOfLine
+eolR = skipSpace *> rational <* endOfLine
+eolD = skipSpace *> double <* endOfLine
+eolN = skipSpace *> decimal <* endOfLine
+eolB = skipSpace *> (True <$ "yes" <|> False <$ "no") <* endOfLine
 

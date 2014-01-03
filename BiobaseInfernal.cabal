@@ -1,5 +1,5 @@
 name:           BiobaseInfernal
-version:        0.7.1.0
+version:        0.8.0.0
 author:         Christian Hoener zu Siederdissen
 maintainer:     choener@tbi.univie.ac.at
 homepage:       http://www.tbi.univie.ac.at/~choener/
@@ -19,26 +19,6 @@ description:
                 The VerboseHit format is slightly extended to allow simple
                 annotations. This extension should be backward-compatible with
                 standard-compliant parsers.
-                .
-                This package uses Int's to store sequence position information.
-                Don't compile for 32bit. (And yes, this is a TODO, to change to
-                Int64).
-                .
-                .
-                .
-                Changes in 0.7.1.0
-                .
-                * bumped dependencies, compatible to newest BiobaseXNA, PrimitiveArray
-                .
-                Changes in 0.7.0.0
-                .
-                * work-in-progress release (some features missing)
-                .
-                * working CM parsing
-                .
-                * type defns have changed. using phantom types to specify what kind of model we are working with
-                .
-                * using conduit instead of iteratee
 
 
 
@@ -47,47 +27,52 @@ extra-source-files:
 library
   build-depends:
     base >3 && <5,
-    attoparsec          == 0.10.*   ,
-    attoparsec-conduit  == 0.5.*    ,
-    biocore             == 0.2      ,
-    bytestring                      ,
-    bytestring-lexing   == 0.4.*    ,
-    conduit             == 0.5.*    ,
-    containers,
-    either-unwrap       == 1.1      ,
-    lens                == 3.*      ,
-    primitive           >= 0.5      ,
-    repa                == 3.2.*    ,
-    transformers        == 0.3.*    ,
-    tuple               == 0.2.*    ,
-    vector              >= 0.10     ,
-    BiobaseXNA          == 0.7.*    ,
-    PrimitiveArray      == 0.5.*
+    ansi-wl-pprint      >= 0.6    ,
+    attoparsec          >= 0.10   ,
+    attoparsec-conduit  >= 1      ,
+    biocore             >= 0.3    ,
+    bytestring                    ,
+    bytestring-lexing   >= 0.4    ,
+    conduit             >= 1.0    ,
+    containers                    ,
+    data-default-class  >= 0.0.1  ,
+    either-unwrap       >= 1.1    ,
+    filepath            >= 1.3    ,
+    lens                >= 3.10   ,
+    primitive           >= 0.5    ,
+    repa                >= 3.2    ,
+    transformers        >= 0.3    ,
+    tuple               >= 0.2    ,
+    vector              >= 0.10   ,
+    vector-th-unbox     >= 0.2    ,
+    zlib-conduit        >= 1.0    ,
+    BiobaseXNA          >= 0.8    ,
+    PrimitiveArray      >= 0.5
 
   exposed-modules:
---    Biobase.Infernal
---    Biobase.Infernal.Align
---    Biobase.Infernal.Align.Import
---    Biobase.Infernal.Clan
---    Biobase.Infernal.Clan.Import
+-- --    Biobase.Infernal
+-- --    Biobase.Infernal.Align
+-- --    Biobase.Infernal.Align.Import
+-- --    Biobase.Infernal.Clan
+-- --    Biobase.Infernal.Clan.Import
     Biobase.SElab.CM
-    Biobase.SElab.CM.Import
+--     Biobase.SElab.CM.Import
     Biobase.SElab.HMM
-    Biobase.SElab.HMM.Import
---    Biobase.Infernal.Hit
---    Biobase.Infernal.RfamFasta
---    Biobase.Infernal.RfamFasta.Import
+--     Biobase.SElab.HMM.Import
+-- --    Biobase.Infernal.Hit
+-- --    Biobase.Infernal.RfamFasta
+-- --    Biobase.Infernal.RfamFasta.Import
     Biobase.SElab.RfamNames
-    Biobase.SElab.RfamNames.Import
---    Biobase.Infernal.TabularHit
---    Biobase.Infernal.TabularHit.Import
+--     Biobase.SElab.RfamNames.Import
+-- --    Biobase.Infernal.TabularHit
+-- --    Biobase.Infernal.TabularHit.Import
     Biobase.SElab.Taxonomy
-    Biobase.SElab.Taxonomy.Import
+--     Biobase.SElab.Taxonomy.Import
     Biobase.SElab.Types
---    Biobase.Infernal.VerboseHit
---    Biobase.Infernal.VerboseHit.Export
---    Biobase.Infernal.VerboseHit.Import
---    Biobase.Infernal.VerboseHit.Internal
+-- --    Biobase.Infernal.VerboseHit
+-- --    Biobase.Infernal.VerboseHit.Export
+-- --    Biobase.Infernal.VerboseHit.Import
+-- --    Biobase.Infernal.VerboseHit.Internal
 
   ghc-options:
     -O2 -funbox-strict-fields
