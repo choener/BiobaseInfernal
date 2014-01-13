@@ -16,7 +16,8 @@
 module Biobase.SElab.CM.Import where
 
 import           Control.Applicative
-import           Control.Lens (view,(^.))
+import           Control.Lens (view,(^.),(^..),folded)
+import           Control.Monad
 import           Control.Monad.IO.Class (MonadIO)
 import           Data.Attoparsec.ByteString.Char8 (endOfLine,skipSpace,decimal,double,rational,isEndOfLine,(.*>),signed)
 import           Data.Attoparsec.ByteString (takeTill,count,many1,(<?>),manyTill,option)
@@ -69,40 +70,46 @@ parseCM = conduitParserEither (go <?> "CM parser") =$= awaitForever (either (err
     _name        <-  IDD <$> "NAME" ..*> eolS
     _accession   <-  optional $ ACC <$ "ACC" ..*> "RF" <*> decimal <* endOfLine
     _description <-  option "" $  "DESC" ..*> eolS
-    states   <- "STATES"   ..*> eolD  -- number of states
-    nodes    <- "NODES"    ..*> eolD  -- number of nodes
-    clen     <- "CLEN"     ..*> eolD  -- consensus model length (matl + matr + 2*matp)
-    w        <- "W"        ..*> eolD  -- maximum expected size of hit
-    alph     <- "ALPH"     ..*> eolS  -- currently only "RNA"
-    rf       <- option False $ "RF" ..*> eolB
-    cons     <- "CONS"     ..*> eolB
-    mapp     <- option False $ "MAP"  ..*> eolB
-    date     <- option ""    $ "DATE" ..*> eolS
-    com      <- many $ "COM" ..*> eolS
-    pbegin   <- option 0.05 $ "PBEGIN" ..*> eolR
-    pend     <- option 0.05 $ "PEND"   ..*> eolR
-    wbeta    <- "WBETA"    ..*> eolR
-    qdbbeta2 <- "QDBBETA1" ..*> eolR
-    qdbbeta2 <- "QDBBETA2" ..*> eolR
-    n2omega  <- "N2OMEGA"  ..*> eolR
-    n3omega  <- "N3OMEGA"  ..*> eolR
-    elself   <- "ELSELF"   ..*> eolR
-    nseq     <- optional $ "NSEQ"  ..*> eolN
-    effn     <- optional $ "EFFN"  ..*> eolR
-    cksum    <- optional $ "CKSUM" ..*> eolN
-    _nullModel     <- "NULL" ..*> (VU.fromList <$> count 4 (BitScore <$> ssRational) <* eolS)
+    states    <- "STATES"   ..*> eolN  -- number of states
+    nodes     <- "NODES"    ..*> eolN  -- number of nodes
+    clen      <- "CLEN"     ..*> eolN  -- consensus model length (matl + matr + 2*matp)
+    _w        <- "W"        ..*> eolN  -- maximum expected size of hit
+    _alph     <- "ALPH"     ..*> eolS  -- currently only "RNA"
+    _rf       <- option False $ "RF" ..*> eolB
+    _cons     <- "CONS"     ..*> eolB
+    _mapAnno  <- option False $ "MAP"  ..*> eolB
+    _date     <- option ""    $ "DATE" ..*> eolS
+    _commandLineLog <- many $ "COM" ..*> eolS
+    _pBegin   <- option 0.05 $ "PBEGIN" ..*> eolR
+    _pEnd     <- option 0.05 $ "PEND"   ..*> eolR
+    _wBeta    <- "WBETA"    ..*> eolR
+    _qdbBeta1 <- "QDBBETA1" ..*> eolR
+    _qdbBeta2 <- "QDBBETA2" ..*> eolR
+    _n2Omega  <- "N2OMEGA"  ..*> eolR
+    _n3Omega  <- "N3OMEGA"  ..*> eolR
+    _elSelf   <- "ELSELF"   ..*> eolR
+    _nseq     <- optional $ "NSEQ"  ..*> eolN
+    _effnseq  <- optional $ "EFFN"  ..*> eolR
+    _chksum   <- optional $ "CKSUM" ..*> eolN
+    _nullModel     <- "NULL" ..*> (VU.fromList <$> count 4 (BitScore <$> ssQ) <* eolS)
     _gathering     <- optional $ "GA" ..*> (BitScore <$> eolR)
     _trustedCutoff <- optional $ "TC" ..*> (BitScore <$> eolR)
     _noiseCutoff   <- optional $ "NC" ..*> (BitScore <$> eolR)
-    efp7gf   <- "EFP7GF"   ..*> count 2 (ssRational) <* eolS
-    ecmlc    <- optional $ "ECMLC" ..*> statParam
-    ecmgc    <- optional $ "ECMGC" ..*> statParam
-    ecmli    <- optional $ "ECMLI" ..*> statParam
-    ecmgi    <- optional $ "ECMGI" ..*> statParam
+    _efp7gf   <- "EFP7GF"   ..*> ((,) <$> ssD <*> ssD <* eolS) -- count 2 (ssD) <* eolS
+    _ecmLC    <- optional $ "ECMLC" ..*> statParam
+    _ecmGC    <- optional $ "ECMGC" ..*> statParam
+    _ecmLI    <- optional $ "ECMLI" ..*> statParam
+    _ecmGI    <- optional $ "ECMGI" ..*> statParam
     "CM" *> endOfLine
     ns <- manyTill parseNode "//" <* endOfLine <?> "nodes"
     let _nodes      = M.fromList $ map (\(n,_) -> (n^.nID,n)) ns
     let _states     = M.fromList $ concatMap (map (\s -> (s^.sID,s)) . snd) ns
+    unless (M.size _nodes  == nodes ) $ error "Number of nodes does not match header information"
+    unless (M.size _states == states) $ error "Number of states does not match header information"
+    let l = 2*(length $ _states^..folded._MP) + (length $ _states^..folded._ML) + (length $ _states^..folded._MR)
+    unless (l==clen) (error $ "consensus length does not match header information" ++ show (l,clen))
+    let l = 2*(length $ _nodes^..folded._MatP) + (length $ _nodes^..folded._MatL) + (length $ _nodes^..folded._MatR)
+    unless (l==clen) (error $ "consensus length does not match header information" ++ show (l,clen))
     let _localBegin = M.empty
     let _localEnd   = M.empty
     hmm <- manyTill infoLine "//" <* endOfLine <?> "hmm"
@@ -118,7 +125,7 @@ parseNode = do
   "[ "
   nctor <-  Root <$ "ROOT" <|> Bif  <$ "BIF"  <|> End  <$ "END"
         <|> BegL <$ "BEGL" <|> BegR <$ "BEGR" <|> MatL <$ "MATL" <|> MatR <$ "MATR" <|> MatP <$ "MATP"
-  nid <- NodeID <$> ssDecimal
+  nid <- NodeID <$> ssN
   skipSpace
   "]"
   colL <- xDecimal  -- left consensus column from alignment ('-' or column number) ("MAP")
@@ -156,20 +163,20 @@ parseState nid = skipSpace *> (sde <|> mi <|> mp <|> b)
     return $ sctor s nid (zip tids ts) (rnaPs es)
   b = do
     sctor <- B <$ "B"
-    (s,p,l,r) <- (,,,) <$> sid <*> parent <* ssDecimal
-                       <*> (StateID <$> ssDecimal) <*> (StateID <$> ssDecimal)
-                       <*  ssDecimal <* ssDecimal <* ssDecimal <* ssDecimal
+    (s,p,l,r) <- (,,,) <$> sid <*> parent <* ssN
+                       <*> (StateID <$> ssN) <*> (StateID <$> ssN)
+                       <*  ssN <* ssN <* ssN <* ssN
     return $ sctor s nid (l,r)
                 -- state id, highest numbered parent, number of parents,
-  upDown = (,,) <$> sid <*> parent <* ssDecimal
+  upDown = (,,) <$> sid <*> parent <* ssN
                 -- lowest numbered child, number of children (or right begin for @b@)
-                <*> ((\f n -> map StateID . take n $ [f, f+1 ..]) <$> ssIntegral <*> ssDecimal)
+                <*> ((\f n -> map StateID . take n $ [f, f+1 ..]) <$> ssZ <*> ssN)
                 -- QDB values:
-                <*  ssDecimal <* ssDecimal <* ssDecimal <* ssDecimal
+                <*  ssN <* ssN <* ssN <* ssN
   trans c = count c $ skipSpace *> (BitScore <$> double <|> BitScore (-999999) <$ "*")
   emit  c = count c (BitScore <$ skipSpace <*> double)
-  sid = StateID <$> ssDecimal
-  numTs = ssDecimal
+  sid = StateID <$> ssN
+  numTs = ssN
   parent = skipSpace *> (Nothing <$ "-1" <|> Just <$> decimal)
   firstChild = skipSpace *> (Nothing <$ "-1" <|> Just <$> decimal)
   rnaEs = M.fromList . zip "ACGU"
@@ -179,9 +186,10 @@ parseState nid = skipSpace *> (sde <|> mi <|> mp <|> b)
 
 -- * Helper functions
 
-ssDecimal = skipSpace *> decimal
-ssIntegral = skipSpace *> signed decimal
-ssRational = skipSpace *> rational
+ssN = skipSpace *> decimal
+ssZ = skipSpace *> signed decimal
+ssQ = skipSpace *> rational
+ssD = skipSpace *> double
 ssString = skipSpace *> ABC.takeTill isSpace
 
 xDecimal = skipSpace *> (Nothing <$ "-" <|> Just <$> decimal)
@@ -191,10 +199,11 @@ infoLine = (,) <$> ABC.takeWhile isAlpha <* skipSpace <*> takeTill isEndOfLine <
 
 (..*>) s t = s .*> skipSpace *> t
 
-statParam = (,,,,) <$> ssRational <*> ssRational <*> ssDecimal <*> ssDecimal <*> ssRational <* eolS
+statParam = EValueParams <$> ssD <*> ssD <*> ssD <*> ssN <*> ssN <*> eolD
 eolS = takeTill isEndOfLine <* endOfLine
 eolR = skipSpace *> rational <* endOfLine
 eolD = skipSpace *> double <* endOfLine
 eolN = skipSpace *> decimal <* endOfLine
+eolZ = skipSpace *> signed decimal <* endOfLine
 eolB = skipSpace *> (True <$ "yes" <|> False <$ "no") <* endOfLine
 

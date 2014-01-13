@@ -15,23 +15,24 @@
 
 module Biobase.SElab.CM where
 
-import Control.Applicative
-import Control.Lens
-import Data.Array.Repa.Index as R
-import Data.Array.Repa.Shape as R
-import Data.ByteString.Char8 as BS
-import Data.Ix (Ix)
-import Data.List (genericLength)
-import Data.Map as M
-import Data.Primitive.Types
-import Data.Vector as V
-import Data.Vector.Unboxed as VU
-import GHC.Base (quotInt,remInt)
-import Prelude as P
+import           Control.Applicative
+import           Control.Lens
+import           Data.Array.Repa.Index as R
+import           Data.Array.Repa.Shape as R
+import           Data.ByteString.Char8 as BS
+import           Data.Ix (Ix)
+import           Data.List (genericLength)
+import           Data.Map as M
+import           Data.Primitive.Types
+import           Data.Vector as V
+import           Data.Vector.Unboxed as VU
+import           Data.Word (Word32(..))
+import           GHC.Base (quotInt,remInt)
+import           Prelude as P
 
-import Data.Array.Repa.ExtShape as R
+import           Data.Array.Repa.ExtShape as R
 
-import Biobase.SElab.Types
+import           Biobase.SElab.Types
 import qualified Biobase.SElab.HMM as HMM
 
 
@@ -78,21 +79,63 @@ data Node
 makeLenses ''Node
 makePrisms ''Node
 
+-- | Extended CM information to calculate e-values
+
+data EValueParams = EValueParams
+  { _lambda  :: Double  -- ^ λ>0 (lambda, slope) for exponential tails for local scores
+  , _tau     :: Double  -- ^ τ (tau, location) for exponential tails for local scores
+  , _tau2    :: Double  -- ^ τ2 (tau, location again) for full histogram of all hits
+  , _dbSize  :: Int     -- ^ database size in residues
+  , _numHits :: Int     -- ^ total number of non-overlapping hits
+  , _tailFit :: Double  -- ^ high-scoring tail fit
+  }
+  deriving (Eq,Show,Read)
+
+makeLenses ''EValueParams
+makePrisms ''EValueParams
+
 data CM = CM
+  -- basic information
   { _name           :: Identification Rfam    -- ^ name of model as in "tRNA"
   , _accession      :: Maybe (Accession Rfam) -- ^ RFxxxxx identification
   , _version        :: (Int,Int)              -- ^ We can parse version 1.0 and 1.1 CMs
+  -- three possible cutoff scores
   , _trustedCutoff  :: Maybe BitScore         -- ^ lowest score of any seed member
-  , _gathering      :: Maybe BitScore         -- ^ all scores at or above 'gathering' score are in the "full" alignment
+  , _gathering      :: Maybe BitScore         -- ^ all scores at or above '_gathering' score are in the full alignment
   , _noiseCutoff    :: Maybe BitScore         -- ^ highest score NOT included as member
+  -- other info for calculations
   , _nullModel      :: VU.Vector BitScore     -- ^ Null-model: categorical distribution on ACGU
-
+  , _w              :: Int                    -- ^ maximum expected hit size (and thereby window length for scanning)
+  , _alph           :: ByteString             -- ^ the alphabet that was used (only ACGU is currently supported)
+  , _pBegin         :: Double                 -- ^ local begin probability
+  , _pEnd           :: Double                 -- ^ local exit probability
+  , _wBeta          :: Double                 -- ^ tail loss probability; window length
+  , _qdbBeta1       :: Double                 -- ^ tail loss probability; for tight qdb
+  , _qdbBeta2       :: Double                 -- ^ tail loss probability; for loose qdb
+  , _n2Omega        :: Double                 -- ^ prior prob for alternative null2
+  , _n3Omega        :: Double                 -- ^ prior prob for alternative null3
+  , _elSelf         :: Double                 -- ^ end locally self transition score
+  , _efp7gf         :: (Double,Double)        -- ^ τ (tau) and λ (lambda) for glocal forward hmm filtering
+  , _ecmLC          :: Maybe EValueParams     -- ^ local CYK evalues
+  , _ecmGC          :: Maybe EValueParams     -- ^ glocal CYK evalues
+  , _ecmLI          :: Maybe EValueParams     -- ^ local Inside evalues
+  , _ecmGI          :: Maybe EValueParams     -- ^ glocal Inside evalues
+  -- annotation, backmapping, executed command lines
+  , _rf             :: Bool                   -- ^ 'True' if we have a valid reference annotation in the alignment
+  , _cons           :: Bool                   -- ^ 'True' if we have a valid consensus residue annotation in the alignment
+  , _mapAnno        :: Bool                   -- ^ if 'True' the map annotation field maps to the multiple alignment column
+  , _date           :: ByteString             -- ^ date model was constructed
+  , _commandLineLog :: [ByteString]           -- ^ log of executed command lines
+  , _nseq           :: Maybe Int              -- ^ number of sequences in multiple alignment
+  , _effnseq        :: Maybe Double           -- ^ effective number of sequences (after weighting)
+  , _chksum         :: Maybe Word32           -- ^ checksum (TODO: replace Word32 with actual checksum newtype)
+  -- the actual CM in nodes and states
   , _nodes  :: M.Map NodeID Node    -- ^ each node has a set of states
   , _states :: M.Map StateID State  -- ^ each state has a type, some emit characters, and some have children
-
+  -- these maps are non-null if we go local
   , _localBegin :: M.Map StateID BitScore -- ^ Entries into the CM.
   , _localEnd   :: M.Map StateID BitScore -- ^ Exits out of the CM.
-
+  -- and finally the attached HMM
   , _hmm            :: Maybe HMM.HMM3
   } deriving (Show,Read)
 
