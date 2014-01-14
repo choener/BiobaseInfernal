@@ -1,3 +1,5 @@
+{-# LANGUAGE NoMonomorphismRestriction #-}
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE StandaloneDeriving #-}
@@ -65,12 +67,22 @@ data State
 makeLenses ''State
 makePrisms ''State
 
+data NodeAnno = NodeAnno
+  { _consCol :: Maybe Int
+  , _consRes :: Maybe Char
+  , _refAnno :: Maybe Char
+  }
+  deriving (Show,Read,Eq)
+
+makeLenses ''NodeAnno
+makePrisms ''NodeAnno
+
 data Node
   = Root { _nID :: NodeID, _nStateIDs :: [StateID] }
   | Bif  { _nID :: NodeID, _nStateIDs :: [StateID] }
-  | MatP { _nID :: NodeID, _nStateIDs :: [StateID] }
-  | MatL { _nID :: NodeID, _nStateIDs :: [StateID] }
-  | MatR { _nID :: NodeID, _nStateIDs :: [StateID] }
+  | MatP { _nID :: NodeID, _nStateIDs :: [StateID], _annoL :: NodeAnno, _annoR :: NodeAnno }
+  | MatL { _nID :: NodeID, _nStateIDs :: [StateID], _annoL :: NodeAnno                     }
+  | MatR { _nID :: NodeID, _nStateIDs :: [StateID],                     _annoR :: NodeAnno }
   | BegL { _nID :: NodeID, _nStateIDs :: [StateID] }
   | BegR { _nID :: NodeID, _nStateIDs :: [StateID] }
   | End  { _nID :: NodeID, _nStateIDs :: [StateID] }
@@ -78,6 +90,16 @@ data Node
 
 makeLenses ''Node
 makePrisms ''Node
+
+-- | Focus on a node based on the annotated left column (either a MatP or a
+-- MatL).
+
+nodeColL = containsTest (\i s -> error $ show (i,s))
+
+-- | Focus on a node base on the annotated right column (either a MatP or a
+-- MatR).
+
+nodeColR = undefined
 
 -- | Extended CM information to calculate e-values
 
@@ -93,6 +115,12 @@ data EValueParams = EValueParams
 
 makeLenses ''EValueParams
 makePrisms ''EValueParams
+
+-- | An Infernal v1.1 covariance model.
+--
+-- TODO add @instance Default@
+--
+-- TODO add different data constructors for the different versions of CMs
 
 data CM = CM
   -- basic information

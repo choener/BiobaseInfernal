@@ -16,7 +16,7 @@
 module Biobase.SElab.CM.Import where
 
 import           Control.Applicative
-import           Control.Lens (view,(^.),(^..),folded)
+import           Control.Lens -- (view,(^.),(^..),folded)
 import           Control.Monad
 import           Control.Monad.IO.Class (MonadIO)
 import           Data.Attoparsec.ByteString.Char8 (endOfLine,skipSpace,decimal,double,rational,isEndOfLine,(.*>),signed)
@@ -50,7 +50,7 @@ test = do
   --xs11 <- fromFile "rfam-all.cm"
   --xs11 <- fromFile "trna.cm"
   xs11 <- fromFile "two.cm"
-  print xs11
+  print $ xs11 ^..folded . nodes . folded . annoR
 
 -- | Helper function to simplify parsing CMs from a (possibly gzipped) file.
 
@@ -60,7 +60,13 @@ fromFile f
   | otherwise       = error $ "can't read from: " ++ f
   where ext = takeExtension f
 
--- | TODO this parser currently parses only 1.1 models
+-- | 'Conduit' to parse CM from 'ByteString's.
+--
+-- TODO this parser currently parses only Version 1.1 models; we maybe want to
+-- be able to parse earlier models as well (CMCompare would use that).
+--
+-- TODO allow parsing lines in basically random order (a fold over lines, with
+-- a default model to start with).
 
 parseCM :: (Monad m, MonadIO m, MonadThrow m) => Conduit ByteString m CM
 parseCM = conduitParserEither (go <?> "CM parser") =$= awaitForever (either (error . show) (yield . snd)) where -- CL.sequence (sinkParser go) where
@@ -106,8 +112,6 @@ parseCM = conduitParserEither (go <?> "CM parser") =$= awaitForever (either (err
     let _states     = M.fromList $ concatMap (map (\s -> (s^.sID,s)) . snd) ns
     unless (M.size _nodes  == nodes ) $ error "Number of nodes does not match header information"
     unless (M.size _states == states) $ error "Number of states does not match header information"
-    let l = 2*(length $ _states^..folded._MP) + (length $ _states^..folded._ML) + (length $ _states^..folded._MR)
-    unless (l==clen) (error $ "consensus length does not match header information" ++ show (l,clen))
     let l = 2*(length $ _nodes^..folded._MatP) + (length $ _nodes^..folded._MatL) + (length $ _nodes^..folded._MatR)
     unless (l==clen) (error $ "consensus length does not match header information" ++ show (l,clen))
     let _localBegin = M.empty
@@ -123,20 +127,31 @@ parseCM = conduitParserEither (go <?> "CM parser") =$= awaitForever (either (err
 parseNode = do
   skipSpace
   "[ "
-  nctor <-  Root <$ "ROOT" <|> Bif  <$ "BIF"  <|> End  <$ "END"
-        <|> BegL <$ "BEGL" <|> BegR <$ "BEGR" <|> MatL <$ "MATL" <|> MatR <$ "MATR" <|> MatP <$ "MATP"
-  nid <- NodeID <$> ssN
+  nctor <-  Root{} <$ "ROOT" <|> Bif{}  <$ "BIF"  <|> End{}  <$ "END"
+        <|> BegL{} <$ "BEGL" <|> BegR{} <$ "BEGR" <|> MatL{} <$ "MATL" <|> MatR{} <$ "MATR" <|> MatP{} <$ "MATP"
+  _nID <- NodeID <$> ssN
   skipSpace
   "]"
-  colL <- xDecimal  -- left consensus column from alignment ('-' or column number) ("MAP")
-  colR <- xDecimal  -- right consensus column from alignment ('-' or column number)
-  resL <- xString   -- left consensus residue ("CONS")
-  resR <- xString   -- right consensus residue
-  rfL  <- xString   -- left reference
-  rfR  <- xString   -- right reference
+  consColL <- xN  -- left consensus column from alignment ('-' or column number) ("MAP")
+  consColR <- xN  -- right consensus column from alignment ('-' or column number)
+  resL <- xChar   -- left consensus residue ("CONS")
+  resR <- xChar   -- right consensus residue
+  rfL  <- xChar   -- left reference
+  rfR  <- xChar   -- right reference
   eolS
-  ss <- many1 $ parseState nid
-  return $ (nctor nid (map (view sID) ss), ss)
+  let _annoL = NodeAnno consColL resL rfL
+  let _annoR = NodeAnno consColR resR rfR
+  ss <- many1 $ parseState (_nID)
+  let _nStateIDs = map (view sID) ss
+  return $ case nctor of
+    Root{} -> (Root{..}, ss)
+    Bif{}  -> (Bif{..} , ss)
+    End{}  -> (End{..} , ss)
+    BegL{} -> (BegL{..}, ss)
+    BegR{} -> (BegR{..}, ss)
+    MatL{} -> (MatL{..}, ss)
+    MatR{} -> (MatR{..}, ss)
+    MatP{} -> (MatP{..}, ss)
 
 -- | Parses individual states. Parsers are grouped according to their
 -- ``family''.
@@ -191,9 +206,11 @@ ssZ = skipSpace *> signed decimal
 ssQ = skipSpace *> rational
 ssD = skipSpace *> double
 ssString = skipSpace *> ABC.takeTill isSpace
+ssChar = skipSpace *> ABC.anyChar
 
-xDecimal = skipSpace *> (Nothing <$ "-" <|> Just <$> decimal)
-xString  = skipSpace *> (Nothing <$ "-" <|> Just <$> ABC.takeTill isSpace)
+xN      = skipSpace *> (Nothing <$ "-" <|> Just <$> decimal)
+xString = skipSpace *> (Nothing <$ "-" <|> Just <$> ABC.takeTill isSpace)
+xChar   = skipSpace *> (Nothing <$ "-" <|> Just <$> ABC.anyChar)
 
 infoLine = (,) <$> ABC.takeWhile isAlpha <* skipSpace <*> takeTill isEndOfLine <* endOfLine
 

@@ -62,6 +62,11 @@ data Species
 -- Infernal users guide, p.42: log-odds score in log_2 (aka bits).
 --
 -- S = log_2 (P(seq|CM) / P(seq|null))
+--
+-- TODO use logfloat, instead of rolling our own (actually maybe not:
+-- 'BitScore's are exactly that: log-scaled scores where we expect @(+)@ to add
+-- the scores, i.e. we'd multiply in normal space; while LogFloat's act just
+-- like floats, but internally they handle everything in log-space).
 
 newtype BitScore = BitScore {unBitScore :: Double}
   deriving (Eq,Ord,Read,Show,Num,Prim)
