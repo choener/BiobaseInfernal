@@ -55,8 +55,8 @@ test = do
 -- | Helper function to simplify parsing CMs from a (possibly gzipped) file.
 
 fromFile f
-  | ext == ".cm.gz" = runResourceT $ sourceFile f $= ungzip =$= parseCM $$ consume
-  | ext == ".cm"    = runResourceT $ sourceFile f $=            parseCM $$ consume
+  | ext == ".cm.gz" = runResourceT $ sourceFile f $= ungzip =$= conduitCM $$ consume
+  | ext == ".cm"    = runResourceT $ sourceFile f $=            conduitCM $$ consume
   | otherwise       = error $ "can't read from: " ++ f
   where ext = takeExtension f
 
@@ -68,59 +68,61 @@ fromFile f
 -- TODO allow parsing lines in basically random order (a fold over lines, with
 -- a default model to start with).
 
-parseCM :: (Monad m, MonadIO m, MonadThrow m) => Conduit ByteString m CM
-parseCM = conduitParserEither (go <?> "CM parser") =$= awaitForever (either (error . show) (yield . snd)) where -- CL.sequence (sinkParser go) where
-  go = do
-    _version     <-  (1,1) <$ "INFERNAL1/a" <* eolS
-                 <?> "CM: _version"
-    _name        <-  IDD <$> "NAME" ..*> eolS
-    _accession   <-  optional $ ACC <$ "ACC" ..*> "RF" <*> decimal <* endOfLine
-    _description <-  option "" $  "DESC" ..*> eolS
-    states    <- "STATES"   ..*> eolN  -- number of states
-    nodes     <- "NODES"    ..*> eolN  -- number of nodes
-    clen      <- "CLEN"     ..*> eolN  -- consensus model length (matl + matr + 2*matp)
-    _w        <- "W"        ..*> eolN  -- maximum expected size of hit
-    _alph     <- "ALPH"     ..*> eolS  -- currently only "RNA"
-    _rf       <- option False $ "RF" ..*> eolB
-    _cons     <- "CONS"     ..*> eolB
-    _mapAnno  <- option False $ "MAP"  ..*> eolB
-    _date     <- option ""    $ "DATE" ..*> eolS
-    _commandLineLog <- many $ "COM" ..*> eolS
-    _pBegin   <- option 0.05 $ "PBEGIN" ..*> eolR
-    _pEnd     <- option 0.05 $ "PEND"   ..*> eolR
-    _wBeta    <- "WBETA"    ..*> eolR
-    _qdbBeta1 <- "QDBBETA1" ..*> eolR
-    _qdbBeta2 <- "QDBBETA2" ..*> eolR
-    _n2Omega  <- "N2OMEGA"  ..*> eolR
-    _n3Omega  <- "N3OMEGA"  ..*> eolR
-    _elSelf   <- "ELSELF"   ..*> eolR
-    _nseq     <- optional $ "NSEQ"  ..*> eolN
-    _effnseq  <- optional $ "EFFN"  ..*> eolR
-    _chksum   <- optional $ "CKSUM" ..*> eolN
-    _nullModel     <- "NULL" ..*> (VU.fromList <$> count 4 (BitScore <$> ssQ) <* eolS)
-    _gathering     <- optional $ "GA" ..*> (BitScore <$> eolR)
-    _trustedCutoff <- optional $ "TC" ..*> (BitScore <$> eolR)
-    _noiseCutoff   <- optional $ "NC" ..*> (BitScore <$> eolR)
-    _efp7gf   <- "EFP7GF"   ..*> ((,) <$> ssD <*> ssD <* eolS) -- count 2 (ssD) <* eolS
-    _ecmLC    <- optional $ "ECMLC" ..*> statParam
-    _ecmGC    <- optional $ "ECMGC" ..*> statParam
-    _ecmLI    <- optional $ "ECMLI" ..*> statParam
-    _ecmGI    <- optional $ "ECMGI" ..*> statParam
-    "CM" *> endOfLine
-    ns <- manyTill parseNode "//" <* endOfLine <?> "nodes"
-    let _nodes      = M.fromList $ map (\(n,_) -> (n^.nID,n)) ns
-    let _states     = M.fromList $ concatMap (map (\s -> (s^.sID,s)) . snd) ns
-    unless (M.size _nodes  == nodes ) $ error "Number of nodes does not match header information"
-    unless (M.size _states == states) $ error "Number of states does not match header information"
-    let l = 2*(length $ _nodes^..folded._MatP) + (length $ _nodes^..folded._MatL) + (length $ _nodes^..folded._MatR)
-    unless (l==clen) (error $ "consensus length does not match header information" ++ show (l,clen))
-    let _localBegin = M.empty
-    let _localEnd   = M.empty
-    hmm <- manyTill infoLine "//" <* endOfLine <?> "hmm"
-    let _hmm = Nothing
---    rest <- takeByteString
---    error $ ("\n"++) $ L.take 100 $ BS.unpack rest
-    return CM{..}
+conduitCM :: (Monad m, MonadIO m, MonadThrow m) => Conduit ByteString m CM
+conduitCM = conduitParserEither (parseCM <?> "CM parser") =$= awaitForever (either (error . show) (yield . snd)) where
+
+parseCM :: ABC.Parser CM
+parseCM = do
+  _version     <-  (1,1) <$ "INFERNAL1/a" <* eolS
+               <?> "CM: _version"
+  _name        <-  IDD <$> "NAME" ..*> eolS
+  _accession   <-  optional $ ACC <$ "ACC" ..*> "RF" <*> decimal <* endOfLine
+  _description <-  option "" $  "DESC" ..*> eolS
+  states    <- "STATES"   ..*> eolN  -- number of states
+  nodes     <- "NODES"    ..*> eolN  -- number of nodes
+  clen      <- "CLEN"     ..*> eolN  -- consensus model length (matl + matr + 2*matp)
+  _w        <- "W"        ..*> eolN  -- maximum expected size of hit
+  _alph     <- "ALPH"     ..*> eolS  -- currently only "RNA"
+  _rf       <- option False $ "RF" ..*> eolB
+  _cons     <- "CONS"     ..*> eolB
+  _mapAnno  <- option False $ "MAP"  ..*> eolB
+  _date     <- option ""    $ "DATE" ..*> eolS
+  _commandLineLog <- many $ "COM" ..*> eolS
+  _pBegin   <- option 0.05 $ "PBEGIN" ..*> eolR
+  _pEnd     <- option 0.05 $ "PEND"   ..*> eolR
+  _wBeta    <- "WBETA"    ..*> eolR
+  _qdbBeta1 <- "QDBBETA1" ..*> eolR
+  _qdbBeta2 <- "QDBBETA2" ..*> eolR
+  _n2Omega  <- "N2OMEGA"  ..*> eolR
+  _n3Omega  <- "N3OMEGA"  ..*> eolR
+  _elSelf   <- "ELSELF"   ..*> eolR
+  _nseq     <- optional $ "NSEQ"  ..*> eolN
+  _effnseq  <- optional $ "EFFN"  ..*> eolR
+  _chksum   <- optional $ "CKSUM" ..*> eolN
+  _nullModel     <- "NULL" ..*> (VU.fromList <$> count 4 (BitScore <$> ssQ) <* eolS)
+  _gathering     <- optional $ "GA" ..*> (BitScore <$> eolR)
+  _trustedCutoff <- optional $ "TC" ..*> (BitScore <$> eolR)
+  _noiseCutoff   <- optional $ "NC" ..*> (BitScore <$> eolR)
+  _efp7gf   <- "EFP7GF"   ..*> ((,) <$> ssD <*> ssD <* eolS) -- count 2 (ssD) <* eolS
+  _ecmLC    <- optional $ "ECMLC" ..*> statParam
+  _ecmGC    <- optional $ "ECMGC" ..*> statParam
+  _ecmLI    <- optional $ "ECMLI" ..*> statParam
+  _ecmGI    <- optional $ "ECMGI" ..*> statParam
+  "CM" *> endOfLine
+  ns <- manyTill parseNode "//" <* endOfLine <?> "nodes"
+  let _nodes      = M.fromList $ map (\(n,_) -> (n^.nID,n)) ns
+  let _states     = M.fromList $ concatMap (map (\s -> (s^.sID,s)) . snd) ns
+  unless (M.size _nodes  == nodes ) $ error "Number of nodes does not match header information"
+  unless (M.size _states == states) $ error "Number of states does not match header information"
+  let l = 2*(length $ _nodes^..folded._MatP) + (length $ _nodes^..folded._MatL) + (length $ _nodes^..folded._MatR)
+  unless (l==clen) (error $ "consensus length does not match header information" ++ show (l,clen))
+  let _localBegin = M.empty
+  let _localEnd   = M.empty
+  hmm <- manyTill infoLine "//" <* endOfLine <?> "hmm"
+  let _hmm = Nothing
+--  rest <- takeByteString
+--  error $ ("\n"++) $ L.take 100 $ BS.unpack rest
+  return CM{..}
 
 -- | Parses nodes, including the states belonging to each node.
 
@@ -201,26 +203,5 @@ parseState nid = skipSpace *> (sde <|> mi <|> mp <|> b)
 
 -- * Helper functions
 
-ssN = skipSpace *> decimal
-ssZ = skipSpace *> signed decimal
-ssQ = skipSpace *> rational
-ssD = skipSpace *> double
-ssString = skipSpace *> ABC.takeTill isSpace
-ssChar = skipSpace *> ABC.anyChar
-
-xN      = skipSpace *> (Nothing <$ "-" <|> Just <$> decimal)
-xString = skipSpace *> (Nothing <$ "-" <|> Just <$> ABC.takeTill isSpace)
-xChar   = skipSpace *> (Nothing <$ "-" <|> Just <$> ABC.anyChar)
-
-infoLine = (,) <$> ABC.takeWhile isAlpha <* skipSpace <*> takeTill isEndOfLine <* endOfLine
-
-(..*>) s t = s .*> skipSpace *> t
-
 statParam = EValueParams <$> ssD <*> ssD <*> ssD <*> ssN <*> ssN <*> eolD
-eolS = takeTill isEndOfLine <* endOfLine
-eolR = skipSpace *> rational <* endOfLine
-eolD = skipSpace *> double <* endOfLine
-eolN = skipSpace *> decimal <* endOfLine
-eolZ = skipSpace *> signed decimal <* endOfLine
-eolB = skipSpace *> (True <$ "yes" <|> False <$ "no") <* endOfLine
 

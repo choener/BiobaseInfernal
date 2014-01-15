@@ -93,8 +93,11 @@ makePrisms ''Node
 
 -- | Focus on a node based on the annotated left column (either a MatP or a
 -- MatL).
+--
+-- TODO we should be able to somehow predict the approximate start point?! And
+-- use logarithmic time to find the right node.
 
-nodeColL = containsTest (\i s -> error $ show (i,s))
+nodeColL = undefined
 
 -- | Focus on a node base on the annotated right column (either a MatP or a
 -- MatR).
@@ -168,6 +171,7 @@ data CM = CM
   } deriving (Show,Read)
 
 makeLenses ''CM
+makePrisms ''CM
 
 {-
 

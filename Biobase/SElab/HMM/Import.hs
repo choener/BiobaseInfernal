@@ -1,3 +1,4 @@
+{-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE DoAndIfThenElse #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
@@ -6,6 +7,7 @@
 
 module Biobase.SElab.HMM.Import where
 
+{-
 import Control.Monad.IO.Class (liftIO, MonadIO)
 import Data.ByteString.Char8 as BS
 import Data.ByteString.Lex.Double as BS
@@ -18,10 +20,81 @@ import Control.Arrow
 import qualified Data.Map as M
 import Data.Char (toLower)
 
-import Biobase.SElab.HMM
-import Biobase.SElab.Types
+-}
+import           Control.Applicative
+import           Control.Lens -- (view,(^.),(^..),folded)
+import           Control.Monad
+import           Control.Monad.IO.Class (MonadIO)
+import           Data.Attoparsec.ByteString.Char8 (endOfLine,skipSpace,decimal,double,rational,isEndOfLine,(.*>),signed)
+import           Data.Attoparsec.ByteString (takeTill,count,many1,(<?>),manyTill,option)
+import           Data.ByteString.Char8 (ByteString,unpack)
+import           Data.Char (isSpace,isAlpha,isDigit)
+import           Data.Conduit.Attoparsec (conduitParserEither)
+import           Data.Conduit.Binary (sourceFile)
+import           Data.Conduit.List (consume)
+import           Data.Conduit (yield,awaitForever,(=$=),Conduit,MonadThrow,($$),($=),runResourceT)
+import           Data.Conduit.Zlib (ungzip)
+import           Data.Vector.Unboxed (fromList)
+import qualified Data.Attoparsec.ByteString as AB
+import qualified Data.Attoparsec.ByteString.Char8 as ABC
+import qualified Data.Map as M
+import qualified Data.Vector.Unboxed as VU (fromList)
+import           System.FilePath (takeExtension)
+
+import           Biobase.SElab.HMM
+import           Biobase.SElab.Types
+import           Biobase.SElab.Common.Parser
 
 
+
+-- |
+
+conduitHMM :: (Monad m, MonadIO m, MonadThrow m) => Conduit ByteString m HMM
+conduitHMM = conduitParserEither (parseHMM <?> "HMM parser") =$= awaitForever (either (error . show) (yield . snd)) where
+
+-- |
+
+parseHMM :: ABC.Parser HMM
+parseHMM = do
+  _version <- (1,1) <$ "HMMER3/f" <* eolS
+  _name         <-  IDD <$> "NAME" ..*> eolS
+  _accession    <-  optional $ ACC <$ "ACC" ..*> "RF" <*> decimal <* endOfLine
+  _description  <-  optional $  "DESC" ..*> eolS
+  numMatS       <- "LENG" ..*> eolN
+  maxl          <- "MAXL" ..*> eolN
+  _alph         <- "ALPH" ..*> eolS
+  _rf           <- option False $ "RF" ..*> eolB
+  mm            <- "MM" ..*> eolB
+  _consRes      <- "CONS" ..*> eolB
+  _consStruc    <- "CS" ..*> eolB
+  _mapAnno      <- option False $ "MAP"  ..*> eolB
+  _date         <- option ""    $ "DATE" ..*> eolS
+  _commandLineLog <- many $ "COM" ..*> eolS
+  _nseq     <- optional $ "NSEQ"  ..*> eolN
+  _effnseq  <- optional $ "EFFN"  ..*> eolR
+  _chksum   <- optional $ "CKSUM" ..*> eolN
+  _msv <- optional $ "STATS LOCAL MSV" ..*> ((,) <$> ssD <*> eolR)
+  _viterbi <- optional $ "STATS LOCAL VITERBI" ..*> ((,) <$> ssD <*> eolR)
+  _forward <- optional $ "STATS LOCAL FORWARD" ..*> ((,) <$> ssD <*> eolR)
+  "HMM" ..*> eolS
+  eolS
+  _avgStateEmit <- option [] $ "COMPO" ..*> count 4 (BitScore <$> ssD) <* eolS
+  n  <- beginNode
+  ns <- undefined
+  return HMM{..}
+
+beginNode = (,) <$> insertEmission <*> stateTransition
+
+insertEmission = do
+  return undefined
+
+matchEmission = do
+  return undefined
+
+stateTransition = do
+  return undefined
+
+{-
 
 -- * Different HMMer parsers
 
@@ -175,4 +248,6 @@ test :: IO ()
 test = do
   xs <- runResourceT $ sourceFile "test.hmm" =$= CB.lines $= CL.sequence parseHMM3 $$ consume -- sinkHandle stdout
   print xs
+
+-}
 

@@ -1,22 +1,55 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE EmptyDataDecls #-}
 
--- | HMMER3 HMMs. Since we do not understand HMMER3 HMMs yet, this is actually
--- just a small ``throw-away'' parser to successfully parse Infernal 1.1 CMs.
--- The next version should have a real working parser.
---
--- TODO in the future, we should split parsing into just grabbing lines between
--- HMMER and "//" and handling in-between. We need extraction of individual
--- models and similar fun.
+-- |
 
 module Biobase.SElab.HMM where
 
 import Data.ByteString.Char8 as BS
 import Control.Lens
+import Data.Word (Word32(..))
 
 import Biobase.SElab.Types
 
+-- | An Infernal HMM model.
+--
+-- TODO again, we can only parse HMMs as in Infernal 1.1. Extensions to general
+-- HMMer and older versions need so follow.
 
+data HMM = HMM
+  { _version        :: (Int,Int)
+  , _name           :: Identification Rfam      -- ^ the name of this HMM, tagged as 'Rfam' as these are all Rfam/HMMer models
+  , _accession      :: Maybe (Accession Rfam)
+  , _description    :: Maybe ByteString
+  , _alph           :: ByteString
+  , _rf             :: Bool
+  , _consRes        :: Bool
+  , _consStruc      :: Bool
+  , _mapAnno        :: Bool
+  , _date           :: ByteString
+  , _commandLineLog :: [ByteString]
+  , _nseq           :: Maybe Int              -- ^ number of sequences in multiple alignment
+  , _effnseq        :: Maybe Double           -- ^ effective number of sequences (after weighting)
+  , _chksum         :: Maybe Word32           -- ^ checksum (TODO: replace Word32 with actual checksum newtype)
+  , _msv            :: Maybe (Double,Double)  -- ^ μ (mu) and λ (lambda) for gumbel distribution
+  , _viterbi        :: Maybe (Double,Double)  -- ^ μ (mu) and λ (lambda) for gumbel distribution
+  , _forward        :: Maybe (Double,Double)  -- ^ t (tau) and l (lambda) for exponential tails
+  , _avgStateEmit   :: [BitScore]
+  {-
+  , _cs :: Bool
+  , _alignMap :: Bool
+  , _date :: ByteString
+  , _symAlph :: [ByteString]
+  , _transHeaders :: [ByteString]
+  , _compo :: [NegLogProb]
+  , _nodes :: [Node]
+  -}
+  } deriving (Show,Read)
+
+makeLenses ''HMM
+makePrisms ''HMM
+
+{-
 
 data HMM
 
@@ -48,27 +81,5 @@ data Node = Node
 
 makeLenses ''Node
 
--- | The HMM3 data structure in ``slow mode''.
---
--- TODO shouldn't this be "Identification Pfam" ?
---
--- TODO maybe redo the whole "idd" idea and just keep the string?
 
-data HMM3 = HMM3
-  { _version :: (ByteString,ByteString)
-  , _idd :: Identification HMM
-  , _acc :: Maybe (Accession HMM)
-  , _description :: Maybe ByteString
-  , _leng :: Int -- mandatory >0 count of match states
-  , _alph :: Alphabet
-  , _rf :: Bool
-  , _cs :: Bool
-  , _alignMap :: Bool
-  , _date :: ByteString
-  , _symAlph :: [ByteString]
-  , _transHeaders :: [ByteString]
-  , _compo :: [NegLogProb]
-  , _nodes :: [Node]
-  } deriving (Show,Read)
-
-makeLenses ''HMM3
+-}
