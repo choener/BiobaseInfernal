@@ -39,6 +39,7 @@ import           Biobase.SElab.CM
 import           Biobase.SElab.Types
 import qualified Biobase.SElab.HMM as HMM
 import qualified Biobase.SElab.HMM.Import as HMM
+import           Biobase.SElab.Common.Parser
 
 import Debug.Trace
 
@@ -123,6 +124,14 @@ parseCM = do
 --  rest <- takeByteString
 --  error $ ("\n"++) $ L.take 100 $ BS.unpack rest
   return CM{..}
+
+-- | Parses header strings, one line at a time
+
+{-
+parseHeaderLine cm =
+  _name        <-  IDD <$> "NAME" ..*> eolS
+  _accession   <-  optional $ ACC <$ "ACC" ..*> "RF" <*> decimal <* endOfLine
+-}
 
 -- | Parses nodes, including the states belonging to each node.
 

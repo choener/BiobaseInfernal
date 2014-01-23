@@ -167,7 +167,7 @@ data CM = CM
   , _localBegin :: M.Map StateID BitScore -- ^ Entries into the CM.
   , _localEnd   :: M.Map StateID BitScore -- ^ Exits out of the CM.
   -- and finally the attached HMM
-  , _hmm            :: Maybe HMM.HMM3
+  , _hmm            :: Maybe HMM.HMM
   } deriving (Show,Read)
 
 makeLenses ''CM
