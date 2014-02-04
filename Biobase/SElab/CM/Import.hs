@@ -50,7 +50,8 @@ test = do
   --xs11 <- runResourceT $ sourceFile "trna.cm" $= parseCM $$ consume
   --xs11 <- fromFile "rfam-all.cm"
   --xs11 <- fromFile "trna.cm"
-  xs11 <- fromFile "two.cm"
+  --xs11 <- fromFile "two.cm"
+  xs11 <- fromFile "test11.cm"
   print $ xs11 ^..folded . nodes . folded . annoR
 
 -- | Helper function to simplify parsing CMs from a (possibly gzipped) file.
