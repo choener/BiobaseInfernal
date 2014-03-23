@@ -63,28 +63,28 @@ library
 -- --    Biobase.Infernal.Align.Import
 -- --    Biobase.Infernal.Clan
 -- --    Biobase.Infernal.Clan.Import
---    Biobase.SElab.UnsafeNumeric
---    Biobase.SElab.Bitscore
-    Biobase.SElab.CM
-    Biobase.SElab.CM.Import
-    Biobase.SElab.CM.Export
-    Biobase.SElab.HMM
---     Biobase.SElab.HMM.Import
 -- --    Biobase.Infernal.Hit
 -- --    Biobase.Infernal.RfamFasta
 -- --    Biobase.Infernal.RfamFasta.Import
-    Biobase.SElab.RfamNames
---     Biobase.SElab.RfamNames.Import
 -- --    Biobase.Infernal.TabularHit
 -- --    Biobase.Infernal.TabularHit.Import
-    Biobase.SElab.Taxonomy
---     Biobase.SElab.Taxonomy.Import
-    Biobase.SElab.Types
-    Biobase.SElab.ADPfusion
 -- --    Biobase.Infernal.VerboseHit
 -- --    Biobase.Infernal.VerboseHit.Export
 -- --    Biobase.Infernal.VerboseHit.Import
 -- --    Biobase.Infernal.VerboseHit.Internal
+    Biobase.SElab.ADPfusion
+    Biobase.SElab.Bitscore
+--    Biobase.SElab.CM
+--    Biobase.SElab.CM.Export
+--    Biobase.SElab.CM.Import
+    Biobase.SElab.HMM
+    Biobase.SElab.HMM.Import
+    Biobase.SElab.RfamNames
+--     Biobase.SElab.RfamNames.Import
+--    Biobase.SElab.Taxonomy
+--     Biobase.SElab.Taxonomy.Import
+    Biobase.SElab.Types
+--    Biobase.SElab.UnsafeNumeric
 
   ghc-options:
     -O2 -funbox-strict-fields
