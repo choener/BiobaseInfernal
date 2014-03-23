@@ -118,6 +118,6 @@ type Component  = (Int, ([Double],Int,Char,Char), [Double], [Double])
 
 test :: IO ()
 test = do
-  xs <- runResourceT $ sourceFile "test.hmm" $= conduitHMM $$ consume -- CB.lines $= CL.sequence parseHMM3 $$ consume -- sinkHandle stdout
+  xs <- runResourceT $ sourceFile "devel/test.hmm" $= conduitHMM $$ consume -- CB.lines $= CL.sequence parseHMM3 $$ consume -- sinkHandle stdout
   print xs
 
