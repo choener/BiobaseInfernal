@@ -35,6 +35,7 @@ import           Prelude as P
 import           Data.Array.Repa.ExtShape as R
 
 import           Biobase.SElab.Types
+import           Biobase.SElab.Bitscore
 import qualified Biobase.SElab.HMM as HMM
 
 
@@ -49,19 +50,19 @@ newtype StateID = StateID {unStateID :: Int}
 newtype NodeID = NodeID {unNodeID :: Int}
   deriving (Eq,Ord,Show,Read)
 
-type MapS = M.Map Char        BitScore
-type MapP = M.Map (Char,Char) BitScore
+type MapS = M.Map Char        Bitscore
+type MapP = M.Map (Char,Char) Bitscore
 
 data State
-  = S  { _sID :: StateID, _sNodeID :: NodeID, _sChildren :: [(StateID,BitScore)] }
-  | D  { _sID :: StateID, _sNodeID :: NodeID, _sChildren :: [(StateID,BitScore)] }
-  | E  { _sID :: StateID, _sNodeID :: NodeID, _sChildren :: [(StateID,BitScore)] }
+  = S  { _sID :: StateID, _sNodeID :: NodeID, _sChildren :: [(StateID,Bitscore)] }
+  | D  { _sID :: StateID, _sNodeID :: NodeID, _sChildren :: [(StateID,Bitscore)] }
+  | E  { _sID :: StateID, _sNodeID :: NodeID, _sChildren :: [(StateID,Bitscore)] }
   | B  { _sID :: StateID, _sNodeID :: NodeID, _sBranches :: (StateID,StateID) }
-  | IL { _sID :: StateID, _sNodeID :: NodeID, _sChildren :: [(StateID,BitScore)], _sEmitNuc  :: MapS }
-  | IR { _sID :: StateID, _sNodeID :: NodeID, _sChildren :: [(StateID,BitScore)], _sEmitNuc  :: MapS }
-  | ML { _sID :: StateID, _sNodeID :: NodeID, _sChildren :: [(StateID,BitScore)], _sEmitNuc  :: MapS }
-  | MR { _sID :: StateID, _sNodeID :: NodeID, _sChildren :: [(StateID,BitScore)], _sEmitNuc  :: MapS }
-  | MP { _sID :: StateID, _sNodeID :: NodeID, _sChildren :: [(StateID,BitScore)], _sEmitPair :: MapP }
+  | IL { _sID :: StateID, _sNodeID :: NodeID, _sChildren :: [(StateID,Bitscore)], _sEmitNuc  :: MapS }
+  | IR { _sID :: StateID, _sNodeID :: NodeID, _sChildren :: [(StateID,Bitscore)], _sEmitNuc  :: MapS }
+  | ML { _sID :: StateID, _sNodeID :: NodeID, _sChildren :: [(StateID,Bitscore)], _sEmitNuc  :: MapS }
+  | MR { _sID :: StateID, _sNodeID :: NodeID, _sChildren :: [(StateID,Bitscore)], _sEmitNuc  :: MapS }
+  | MP { _sID :: StateID, _sNodeID :: NodeID, _sChildren :: [(StateID,Bitscore)], _sEmitPair :: MapP }
   deriving (Show,Read)
 
 makeLenses ''State
@@ -131,11 +132,11 @@ data CM = CM
   , _accession      :: Maybe (Accession Rfam) -- ^ RFxxxxx identification
   , _version        :: (Int,Int)              -- ^ We can parse version 1.0 and 1.1 CMs
   -- three possible cutoff scores
-  , _trustedCutoff  :: Maybe BitScore         -- ^ lowest score of any seed member
-  , _gathering      :: Maybe BitScore         -- ^ all scores at or above '_gathering' score are in the full alignment
-  , _noiseCutoff    :: Maybe BitScore         -- ^ highest score NOT included as member
+  , _trustedCutoff  :: Maybe Bitscore         -- ^ lowest score of any seed member
+  , _gathering      :: Maybe Bitscore         -- ^ all scores at or above '_gathering' score are in the full alignment
+  , _noiseCutoff    :: Maybe Bitscore         -- ^ highest score NOT included as member
   -- other info for calculations
-  , _nullModel      :: VU.Vector BitScore     -- ^ Null-model: categorical distribution on ACGU
+  , _nullModel      :: VU.Vector Bitscore     -- ^ Null-model: categorical distribution on ACGU
   , _w              :: Int                    -- ^ maximum expected hit size (and thereby window length for scanning)
   , _alph           :: ByteString             -- ^ the alphabet that was used (only ACGU is currently supported)
   , _pBegin         :: Double                 -- ^ local begin probability
@@ -164,8 +165,8 @@ data CM = CM
   , _nodes  :: M.Map NodeID Node    -- ^ each node has a set of states
   , _states :: M.Map StateID State  -- ^ each state has a type, some emit characters, and some have children
   -- these maps are non-null if we go local
-  , _localBegin :: M.Map StateID BitScore -- ^ Entries into the CM.
-  , _localEnd   :: M.Map StateID BitScore -- ^ Exits out of the CM.
+  , _localBegin :: M.Map StateID Bitscore -- ^ Entries into the CM.
+  , _localEnd   :: M.Map StateID Bitscore -- ^ Exits out of the CM.
   -- and finally the attached HMM
   , _hmm            :: Maybe HMM.HMM
   } deriving (Show,Read)

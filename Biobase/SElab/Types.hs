@@ -18,13 +18,8 @@ module Biobase.SElab.Types where
 
 import Control.Arrow
 import Data.ByteString.Char8 as BS
-import Data.Default.Class
-import Data.Primitive.Types
-import Data.Vector.Generic as VG
-import Data.Vector.Generic.Mutable as VGM
-import Data.Vector.Unboxed as VU
-import Data.Vector.Unboxed.Base
-import Data.Vector.Unboxed.Deriving
+import Data.String
+import Data.Text as T
 
 
 
@@ -40,8 +35,11 @@ newtype Accession t = ACC {unACC :: Int}
 -- | One word name for the family or clan. Phantom-typed with the correct type
 -- of model. Can be a longer name for species.
 
-newtype Identification t = IDD {unIDD :: ByteString}
+newtype Identification t = IDD {unIDD :: Text}
   deriving (Eq,Ord,Read,Show)
+
+instance IsString (Identification t) where
+  fromString = IDD . T.pack
 
 -- | Tag as being a clan.
 
@@ -60,49 +58,8 @@ data Rfam
 data Species
 
 
--- | Infernal bit score. Behaves like a double (deriving Num).
---
--- Infernal users guide, p.42: log-odds score in log_2 (aka bits).
---
--- S = log_2 (P(seq|CM) / P(seq|null))
---
--- TODO use logfloat, instead of rolling our own (actually maybe not:
--- 'BitScore's are exactly that: log-scaled scores where we expect @(+)@ to add
--- the scores, i.e. we'd multiply in normal space; while LogFloat's act just
--- like floats, but internally they handle everything in log-space).
-
-newtype BitScore = BitScore {unBitScore :: Double}
-  deriving (Eq,Ord,Read,Show,Num)
-
-derivingUnbox "BitScore"
-  [t| BitScore -> Double |] [| unBitScore |] [| BitScore |]
-
--- | A default bitscore of "-infinity".
---
--- TODO Check out the different "defaults" Infernal uses
-
-instance Default BitScore where
-  def = BitScore (-999999)
-
--- | Given a null model and a probability, calculate the corresponding
--- 'BitScore'.
-
-prob2Score :: Double -> Double -> BitScore
-prob2Score null x
-  | x==0      = def
-  | otherwise = BitScore $ log (x/null) / log 2
-{-# INLINE prob2Score #-}
-
--- | Given a null model and a 'BitScore' return the corresponding probability.
-
-score2Prob :: Double -> BitScore -> Double
-score2Prob null (BitScore x)
-  | x<= -99999 = 0
-  | otherwise  = null * exp (x * log 2)
-{-# INLINE score2Prob #-}
-
 -- | Classification names (taxonomic classification)
 
-newtype Classification = Classification {unClassification :: ByteString}
+newtype Classification = Classification {unClassification :: Text}
   deriving (Eq,Ord,Read,Show)
 

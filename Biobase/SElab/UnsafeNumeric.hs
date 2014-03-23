@@ -1,8 +1,9 @@
 {-# LANGUAGE BangPatterns #-}
 
+-- | Unsafe numeric operations on log-domain values.
+
 module Biobase.SElab.UnsafeNumeric where
 
-import Numeric.Log
 import Control.Applicative
 
 
@@ -29,6 +30,10 @@ class UnsafeFractional a where
 
 infixl 7 `dvd`
 
+{- In case we want log-domain again
+
+--import Numeric.Log
+
 -- | Unsafe numerical operations for 'Log' types.
 
 instance (Ord a, Num a, Precise a) => UnsafeNum (Log a) where
@@ -41,6 +46,8 @@ instance (Ord a, Num a, Precise a) => UnsafeNum (Log a) where
   {-# INLINE add #-}
   {-# INLINE sub #-}
 
+-- | Alternative version of 'add' without the condition
+
 alternativeAdd :: (Ord a, Num a, Precise a) => Log a -> Log a -> Log a
 alternativeAdd (Exp a) (Exp b) = let !ma = max a b; !mi = min a b in Exp $ ma + log1p (exp $ mi - ma)
 {-# INLINE alternativeAdd #-}
@@ -50,4 +57,6 @@ alternativeAdd (Exp a) (Exp b) = let !ma = max a b; !mi = min a b in Exp $ ma + 
 instance (Fractional a) => UnsafeFractional (Log a) where
   dvd (Exp a) (Exp b) = Exp $ a-b
   {-# INLINE dvd #-}
+
+-}
 
