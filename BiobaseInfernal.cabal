@@ -24,6 +24,10 @@ description:
 
 extra-source-files:
 
+flag devel
+  description: developer tools, builds criterion executable
+  default: False
+
 library
   build-depends:
     base >3 && <5,
@@ -39,6 +43,7 @@ library
     either-unwrap       >= 1.1    ,
     filepath            >= 1.3    ,
     lens                >= 3.10   ,
+    log-domain          >= 0.8    ,
     primitive           >= 0.5    ,
     repa                >= 3.2    ,
     transformers        >= 0.3    ,
@@ -55,6 +60,8 @@ library
 -- --    Biobase.Infernal.Align.Import
 -- --    Biobase.Infernal.Clan
 -- --    Biobase.Infernal.Clan.Import
+    Biobase.SElab.UnsafeNumeric
+    Biobase.SElab.Bitscore
     Biobase.SElab.CM
     Biobase.SElab.CM.Import
     Biobase.SElab.CM.Export
@@ -77,6 +84,17 @@ library
 
   ghc-options:
     -O2 -funbox-strict-fields
+
+executable CriterionInfernal
+  build-depends:
+    criterion >= 0.8
+  main-is:
+    devel/CriterionInfernal.hs
+  ghc-options:
+    -O2
+--    -fllvm
+--    -optlo-O3 -optlo-std-compile-opts
+--    -fllvm-tbaa
 
 source-repository head
   type: git

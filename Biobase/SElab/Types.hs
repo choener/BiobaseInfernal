@@ -1,3 +1,5 @@
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE StandaloneDeriving #-}
@@ -16,12 +18,13 @@ module Biobase.SElab.Types where
 
 import Control.Arrow
 import Data.ByteString.Char8 as BS
-import Data.Vector.Unboxed.Base
+import Data.Default.Class
+import Data.Primitive.Types
 import Data.Vector.Generic as VG
 import Data.Vector.Generic.Mutable as VGM
 import Data.Vector.Unboxed as VU
-import Data.Primitive.Types
-import Data.Default.Class
+import Data.Vector.Unboxed.Base
+import Data.Vector.Unboxed.Deriving
 
 
 
@@ -69,7 +72,10 @@ data Species
 -- like floats, but internally they handle everything in log-space).
 
 newtype BitScore = BitScore {unBitScore :: Double}
-  deriving (Eq,Ord,Read,Show,Num,Prim)
+  deriving (Eq,Ord,Read,Show,Num)
+
+derivingUnbox "BitScore"
+  [t| BitScore -> Double |] [| unBitScore |] [| BitScore |]
 
 -- | A default bitscore of "-infinity".
 --
@@ -78,16 +84,12 @@ newtype BitScore = BitScore {unBitScore :: Double}
 instance Default BitScore where
   def = BitScore (-999999)
 
-deriving instance Unbox BitScore
-deriving instance VGM.MVector VU.MVector BitScore
-deriving instance VG.Vector VU.Vector BitScore
-
 -- | Given a null model and a probability, calculate the corresponding
 -- 'BitScore'.
 
 prob2Score :: Double -> Double -> BitScore
 prob2Score null x
-  | x==0      = BitScore $ -10000
+  | x==0      = def
   | otherwise = BitScore $ log (x/null) / log 2
 {-# INLINE prob2Score #-}
 
@@ -95,7 +97,7 @@ prob2Score null x
 
 score2Prob :: Double -> BitScore -> Double
 score2Prob null (BitScore x)
-  | x<=(-9999) = 0
+  | x<= -99999 = 0
   | otherwise  = null * exp (x * log 2)
 {-# INLINE score2Prob #-}
 
