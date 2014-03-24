@@ -19,26 +19,101 @@ module Biobase.SElab.CM where
 
 import           Control.Applicative
 import           Control.Lens
-import           Data.Array.Repa.Index as R
-import           Data.Array.Repa.Shape as R
-import           Data.ByteString.Char8 as BS
-import           Data.Ix (Ix)
-import           Data.List (genericLength)
-import           Data.Map as M
-import           Data.Primitive.Types
-import           Data.Vector as V
-import           Data.Vector.Unboxed as VU
+import           Data.Array.Repa.Index
+import           Data.Text (Text)
 import           Data.Word (Word32(..))
-import           GHC.Base (quotInt,remInt)
-import           Prelude as P
+import qualified Data.PrimitiveArray as PA
+import qualified Data.PrimitiveArray.Zero as PA
+import qualified Data.Vector as V
+import qualified Data.Vector.Unboxed as VU
 
-import           Data.Array.Repa.ExtShape as R
-
-import           Biobase.SElab.Types
 import           Biobase.SElab.Bitscore
-import qualified Biobase.SElab.HMM as HMM
+import           Biobase.SElab.HMM
+import           Biobase.SElab.Types
 
 
+-- | Extended CM information to calculate e-values
+
+data EValueParams = EValueParams
+  { _lambda  :: Double  -- ^ λ>0 (lambda, slope) for exponential tails for local scores
+  , _tau     :: Double  -- ^ τ (tau, location) for exponential tails for local scores
+  , _tau2    :: Double  -- ^ τ2 (tau, location again) for full histogram of all hits
+  , _dbSize  :: Int     -- ^ database size in residues
+  , _numHits :: Int     -- ^ total number of non-overlapping hits
+  , _tailFit :: Double  -- ^ high-scoring tail fit
+  }
+  deriving (Eq,Show,Read)
+
+makeLenses ''EValueParams
+makePrisms ''EValueParams
+
+-- newtype NodeId = Nid {unNid :: Int}
+
+newtype NodeType = NodeType {unNodeType :: Int}
+
+(nRoot : _) = map NodeType [0..]
+
+-- newtype StateId = Sid {unSid :: Int}
+
+newtype StateType = StateType {unStateType :: Int}
+
+(sS : _) = map StateType [0..]
+
+-- |
+
+data Node = Node
+  { _nid     :: Int
+  , _ntype   :: NodeType
+  , _nstates :: VU.Vector Int
+  }
+
+makeLenses ''Node
+makePrisms ''Node
+
+-- |
+
+data CM = CM
+  { _version      :: (Int,Int,Text)
+  , _name         :: Text
+  , _accession    :: Text
+  , _description  :: Text
+  , _clen         :: Int
+  , _w            :: Int
+  , _alph         :: Text
+  , _date         :: Text
+  , _commandLog   :: [Text]
+  , _pbegin       :: Double
+  , _pend         :: Double
+  , _wbeta        :: Double
+  , _qdbBeta1     :: Double
+  , _qdbBeta2     :: Double
+  , _n2Omega      :: Double
+  , _n3Omega      :: Double
+  , _elseLF       :: Double
+  , _nseq         :: Int
+  , _effn         :: Double
+  , _cksum        :: Word32
+  , _null         :: VU.Vector Bitscore
+  , _ga           :: Double
+  , _tc           :: Double
+  , _efp7gf       :: (Double,Double)
+  , _ecmlc        :: EValueParams
+  , _ecmgc        :: EValueParams
+  , _ecmli        :: EValueParams
+  , _ecmgi        :: EValueParams
+  , _nodes        :: V.Vector Node
+  }
+
+
+
+
+
+
+
+
+
+
+{-
 
 -- | State IDs
 
@@ -104,21 +179,6 @@ nodeColL = undefined
 -- MatR).
 
 nodeColR = undefined
-
--- | Extended CM information to calculate e-values
-
-data EValueParams = EValueParams
-  { _lambda  :: Double  -- ^ λ>0 (lambda, slope) for exponential tails for local scores
-  , _tau     :: Double  -- ^ τ (tau, location) for exponential tails for local scores
-  , _tau2    :: Double  -- ^ τ2 (tau, location again) for full histogram of all hits
-  , _dbSize  :: Int     -- ^ database size in residues
-  , _numHits :: Int     -- ^ total number of non-overlapping hits
-  , _tailFit :: Double  -- ^ high-scoring tail fit
-  }
-  deriving (Eq,Show,Read)
-
-makeLenses ''EValueParams
-makePrisms ''EValueParams
 
 -- | An Infernal v1.1 covariance model.
 --
@@ -271,6 +331,8 @@ instance ExtShape sh => ExtShape (sh:.StateID) where
 
   rangeList (sh1 :. StateID n1) (sh2 :. StateID n2) = [sh :. StateID n | sh <- rangeList sh1 sh2, n <- [n1 .. (n1+n2)] ]
   {-# INLINE rangeList #-}
+
+-}
 
 -}
 
