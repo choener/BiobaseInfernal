@@ -1,3 +1,4 @@
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE NoMonomorphismRestriction #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE RankNTypes #-}
@@ -20,6 +21,7 @@ module Biobase.SElab.CM where
 import           Control.Applicative
 import           Control.Lens
 import           Data.Array.Repa.Index
+import           Data.Default.Class
 import           Data.Text (Text)
 import           Data.Word (Word32(..))
 import qualified Data.PrimitiveArray as PA
@@ -44,36 +46,90 @@ data EValueParams = EValueParams
   }
   deriving (Eq,Show,Read)
 
+instance Default EValueParams where
+  def = EValueParams
+    { _lambda  = 0
+    , _tau     = 0
+    , _tau2    = 0
+    , _dbSize  = 0
+    , _numHits = 0
+    , _tailFit = 0
+    }
+
 makeLenses ''EValueParams
 makePrisms ''EValueParams
 
--- newtype NodeId = Nid {unNid :: Int}
+-- | The type of a node, efficiently encoded as an Int.
+--
+-- TODO we might want a nice read instance
 
 newtype NodeType = NodeType {unNodeType :: Int}
+  deriving (Eq)
 
-(nRoot : _) = map NodeType [0..]
+instance Show NodeType where
+  show n
+    | n==nBif   = "BIF"
+    | n==nMatP  = "MATP"
+    | n==nMatL  = "MATL"
+    | n==nMatR  = "MATR"
+    | n==nBegL  = "BEGL"
+    | n==nBegR  = "BEGR"
+    | n==nRoot  = "ROOT"
+    | n==nEnd   = "END"
+    | otherwise = "N??N"
+
+-- | The individual node types are set to the same numeric ID as in Infernal
+-- itself.
+
+(nBif : nMatP : nMatL : nMatR : nBegL: nBegR : nRoot : nEnd : _) = map NodeType [0..]
 
 -- newtype StateId = Sid {unSid :: Int}
 
 newtype StateType = StateType {unStateType :: Int}
+  deriving (Eq,Show)
 
-(sS : _) = map StateType [0..]
+( sD : sMP : sML : sMR : sIL : sIR : sS : sE : sB : sEL : _) = map StateType [0..]
 
 -- |
 
 data Node = Node
-  { _nid     :: Int
+  { _nstates :: VU.Vector Int
   , _ntype   :: NodeType
-  , _nstates :: VU.Vector Int
+  , _nid     :: Int
+  , _nColL   :: Int
+  , _nColR   :: Int
+  , _nConL   :: Char
+  , _nConR   :: Char
+  , _nRefL   :: Char
+  , _nRefR   :: Char
   }
+  deriving (Show)
 
 makeLenses ''Node
 makePrisms ''Node
 
 -- |
 
+data State = State
+  { _sType        :: StateType
+  , _sid          :: Int
+  , _sParents     :: (Int,Int)
+  , _sChildren    :: (Int,Int)
+  , _sqdb         :: (Int,Int,Int,Int)
+  , _transitions  :: VU.Vector Bitscore
+  , _emissions    :: VU.Vector Bitscore -- emission order is ACGU or AA,AC,AG,AU, CA,CC,CG,CU, GA,GC,GG,GU, UA,UC,UG,UU
+  }
+  deriving (Show)
+
+makeLenses ''State
+makePrisms ''State
+
+-- |
+--
+-- TODO need efficient scoring tables
+
 data CM = CM
-  { _version      :: (Int,Int,Text)
+  { _version      :: (Text,Text)
   , _name         :: Text
   , _accession    :: Text
   , _description  :: Text
@@ -93,7 +149,7 @@ data CM = CM
   , _nseq         :: Int
   , _effn         :: Double
   , _cksum        :: Word32
-  , _null         :: VU.Vector Bitscore
+  , _nullModel    :: VU.Vector Bitscore
   , _ga           :: Double
   , _tc           :: Double
   , _efp7gf       :: (Double,Double)
@@ -102,8 +158,46 @@ data CM = CM
   , _ecmli        :: EValueParams
   , _ecmgi        :: EValueParams
   , _nodes        :: V.Vector Node
+  , _hmm          :: HMM
   }
+  deriving (Show)
 
+instance Default CM where
+  def = CM
+    { _version     = ("","")
+    , _name        = ""
+    , _accession   = ""
+    , _description = ""
+    , _clen        = 0
+    , _w           = 0
+    , _alph        = ""
+    , _date        = ""
+    , _commandLog  = []
+    , _pbegin      = 0
+    , _pend        = 0
+    , _wbeta       = 0
+    , _qdbBeta1    = 0
+    , _qdbBeta2    = 0
+    , _n2Omega     = 0
+    , _n3Omega     = 0
+    , _elseLF      = 0
+    , _nseq        = 0
+    , _effn        = 0
+    , _cksum       = 0
+    , _nullModel   = VU.empty
+    , _ga          = 0
+    , _tc          = 0
+    , _efp7gf      = (0,0)
+    , _ecmlc       = def
+    , _ecmgc       = def
+    , _ecmli       = def
+    , _ecmgi       = def
+    , _nodes       = V.empty
+    , _hmm         = def
+    }
+
+makeLenses ''CM
+makePrisms ''CM
 
 
 

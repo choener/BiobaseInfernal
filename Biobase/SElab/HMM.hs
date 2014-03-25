@@ -26,7 +26,7 @@ import           Biobase.SElab.Types
 -- TODO Parsing has only been tested for HMMER3 and Infernal 1.1
 
 data HMM = HMM
-  { _version          :: (Int,Int,Text)
+  { _version          :: (Text,Text)
   , _name             :: Text -- ^ the name of this HMM, tagged as 'Rfam' as these are all Rfam/HMMer models
   , _accession        :: Text
   , _description      :: Text
@@ -57,7 +57,7 @@ makePrisms ''HMM
 
 instance Default HMM where
   def = HMM
-    { _version          = (0,0,"")
+    { _version          = ("","")
     , _name             = ""
     , _accession        = ""
     , _description      = ""

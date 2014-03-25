@@ -1,3 +1,5 @@
+{-# LANGUAGE MultiWayIf #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE RecordWildCards #-}
@@ -15,18 +17,10 @@
 
 module Biobase.SElab.CM.Import where
 
-import           Control.Applicative
-import           Control.Lens -- (view,(^.),(^..),folded)
-import           Control.Monad
-import           Control.Monad.IO.Class (MonadIO)
+{-
 import           Data.Attoparsec.ByteString.Char8 (endOfLine,skipSpace,decimal,double,rational,isEndOfLine,(.*>),signed)
 import           Data.Attoparsec.ByteString (takeTill,count,many1,(<?>),manyTill,option)
-import           Data.ByteString.Char8 (ByteString,unpack)
 import           Data.Char (isSpace,isAlpha,isDigit)
-import           Data.Conduit.Attoparsec (conduitParserEither)
-import           Data.Conduit.Binary (sourceFile)
-import           Data.Conduit.List (consume)
-import           Data.Conduit (yield,awaitForever,(=$=),Conduit,MonadThrow,($$),($=),runResourceT)
 import           Data.Conduit.Zlib (ungzip)
 import           Data.Vector.Unboxed (fromList)
 import qualified Data.Attoparsec.ByteString as AB
@@ -34,16 +28,131 @@ import qualified Data.Attoparsec.ByteString.Char8 as ABC
 import qualified Data.Map as M
 import qualified Data.Vector.Unboxed as VU (fromList)
 import           System.FilePath (takeExtension)
+import           Debug.Trace
+-}
+import           Control.Applicative
+import           Control.Lens
+import           Control.Monad
+import           Control.Monad.IO.Class (MonadIO)
+import           Data.Attoparsec.ByteString (takeTill,count,many1,(<?>),manyTill,option)
+import           Data.ByteString.Char8 (ByteString)
+import           Data.Conduit.Attoparsec (conduitParserEither)
+import           Data.Conduit.Binary (sourceFile)
+import           Data.Conduit.List (consume)
+import           Data.Conduit.Text (decodeUtf8)
+import           Data.Conduit (yield,awaitForever,(=$=),Conduit,MonadThrow,($$),($=),runResourceT)
+import           Data.Default.Class
+import qualified Data.Attoparsec.Text as AT
+import qualified Data.Text as T
+import qualified Data.List as L
+import           Debug.Trace
+import qualified Data.Vector.Unboxed as VU
+import qualified Data.Vector as V
 
 import           Biobase.SElab.CM
 import           Biobase.SElab.Types
 import qualified Biobase.SElab.HMM as HMM
 import qualified Biobase.SElab.HMM.Import as HMM
 import           Biobase.SElab.Common.Parser
+import           Biobase.SElab.Bitscore
 
-import Debug.Trace
 
 
+-- |
+
+conduitCM :: (Monad m, MonadIO m, MonadThrow m) => Conduit ByteString m CM
+conduitCM = decodeUtf8 =$= conduitParserEither (parseCM <?> "CM parser") =$= awaitForever (either (error . show) (yield . snd)) where
+
+parseCM :: AT.Parser CM
+parseCM = do
+  cm' <- (\v d -> set version (v,T.init d) def) <$ "INFERNAL1/a [" <*> AT.takeTill (=='|') <*> eolS <?> "cmVersion"
+  ls <- manyTill cmHeader "CM"
+  let cm = L.foldl' (\a l -> l a) cm' ls
+  eolS
+  ns' <- manyTill node "//"
+  let ns = V.fromList [ n & nstates .~ (VU.fromList $ map (view sid) ss) | (n,ss) <- ns' ]
+  eolS
+  cmhmm <- HMM.parseHMM <|> pure def  -- if there is no HMM, then return an empty one
+  return
+    $ set hmm cmhmm
+    $ set nodes ns
+    $ cm
+
+cmHeader :: AT.Parser (CM -> CM)
+cmHeader = AT.choice
+  [ set name            <$> "NAME"      ..*> eolS <?> "name"
+  , set accession       <$> "ACC"       ..*> eolS <?> "hmmAccession"
+  , set description     <$> "DESC"      ..*> eolS <?> "description"
+  , id                  <$  "STATES"    ..*> eolN <?> "states"
+  , id                  <$  "NODES"     ..*> eolN <?> "nodes"
+  , set clen            <$> "CLEN"      ..*> eolN <?> "clen"
+  , set w               <$> "W"         ..*> eolN <?> "w"
+  , set alph            <$> "ALPH"      ..*> eolS <?> "alph"
+  , id                  <$  "RF"        ..*> eolB <?> "rf"
+  , id                  <$  "CONS"      ..*> eolB <?> "cons"
+  , id                  <$  "MAP"       ..*> eolB <?> "map"
+  , set date            <$> "DATE"      ..*> eolS <?> "date"
+  , set pbegin          <$> "PBEGIN"    ..*> eolD <?> "pbegin"
+  , set pend            <$> "PEND"      ..*> eolD <?> "pend"
+  , set wbeta           <$> "WBETA"     ..*> eolD <?> "wbeta"
+  , set qdbBeta1        <$> "QDBBETA1"  ..*> eolD <?> "qdbbeta1"
+  , set qdbBeta2        <$> "QDBBETA2"  ..*> eolD <?> "qdbbeta2"
+  , set n2Omega         <$> "N2OMEGA"   ..*> eolD <?> "n2omega"
+  , set n3Omega         <$> "N3OMEGA"   ..*> eolD <?> "n3omega"
+  , set elseLF          <$> "ELSELF"    ..*> eolD <?> "elself"
+  , set nseq            <$> "NSEQ"      ..*> eolN <?> "nseq"
+  , set effn            <$> "EFFN"      ..*> eolD <?> "effn"
+  , set cksum           <$> "CKSUM"     ..*> eolN <?> "cksum"
+  , set ga              <$> "GA"        ..*> eolD <?> "ga"
+  , set tc              <$> "TC"        ..*> eolD <?> "tc"
+  , ecm "ECMLC"
+  , ecm "ECMGC"
+  , ecm "ECMLI"
+  , ecm "ECMGI"
+  , (\[a,b] -> set efp7gf (a,b)) <$> "EFP7GF" ..*> AT.count 2 ssD <* eolS <?> "efp7gf"
+  , set nullModel . VU.fromList . map Bitscore <$> "NULL"   ..*> AT.count 4 ssD <* eolS <?> "null"
+  , (\s -> over commandLog (++[s])) <$> "COM"  ..*> eolS <?> "com"
+  , (\x -> trace ("HMM Parser: unknown line:" ++ T.unpack x) id) <$> AT.takeTill (=='\n') <* AT.take 1
+  ] <?> "cmHeader"
+  where
+    ecm s = (\a b c d e f -> set ecmlc (EValueParams a b c d e f)) <$> s ..*> ssD <*> ssD <*> ssD <*> ssN <*> ssN <*> ssD <* eolS <?> (T.unpack $ T.toLower s)
+
+node :: AT.Parser (Node, [State])
+node = (,) <$> aNode <*> AT.many1 aState where
+  aNode  = Node VU.empty <$ AT.skipSpace <* "[ " <*> anType <*> ssN <* AT.skipSpace <* "]" <*> ssN_ <*> ssN_ <*> ssC <*> ssC <*> ssC <*> ssC
+  anType :: AT.Parser NodeType
+  anType = AT.choice [ nBif  <$ "BIF" , nMatP <$ "MATP", nMatL <$ "MATL", nMatR <$ "MATR"
+                     , nBegL <$ "BEGL", nBegR <$ "BEGR", nRoot <$ "ROOT", nEnd  <$ "END" ]
+  aState = do AT.skipSpace
+              _sType     <- asType
+              _sid       <- ssN
+              _sParents  <- (,) <$> ssZ <*> ssN
+              _sChildren <- (,) <$> ssZ <*> ssN
+              _sqdb      <- (,,,) <$> ssN <*> ssN <*> ssN <*> ssN
+              _transitions <- if | _sType==sB -> pure VU.empty
+                                 | otherwise  -> VU.fromList <$> AT.count (_sChildren^._2) (Bitscore <$> ssD')
+              _emissions   <- if | _sType==sMP -> VU.fromList <$> AT.count 16 (Bitscore <$> ssD)
+                                 | _sType `elem` [sML,sMR,sIL,sIR] -> VU.fromList <$> AT.count 4 (Bitscore <$> ssD)
+                                 | otherwise -> pure VU.empty
+              eolS
+              return State{..}
+  asType :: AT.Parser StateType
+  asType = AT.choice [ sD <$ "D", sMP <$ "MP", sML <$ "ML", sMR <$ "MR"
+                     , sIL <$ "IL", sIR <$ "IR", sS <$ "S", sE <$ "E", sB <$ "B" ]
+
+test :: IO ()
+test = do
+  xs <- runResourceT $ sourceFile "devel/test11.cm" $= conduitCM $$ consume
+  print xs
+
+
+
+
+
+
+
+
+{-
 
 test :: IO ()
 test = do
@@ -214,4 +323,6 @@ parseState nid = skipSpace *> (sde <|> mi <|> mp <|> b)
 -- * Helper functions
 
 statParam = EValueParams <$> ssD <*> ssD <*> ssD <*> ssN <*> ssN <*> eolD
+
+-}
 

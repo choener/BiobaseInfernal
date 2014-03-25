@@ -15,7 +15,7 @@ import           Control.Lens
 import           Control.Monad
 import           Control.Monad.IO.Class (MonadIO)
 import           Data.Array.Repa.Index
-import           Data.Attoparsec.ByteString (takeTill,count,many1,(<?>),manyTill,option)
+import           Data.Attoparsec.ByteString (count,many1,(<?>),manyTill,option)
 import           Data.ByteString.Char8 (ByteString,unpack)
 import           Data.Char (isSpace,isAlpha,isDigit)
 import           Data.Conduit.Attoparsec (conduitParserEither)
@@ -58,7 +58,7 @@ conduitHMM = decodeUtf8 =$= conduitParserEither (parseHMM <?> "HMM parser") =$= 
 
 parseHMM :: AT.Parser HMM
 parseHMM = do
-  hmm' <- (\ma mi d -> set version (ma,mi,T.init d) def) <$ "HMMER3/b [" <*> AT.decimal <*  "." <*> AT.decimal <* " | " <*> eolS <?> "hmmVersion"
+  hmm' <- (\v d -> set version (v,T.init d) def) <$ AT.takeTill (=='[') <*> AT.takeTill (=='|') <*> eolS <?> "hmmVersion"
   ls <- manyTill hmmHeader "HMM"
   let hmm = L.foldl' (\a l -> l a) hmm' ls
   eolS
@@ -95,22 +95,24 @@ hmmHeader = AT.choice
   , (\x -> trace ("HMM Parser: unknown line:" ++ T.unpack x) id) <$> AT.takeTill (=='\n') <* AT.take 1
   ] <?> "hmmHeader"
 
+-- | TODO
+
 component0 :: AT.Parser Component0
 component0 = (,,,) <$> ident <*> matches <*> inserts <*> moves <?> "COMPO/0" where
-  ident   = AT.skipSpace *> (0 <$ "COMPO") <?> "ident"
-  matches = manyTill ssD  AT.endOfLine <?> "matches"
+  ident   = AT.skipSpace *> (0 <$ "COMPO") <?> "ident" -- optional
+  matches = manyTill ssD  AT.endOfLine <?> "matches"   -- optional
   inserts = manyTill ssD  AT.endOfLine <?> "inserts"
   moves   = count 7 ssD' <* AT.endOfLine <?> "moves"
 
 component :: Int -> AT.Parser Component
 component k = (,,,) <$> ident <*> matches <*> inserts <*> moves <?> "component" where
   ident   = AT.skipSpace *> (0 <$ "COMPO" <|> AT.decimal) <?> "ident"
-  matches = (,,,) <$> count k ssD <*> (ssN <|> 0 <$ ssS) <*> ssC <*> ssC <?> "matches"
+  matches = (,,,,) <$> count k ssD <*> (ssN <|> 0 <$ ssS) <*> ssC <*> ssC <*> (ssC <|> pure '-') <* ssS <?> "matches"
   inserts = count k ssD <* AT.endOfLine <?> "inserts"
   moves   = count 7 ssD' <* AT.endOfLine <?> "moves"
 
-type Component0 = (Int,  [Double]               , [Double], [Double])
-type Component  = (Int, ([Double],Int,Char,Char), [Double], [Double])
+type Component0 = (Int,  [Double]                    , [Double], [Double])
+type Component  = (Int, ([Double],Int,Char,Char,Char), [Double], [Double])
 
 
 

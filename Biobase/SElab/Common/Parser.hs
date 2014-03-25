@@ -12,6 +12,7 @@ import           Data.Char (isSpace,isAlpha,isDigit)
 -- * Helper functions
 
 ssN  = skipSpace *> decimal
+ssN_ = skipSpace *> ((-1) <$ "-" <|> decimal)
 ssZ  = skipSpace *> signed decimal
 ssQ  = skipSpace *> rational
 ssD  = skipSpace *> double
