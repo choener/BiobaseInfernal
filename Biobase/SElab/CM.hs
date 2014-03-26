@@ -124,6 +124,27 @@ data State = State
 makeLenses ''State
 makePrisms ''State
 
+-- | Encode all the information necessary to have *efficient* covariance
+-- models.
+--
+-- TODO state types
+-- TODO transitions and associated costs
+-- TODO emissions pair/single
+-- TODO local / global mode
+
+data States = States
+  {
+  }
+  deriving (Show)
+
+makeLenses ''States
+makePrisms ''States
+
+instance Default States where
+  def = States
+    {
+    }
+
 -- |
 --
 -- TODO need efficient scoring tables
@@ -158,6 +179,7 @@ data CM = CM
   , _ecmli        :: EValueParams
   , _ecmgi        :: EValueParams
   , _nodes        :: V.Vector Node
+  , _states       :: States
   , _hmm          :: HMM
   }
   deriving (Show)
@@ -193,6 +215,7 @@ instance Default CM where
     , _ecmli       = def
     , _ecmgi       = def
     , _nodes       = V.empty
+    , _states      = def
     , _hmm         = def
     }
 
