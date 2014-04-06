@@ -40,6 +40,7 @@ import qualified Data.Text as T
 import qualified Data.Vector as V
 import qualified Data.Vector.Unboxed as VU
 
+import           Biobase.Primary
 import qualified Data.PrimitiveArray as PA
 import qualified Data.PrimitiveArray.Zero as PA
 
@@ -71,8 +72,10 @@ parseCM = do
   return
     $ set states States
         { _sTransitions     = error ""
-        , _sPairEmissions   = error ""
-        , _sSingleEmissions = PA.fromAssocs (Z:.0:.nN) (Z:.maxState:.nU) def . concatMap ( -- CURRENT BAUSTELLE
+        , _sPairEmissions   = PA.fromAssocs (Z:.0:.nN:.nN) (Z:.maxState:.nU:.nU) def
+                            . concatMap (\s -> [((Z:.s^.sid:.n1:.n2),e) | emitsPair (s^.sType), (n1,n2,e) <- zip3 acgu acgu (VU.toList $ s^.emissions)]) $ ns'^..folded._2.folded
+        , _sSingleEmissions = PA.fromAssocs (Z:.0:.nN) (Z:.maxState:.nU) def
+                            . concatMap (\s -> [((Z:.s^.sid:.nt),e) | emitsSingle (s^.sType), (nt,e) <- zip acgu (VU.toList $ s^.emissions)] ) $ ns' ^.. folded . _2 . folded
         , _sStateType       = PA.fromAssocs (Z:.0) (Z:.maxState) sIllegal . map ((,) <$> ((Z:.) <$> view sid) <*> view sType) $ ns' ^.. folded . _2 . folded
         }
     $ set hmm cmhmm

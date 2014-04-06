@@ -101,6 +101,12 @@ derivingUnbox "StateType"
 
 ( sD : sMP : sML : sMR : sIL : sIR : sS : sE : sB : sEL : sIllegal : _) = map StateType [0..]
 
+emitsSingle :: StateType -> Bool
+emitsSingle s | s `elem` [sML,sMR,sIL,sIR] = True
+              | otherwise                  = False
+
+emitsPair = (==) sMP
+
 -- |
 
 data Node = Node
