@@ -99,7 +99,7 @@ newtype StateType = StateType {unStateType :: Int}
 derivingUnbox "StateType"
   [t| StateType -> Int |] [| unStateType |] [| StateType |]
 
-( sD : sMP : sML : sMR : sIL : sIR : sS : sE : sB : sEL : _) = map StateType [0..]
+( sD : sMP : sML : sMR : sIL : sIR : sS : sE : sB : sEL : sIllegal : _) = map StateType [0..]
 
 -- |
 
@@ -162,10 +162,10 @@ makePrisms ''States
 
 instance Default States where
   def = States
-    { _sTransitions     = PA.fromAssocs (Z:.0:.0)      (Z:.0:.0)      (0,0) []
-    , _sPairEmissions   = PA.fromAssocs (Z:.0:.nN:.nN) (Z:.0:.nN:.nN) 0     []
-    , _sSingleEmissions = PA.fromAssocs (Z:.0:.nN)     (Z:.0:.nN)     0     []
-    , _sStateType       = PA.fromAssocs (Z:.0)         (Z:.0)         sS    []
+    { _sTransitions     = PA.fromAssocs (Z:.0:.0)      (Z:.0:.0)      (0,0)    []
+    , _sPairEmissions   = PA.fromAssocs (Z:.0:.nN:.nN) (Z:.0:.nN:.nN) 0        []
+    , _sSingleEmissions = PA.fromAssocs (Z:.0:.nN)     (Z:.0:.nN)     0        []
+    , _sStateType       = PA.fromAssocs (Z:.0)         (Z:.0)         sIllegal []
     }
 
 -- |

@@ -14,6 +14,7 @@ import           Control.Applicative
 import           Control.Lens
 import           Control.Monad
 import           Control.Monad.IO.Class (MonadIO)
+import           Control.Monad.Trans.Resource (runResourceT,MonadThrow)
 import           Data.Array.Repa.Index
 import           Data.Attoparsec.ByteString (count,many1,(<?>),manyTill,option)
 import           Data.ByteString.Char8 (ByteString,unpack)
@@ -22,7 +23,7 @@ import           Data.Conduit.Attoparsec (conduitParserEither)
 import           Data.Conduit.Binary (sourceFile)
 import           Data.Conduit.List (consume)
 import           Data.Conduit.Text (decodeUtf8)
-import           Data.Conduit (yield,awaitForever,(=$=),Conduit,MonadThrow,($$),($=),runResourceT)
+import           Data.Conduit (yield,awaitForever,(=$=),Conduit,($$),($=))
 import           Data.Conduit.Zlib (ungzip)
 import           Data.Default.Class
 import           Data.Text (Text)

@@ -38,6 +38,7 @@ library
     bytestring                    ,
     bytestring-lexing   >= 0.4    ,
     conduit             >= 1.0    ,
+    conduit-extra       >= 1.0    ,
     containers                    ,
     data-default-class  >= 0.0.1  ,
     either-unwrap       >= 1.1    ,
@@ -46,6 +47,7 @@ library
 --    log-domain          >= 0.8    ,
     primitive           >= 0.5    ,
     repa                >= 3.2    ,
+    resourcet           >= 1.0    ,
     strict              >= 0.3    ,
     text                          ,
     transformers        >= 0.3    ,
@@ -58,7 +60,7 @@ library
     PrimitiveArray      >= 0.5.3
 
   exposed-modules:
--- --    Biobase.Infernal
+    Biobase.SElab
 -- --    Biobase.Infernal.Align
 -- --    Biobase.Infernal.Align.Import
 -- --    Biobase.Infernal.Clan
@@ -74,9 +76,9 @@ library
 -- --    Biobase.Infernal.VerboseHit.Internal
     Biobase.SElab.ADPfusion
     Biobase.SElab.Bitscore
---    Biobase.SElab.CM
+    Biobase.SElab.CM
 --    Biobase.SElab.CM.Export
---    Biobase.SElab.CM.Import
+    Biobase.SElab.CM.Import
     Biobase.SElab.HMM
     Biobase.SElab.HMM.Import
     Biobase.SElab.RfamNames

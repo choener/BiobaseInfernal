@@ -17,44 +17,38 @@
 
 module Biobase.SElab.CM.Import where
 
-{-
-import           Data.Attoparsec.ByteString.Char8 (endOfLine,skipSpace,decimal,double,rational,isEndOfLine,(.*>),signed)
-import           Data.Attoparsec.ByteString (takeTill,count,many1,(<?>),manyTill,option)
-import           Data.Char (isSpace,isAlpha,isDigit)
-import           Data.Conduit.Zlib (ungzip)
-import           Data.Vector.Unboxed (fromList)
-import qualified Data.Attoparsec.ByteString as AB
-import qualified Data.Attoparsec.ByteString.Char8 as ABC
-import qualified Data.Map as M
-import qualified Data.Vector.Unboxed as VU (fromList)
-import           System.FilePath (takeExtension)
-import           Debug.Trace
--}
 import           Control.Applicative
 import           Control.Lens
 import           Control.Monad
 import           Control.Monad.IO.Class (MonadIO)
+import           Control.Monad.Trans.Resource (runResourceT,MonadThrow)
+import           Data.Array.Repa.Index
 import           Data.Attoparsec.ByteString (takeTill,count,many1,(<?>),manyTill,option)
 import           Data.ByteString.Char8 (ByteString)
 import           Data.Conduit.Attoparsec (conduitParserEither)
 import           Data.Conduit.Binary (sourceFile)
 import           Data.Conduit.List (consume)
 import           Data.Conduit.Text (decodeUtf8)
-import           Data.Conduit (yield,awaitForever,(=$=),Conduit,MonadThrow,($$),($=),runResourceT)
+import           Data.Conduit (yield,awaitForever,(=$=),Conduit,($$),($=))
 import           Data.Default.Class
-import qualified Data.Attoparsec.Text as AT
-import qualified Data.Text as T
-import qualified Data.List as L
+import           Data.Function (on)
+import           Data.Ord (comparing)
 import           Debug.Trace
-import qualified Data.Vector.Unboxed as VU
+import qualified Data.Attoparsec.Text as AT
+import qualified Data.List as L
+import qualified Data.Text as T
 import qualified Data.Vector as V
+import qualified Data.Vector.Unboxed as VU
 
+import qualified Data.PrimitiveArray as PA
+import qualified Data.PrimitiveArray.Zero as PA
+
+import           Biobase.SElab.Bitscore
 import           Biobase.SElab.CM
+import           Biobase.SElab.Common.Parser
 import           Biobase.SElab.Types
 import qualified Biobase.SElab.HMM as HMM
 import qualified Biobase.SElab.HMM.Import as HMM
-import           Biobase.SElab.Common.Parser
-import           Biobase.SElab.Bitscore
 
 
 
@@ -70,10 +64,17 @@ parseCM = do
   let cm = L.foldl' (\a l -> l a) cm' ls
   eolS
   ns' <- manyTill node "//"
+  let maxState = maximum $ ns' ^.. folded . _2 . folded . sid
   let ns = V.fromList [ n & nstates .~ (VU.fromList $ map (view sid) ss) | (n,ss) <- ns' ]
   eolS
   cmhmm <- HMM.parseHMM <|> pure def  -- if there is no HMM, then return an empty one
   return
+    $ set states States
+        { _sTransitions     = error ""
+        , _sPairEmissions   = error ""
+        , _sSingleEmissions = PA.fromAssocs (Z:.0:.nN) (Z:.maxState:.nU) def . concatMap ( -- CURRENT BAUSTELLE
+        , _sStateType       = PA.fromAssocs (Z:.0) (Z:.maxState) sIllegal . map ((,) <$> ((Z:.) <$> view sid) <*> view sType) $ ns' ^.. folded . _2 . folded
+        }
     $ set hmm cmhmm
     $ set nodes ns
     $ cm
