@@ -1,3 +1,4 @@
+{-# LANGUAGE ParallelListComp #-}
 {-# LANGUAGE MultiWayIf #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -58,6 +59,8 @@ import qualified Biobase.SElab.HMM.Import as HMM
 conduitCM :: (Monad m, MonadIO m, MonadThrow m) => Conduit ByteString m CM
 conduitCM = decodeUtf8 =$= conduitParserEither (parseCM <?> "CM parser") =$= awaitForever (either (error . show) (yield . snd)) where
 
+-- | Parser for covariance models (CMs).
+
 parseCM :: AT.Parser CM
 parseCM = do
   cm' <- (\v d -> set version (v,T.init d) def) <$ "INFERNAL1/a [" <*> AT.takeTill (=='|') <*> eolS <?> "cmVersion"
@@ -71,7 +74,12 @@ parseCM = do
   cmhmm <- HMM.parseHMM <|> pure def  -- if there is no HMM, then return an empty one
   return
     $ set states States
-        { _sTransitions     = error ""
+        { _sTransitions     = PA.fromAssocs (Z:.0:.0) (Z:.0:.5) (-1,def)
+                            . concatMap (\s -> [((Z:.s^.sid:.k),(i,e)) | k <- [0..5]
+                                                                       | (i,e) <- if s^.sType == sB then map (,0) $ s^..sChildren.both
+                                                                                                    else zip (uncurry enumFromTo $ s^.sChildren) (VU.toList $ s^.transitions)
+                                                ])
+                            $ ns'^..folded._2.folded
         , _sPairEmissions   = PA.fromAssocs (Z:.0:.nN:.nN) (Z:.maxState:.nU:.nU) def
                             . concatMap (\s -> [((Z:.s^.sid:.n1:.n2),e) | emitsPair (s^.sType), (n1,n2,e) <- zip3 acgu acgu (VU.toList $ s^.emissions)]) $ ns'^..folded._2.folded
         , _sSingleEmissions = PA.fromAssocs (Z:.0:.nN) (Z:.maxState:.nU) def
