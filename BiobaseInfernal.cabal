@@ -43,7 +43,7 @@ library
     data-default-class  >= 0.0.1  ,
     either-unwrap       >= 1.1    ,
     filepath            >= 1.3    ,
-    lens                >= 3.10   ,
+    lens                >= 4.0    ,
 --    log-domain          >= 0.8    ,
     primitive           >= 0.5    ,
     repa                >= 3.2    ,
@@ -56,8 +56,8 @@ library
     vector-th-unbox     >= 0.2    ,
     zlib-conduit        >= 1.0    ,
     ADPfusion           >= 0.3    ,
-    BiobaseXNA          >= 0.8.3  ,
-    PrimitiveArray      >= 0.5.3
+    BiobaseXNA          >= 0.9    ,
+    PrimitiveArray      >= 0.5.5
 
   exposed-modules:
     Biobase.SElab
