@@ -1,16 +1,16 @@
-{-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE NoMonomorphismRestriction #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE NoMonomorphismRestriction #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE PackageImports #-}
+{-# LANGUAGE RankNTypes #-}
+{-# LANGUAGE RecordWildCards #-}
+{-# LANGUAGE StandaloneDeriving #-}
+{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE UndecidableInstances #-}
 
 -- | Infernal CMs.
 --
@@ -26,16 +26,16 @@ import           Control.Lens
 import           Data.Array.Repa.Index
 import           Data.Default.Class
 import           Data.Text (Text)
+import           Data.Vector.Unboxed.Deriving
 import           Data.Word (Word32(..))
 import qualified Data.Vector as V
-import qualified Data.Vector.Unboxed as VU
-import           Data.Vector.Unboxed.Deriving
 import qualified Data.Vector.Generic
 import qualified Data.Vector.Generic.Mutable
+import qualified Data.Vector.Unboxed as VU
 
+import           Biobase.Primary
 import qualified Data.PrimitiveArray as PA
 import qualified Data.PrimitiveArray.Zero as PA
-import           Biobase.Primary
 
 import           Biobase.SElab.Bitscore
 import           Biobase.SElab.HMM
@@ -156,10 +156,10 @@ makePrisms ''State
 -- TODO We need to modify how BiobaseXNA encodes RNA sequences (maybe ACGUN)
 
 data States = States
-  { _sTransitions     :: ! (PA.Unboxed (Z:.Int:.Int) (Int,Bitscore))  -- ^ Transitions to a state, together with the transition score; unpopulated transitions are set to @-1@.
-  , _sPairEmissions   :: ! (PA.Unboxed (Z:.Int:.Nuc:.Nuc) Bitscore)   -- ^ Scores for the emission of a pair
-  , _sSingleEmissions :: ! (PA.Unboxed (Z:.Int:.Nuc) Bitscore)        -- ^ Scores for the emission of a single nucleotide
-  , _sStateType       :: ! (PA.Unboxed (Z:.Int) StateType)            -- ^ Type of the state at the current index
+  { _sTransitions     :: ! (PA.Unboxed (Z:.Int:.Int) (Int,Bitscore))          -- ^ Transitions to a state, together with the transition score; unpopulated transitions are set to @-1@.
+  , _sPairEmissions   :: ! (PA.Unboxed (Z:.Int:.Nuc RNA:.Nuc RNA) Bitscore)   -- ^ Scores for the emission of a pair
+  , _sSingleEmissions :: ! (PA.Unboxed (Z:.Int:.Nuc RNA) Bitscore)            -- ^ Scores for the emission of a single nucleotide
+  , _sStateType       :: ! (PA.Unboxed (Z:.Int) StateType)                    -- ^ Type of the state at the current index
   }
   deriving (Show)
 
@@ -169,8 +169,8 @@ makePrisms ''States
 instance Default States where
   def = States
     { _sTransitions     = PA.fromAssocs (Z:.0:.0)      (Z:.0:.0)      (0,0)    []
-    , _sPairEmissions   = PA.fromAssocs (Z:.0:.nN:.nN) (Z:.0:.nN:.nN) 0        []
-    , _sSingleEmissions = PA.fromAssocs (Z:.0:.nN)     (Z:.0:.nN)     0        []
+    , _sPairEmissions   = PA.fromAssocs (Z:.0:.rA:.rA) (Z:.0:.rA:.rA) 0        []
+    , _sSingleEmissions = PA.fromAssocs (Z:.0:.rA)     (Z:.0:.rA)     0        []
     , _sStateType       = PA.fromAssocs (Z:.0)         (Z:.0)         sIllegal []
     }
 
