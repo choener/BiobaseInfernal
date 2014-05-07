@@ -60,7 +60,6 @@ library
     PrimitiveArray      >= 0.5.5
 
   exposed-modules:
-    Biobase.SElab
 -- --    Biobase.Infernal.Align
 -- --    Biobase.Infernal.Align.Import
 -- --    Biobase.Infernal.Clan
@@ -74,6 +73,9 @@ library
 -- --    Biobase.Infernal.VerboseHit.Export
 -- --    Biobase.Infernal.VerboseHit.Import
 -- --    Biobase.Infernal.VerboseHit.Internal
+    Biobase.SElab
+    Biobase.SElab.CMsearch.Alignment
+    Biobase.SElab.CMsearch
     Biobase.SElab.ADPfusion
     Biobase.SElab.Bitscore
     Biobase.SElab.CM
