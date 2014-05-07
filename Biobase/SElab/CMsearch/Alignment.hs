@@ -21,7 +21,7 @@ import           Data.Vector.Generic.Lens
 
 
 data Column = Column
-            { _notCanBP  :: {-# UNPACK #-} !Bool
+            { _notCanBP  ::                !Bool
             , _structure :: {-# UNPACK #-} !Char
             , _queryCons :: {-# UNPACK #-} !Char
             , _fit       :: {-# UNPACK #-} !Char
