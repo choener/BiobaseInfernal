@@ -56,3 +56,9 @@ score2Prob null (Bitscore x)
   | otherwise  = null * exp (x * log 2)
 {-# INLINE score2Prob #-}
 
+-- | A simple alias for e-values.
+--
+-- TODO newtype this?
+
+type Evalue = Double
+

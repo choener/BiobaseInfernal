@@ -74,13 +74,16 @@ library
 -- --    Biobase.Infernal.VerboseHit.Import
 -- --    Biobase.Infernal.VerboseHit.Internal
     Biobase.SElab
-    Biobase.SElab.CMsearch.Alignment
-    Biobase.SElab.CMsearch
     Biobase.SElab.ADPfusion
     Biobase.SElab.Bitscore
     Biobase.SElab.CM
 --    Biobase.SElab.CM.Export
     Biobase.SElab.CM.Import
+    Biobase.SElab.Hit
+    Biobase.SElab.Hit.Alignment
+    Biobase.SElab.Hit.Hit
+    Biobase.SElab.Hit.ScanIO
+    Biobase.SElab.Hit.SearchIO
     Biobase.SElab.HMM
     Biobase.SElab.HMM.Import
     Biobase.SElab.RfamNames
