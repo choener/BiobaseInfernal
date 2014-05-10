@@ -14,8 +14,6 @@
 module Biobase.SElab.Hit.Hit
   ( module Biobase.SElab.Hit.Alignment
   , module Biobase.SElab.Hit.Hit
-  , module Biobase.SElab.Hit.ScanIO
-  , module Biobase.SElab.Hit.SearchIO
   ) where
 
 import           Bio.Core
@@ -27,8 +25,6 @@ import qualified Data.Vector.Unboxed as VU
 
 import           Biobase.SElab.Bitscore
 import           Biobase.SElab.Hit.Alignment
-import           Biobase.SElab.Hit.ScanIO
-import           Biobase.SElab.Hit.SearchIO
 
 
 

@@ -19,6 +19,8 @@ description:
                 The VerboseHit format is slightly extended to allow simple
                 annotations. This extension should be backward-compatible with
                 standard-compliant parsers.
+                .
+                The @CMhit@ program provides filtering and coloring options.
 
 
 
@@ -95,6 +97,16 @@ library
 
   ghc-options:
     -O2 -funbox-strict-fields
+
+-- CMhit provides advanced cm hit filtering functionality.
+
+executable CMhit
+  build-depends:
+    cmdargs   >= 0.10
+  main-is:
+    CMhit.hs
+  ghc-options:
+    -O2
 
 executable CriterionInfernal
   if flag(devel)
