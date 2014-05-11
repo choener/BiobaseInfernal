@@ -1,6 +1,8 @@
+{-# LANGUAGE TemplateHaskell #-}
 
 module Biobase.SElab.Hit.SearchIO where
 
+import           Control.Lens
 import           Control.Applicative
 import           Control.Monad
 import           Control.Monad.IO.Class (MonadIO)
@@ -20,14 +22,47 @@ import           Biobase.SElab.Hit.Hit
 
 
 
-tabularHits :: (Monad m, MonadIO m, MonadThrow m) => Conduit ByteString m Hit
+tabularHits :: (Monad m, MonadIO m, MonadThrow m) => Conduit ByteString m HitStream
 tabularHits = decodeUtf8 =$= conduitParserEither (parseTabular <?> "tabular parser") =$= awaitForever (either (error . show) (yield . snd))
 
-verboseHits :: (Monad m, MonadIO m, MonadThrow m) => Conduit ByteString m Hit
+verboseHits :: (Monad m, MonadIO m, MonadThrow m) => Conduit ByteString m HitStream
 verboseHits = decodeUtf8 =$= conduitParserEither (parseVerbose <?> "verbose parser") =$= awaitForever (either (error . show) (yield . snd))
 
-parseTabular :: AT.Parser Hit
+parseTabular :: AT.Parser HitStream
 parseTabular = return undefined
 
-parseVerbose :: AT.Parser Hit
+parseVerbose :: AT.Parser HitStream
 parseVerbose = return undefined
+
+-- | Stream of hits. The search or scan header indicate the source. Multi
+
+data HitStream
+    = SearchHeader
+    { _version            :: Text
+    , _queryCmFile        :: Text
+    , _queryLength        :: Int
+    , _targetSequenceFile :: Text
+    , _workerThreads      :: Int
+    }
+    | SearchEntries
+    {
+    }
+    | ScanHeader
+    { _querySequenceFile  :: Text
+    , _targetCmFile       :: Text
+    , _workerThreads      :: Int
+    }
+    | ScanEntries
+    { _queryHeader        :: Text
+    , _queryDescription   :: Text
+    }
+    | Entry
+    { _entry :: Hit
+    }
+    | Statistics
+    { _unsortedStatistics :: [Text]
+    }
+
+makeLenses ''HitStream
+makePrisms ''HitStream
+
