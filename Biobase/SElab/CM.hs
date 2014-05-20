@@ -156,10 +156,10 @@ makePrisms ''State
 -- TODO We need to modify how BiobaseXNA encodes RNA sequences (maybe ACGUN)
 
 data States = States
-  { _sTransitions     :: ! (PA.Unboxed (Z:.Int:.Int) (Int,Bitscore))          -- ^ Transitions to a state, together with the transition score; unpopulated transitions are set to @-1@.
-  , _sPairEmissions   :: ! (PA.Unboxed (Z:.Int:.Nuc RNA:.Nuc RNA) Bitscore)   -- ^ Scores for the emission of a pair
-  , _sSingleEmissions :: ! (PA.Unboxed (Z:.Int:.Nuc RNA) Bitscore)            -- ^ Scores for the emission of a single nucleotide
-  , _sStateType       :: ! (PA.Unboxed (Z:.Int) StateType)                    -- ^ Type of the state at the current index
+  { _sTransitions     :: ! (PA.Unboxed (Z:.Int:.Int) (Int,Bitscore))              -- ^ Transitions to a state, together with the transition score; unpopulated transitions are set to @-1@.
+  , _sPairEmissions   :: ! (PA.Unboxed (Z:.Int:.Letter RNA:.Letter RNA) Bitscore) -- ^ Scores for the emission of a pair
+  , _sSingleEmissions :: ! (PA.Unboxed (Z:.Int:.Letter RNA) Bitscore)             -- ^ Scores for the emission of a single nucleotide
+  , _sStateType       :: ! (PA.Unboxed (Z:.Int) StateType)                        -- ^ Type of the state at the current index
   }
   deriving (Show)
 
