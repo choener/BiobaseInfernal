@@ -25,6 +25,7 @@ description:
 
 
 extra-source-files:
+  changelog.md
 
 flag devel
   description: developer tools, builds criterion executable
