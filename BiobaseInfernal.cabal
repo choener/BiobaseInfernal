@@ -83,6 +83,7 @@ library
     Biobase.SElab.CM
 --    Biobase.SElab.CM.Export
     Biobase.SElab.CM.Import
+    Biobase.SElab.Common.Parser
     Biobase.SElab.Hit
     Biobase.SElab.Hit.Alignment
     Biobase.SElab.Hit.Hit
