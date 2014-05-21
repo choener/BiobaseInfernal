@@ -28,8 +28,9 @@ extra-source-files:
   changelog.md
 
 flag devel
-  description: developer tools, builds criterion executable
-  default: False
+  description:  developer tools, builds criterion executable
+  default:      False
+  manual:       True
 
 library
   build-depends:
