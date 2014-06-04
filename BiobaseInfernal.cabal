@@ -51,7 +51,7 @@ library
     lens                == 4.*    ,
 ----    log-domain          >= 0.8    ,
     primitive           == 0.5.*    ,
-    PrimitiveArray      == 0.5.5.*  ,
+    PrimitiveArray      == 0.6.*    ,
     repa                == 3.2.*    ,
     resourcet           == 1.*    ,
 --    strict              >= 0.3    ,
@@ -60,7 +60,6 @@ library
 --    tuple               >= 0.2    ,
     vector              == 0.10.*   ,
     vector-th-unbox     == 0.2.*    ,
---    zlib-conduit        >= 1.0    ,
     base                == 4.*
 
   exposed-modules:
@@ -90,6 +89,7 @@ library
     Biobase.SElab.Hit.ScanIO
     Biobase.SElab.Hit.SearchIO
     Biobase.SElab.HMM
+    Biobase.SElab.HMM.Export
     Biobase.SElab.HMM.Import
     Biobase.SElab.RfamNames
 --     Biobase.SElab.RfamNames.Import

@@ -26,8 +26,8 @@ import           Biobase.SElab.Types
 -- TODO Parsing has only been tested for HMMER3 and Infernal 1.1
 
 data HMM = HMM
-  { _version          :: (Text,Text)
-  , _name             :: Text -- ^ the name of this HMM, tagged as 'Rfam' as these are all Rfam/HMMer models
+  { _version          :: (Text,Text)            -- ^ magic string aka @HMMER3/f@ (HMMer) or @HMMER3/i@ (Infernal), followed by the bracketed version info
+  , _name             :: Text                   -- ^ the name of this HMM, tagged as 'Rfam' as these are all Rfam/HMMer models
   , _accession        :: Text
   , _description      :: Text
   , _alph             :: Text

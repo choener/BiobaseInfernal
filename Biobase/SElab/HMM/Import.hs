@@ -59,19 +59,25 @@ conduitHMM = decodeUtf8 =$= conduitParserEither (parseHMM <?> "HMM parser") =$= 
 
 parseHMM :: AT.Parser HMM
 parseHMM = do
-  hmm' <- (\v d -> set version (v,T.init d) def) <$ AT.takeTill (=='[') <*> AT.takeTill (=='|') <*> eolS <?> "hmmVersion"
-  ls <- manyTill hmmHeader "HMM"
+  v <- acceptedVersion
+  let hmm' = version .~ v $ def
+  -- hmm' <- (\v d -> set version (v,T.init d) def) <$ AT.takeTill (=='[') <*> AT.takeTill (=='|') <*> eolS <?> "hmmVersion"
+  ls <- hmmHeader `manyTill` "HMM"
   let hmm = L.foldl' (\a l -> l a) hmm' ls
   eolS
   eolS
   l  <- component0
-  ls <- manyTill (component (length $ l^._2)) "//"
+  ls <- (component (length $ l^._2)) `manyTill` "//"
   AT.skipSpace
   return
     $ set matchScores      (PA.fromAssocs (Z:.0:.0) (Z:.length ls:.(length $ l^._2)-1) 999999 [((Z:.s:.k),Bitscore v) | (s,vs) <- zip [0..] (l^._2:map (view (_2._1)) ls), (k,v) <- zip [0..] vs ])
     $ set insertScores     (PA.fromAssocs (Z:.0:.0) (Z:.length ls:.(length $ l^._3)-1) 999999 [((Z:.s:.k),Bitscore v) | (s,vs) <- zip [0..] (l^._3:map (view  _3    ) ls), (k,v) <- zip [0..] vs ])
     $ set transitionScores (PA.fromAssocs (Z:.0:.0) (Z:.length ls:.(length $ l^._4)-1) 999999 [((Z:.s:.k),Bitscore v) | (s,vs) <- zip [0..] (l^._4:map (view  _4    ) ls), (k,v) <- zip [0..] vs ])
     $ hmm
+
+acceptedVersion :: AT.Parser (Text,Text)
+acceptedVersion = (,) <$> vOk <* AT.skipSpace <*> eolS <?> "accepted Version" where
+    vOk = "HMMER3/b" <|> "HMMER3/f"
 
 hmmHeader :: AT.Parser (HMM -> HMM)
 hmmHeader = AT.choice
@@ -105,14 +111,23 @@ component0 = (,,,) <$> ident <*> matches <*> inserts <*> moves <?> "COMPO/0" whe
   inserts = manyTill ssD  AT.endOfLine <?> "inserts"
   moves   = count 7 ssD' <* AT.endOfLine <?> "moves"
 
+-- | Parse components. Matches come with annotations. These depend on the specific model.
+
 component :: Int -> AT.Parser Component
 component k = (,,,) <$> ident <*> matches <*> inserts <*> moves <?> "component" where
-  ident   = AT.skipSpace *> (0 <$ "COMPO" <|> AT.decimal) <?> "ident"
-  matches = (,,,,) <$> count k ssD <*> (ssN <|> 0 <$ ssS) <*> ssC <*> ssC <*> (ssC <|> pure '-') <* ssS <?> "matches"
-  inserts = count k ssD <* AT.endOfLine <?> "inserts"
+  ident   = AT.skipSpace *> (error "COMPO parsed in component" <$ "COMPO" <|> AT.decimal) <?> "ident"
+  matches = (,,,,) <$> count k ssD <*> (ssN <|> 0 <$ ssS <?> "MAP") <*> (ssC <?> "CONS") <*> (ssC <?> "RF") <*> (ssC <* AT.endOfLine <|> '.' <$ AT.endOfLine) <?> "matches"
+  inserts = traceShow k (count k ssD <* AT.endOfLine <?> "inserts")
   moves   = count 7 ssD' <* AT.endOfLine <?> "moves"
+  brr x = traceShow x x
 
 type Component0 = (Int,  [Double]                    , [Double], [Double])
+
+-- | A Component line. Index (starting with 1, zero is COMPO). Then comes the
+-- match line with the scores, a MAP annotation, consensus residue, reference
+-- annotation, and consensus structure. HMMer HMMs don't have a consensus
+-- structure.
+
 type Component  = (Int, ([Double],Int,Char,Char,Char), [Double], [Double])
 
 

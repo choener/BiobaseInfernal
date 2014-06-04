@@ -15,8 +15,8 @@ ssN  = skipSpace *> decimal
 ssN_ = skipSpace *> ((-1) <$ "-" <|> decimal)
 ssZ  = skipSpace *> signed decimal
 ssQ  = skipSpace *> rational
-ssD  = skipSpace *> double
-ssD' = skipSpace *> ((-999999) <$ "*" <|> double)
+ssD  = skipSpace *> double  <?> "Double"
+ssD' = skipSpace *> ((-999999) <$ "*" <|> double) <?> "Double ('*' aware)"
 ssS  = skipSpace *> takeTill (\c -> isEndOfLine c || isHorizontalSpace c)
 ssC  = skipSpace *> anyChar
 
@@ -36,7 +36,7 @@ infoLine = (,) <$> ABC.takeWhile isAlpha <* skipSpace <*> takeTill isEndOfLine <
 eolS = takeTill isEndOfLine <* endOfLine  -- TODO do we want a version that skips space? probably yes ...
 eolB = skipSpace *> (True <$ "yes" <|> False <$ "no") <* endOfLine
 eolR = skipSpace *> rational <* endOfLine
-eolD = skipSpace *> double <* endOfLine
+eolD = skipSpace *> double <* endOfLine <?> "double, endOfLine"
 eolN = skipSpace *> decimal <* endOfLine
 eolZ = skipSpace *> signed decimal <* endOfLine
 
