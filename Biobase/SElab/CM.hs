@@ -34,6 +34,7 @@ import qualified Data.Vector.Generic.Mutable
 import qualified Data.Vector.Unboxed as VU
 
 import           Biobase.Primary
+import           Biobase.Primary.Nuc.RNA
 import qualified Data.PrimitiveArray as PA
 import qualified Data.PrimitiveArray.Zero as PA
 
@@ -168,10 +169,10 @@ makePrisms ''States
 
 instance Default States where
   def = States
-    { _sTransitions     = PA.fromAssocs (Z:.0:.0)      (Z:.0:.0)      (0,0)    []
-    , _sPairEmissions   = PA.fromAssocs (Z:.0:.rA:.rA) (Z:.0:.rA:.rA) 0        []
-    , _sSingleEmissions = PA.fromAssocs (Z:.0:.rA)     (Z:.0:.rA)     0        []
-    , _sStateType       = PA.fromAssocs (Z:.0)         (Z:.0)         sIllegal []
+    { _sTransitions     = PA.fromAssocs (Z:.0:.0)    (Z:.0:.0)    (0,0)    []
+    , _sPairEmissions   = PA.fromAssocs (Z:.0:.A:.A) (Z:.0:.A:.A) 0        []
+    , _sSingleEmissions = PA.fromAssocs (Z:.0:.A)    (Z:.0:.A)    0        []
+    , _sStateType       = PA.fromAssocs (Z:.0)       (Z:.0)       sIllegal []
     }
 
 -- |

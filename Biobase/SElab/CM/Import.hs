@@ -42,7 +42,7 @@ import qualified Data.Text as T
 import qualified Data.Vector as V
 import qualified Data.Vector.Unboxed as VU
 
-import           Biobase.Primary
+import           Biobase.Primary.Nuc.RNA
 import qualified Data.PrimitiveArray as PA
 import qualified Data.PrimitiveArray.Zero as PA
 
@@ -81,9 +81,10 @@ parseCM = do
                                                                                                     else zip (uncurry enumFromTo $ s^.sChildren) (VU.toList $ s^.transitions)
                                                 ])
                             $ ns'^..folded._2.folded
-        , _sPairEmissions   = PA.fromAssocs (Z:.0:.rA:.rA) (Z:.maxState:.rU:.rU) def
+        , _sPairEmissions   = PA.fromAssocs (Z:.0:.A:.A) (Z:.maxState:.U:.U) def
+        -- TODO the zip3 seems to be a bug?
                             . concatMap (\s -> [((Z:.s^.sid:.n1:.n2),e) | emitsPair (s^.sType), (n1,n2,e) <- zip3 acgu acgu (VU.toList $ s^.emissions)]) $ ns'^..folded._2.folded
-        , _sSingleEmissions = PA.fromAssocs (Z:.0:.rA) (Z:.maxState:.rU) def
+        , _sSingleEmissions = PA.fromAssocs (Z:.0:.A) (Z:.maxState:.U) def
                             . concatMap (\s -> [((Z:.s^.sid:.nt),e) | emitsSingle (s^.sType), (nt,e) <- zip acgu (VU.toList $ s^.emissions)] ) $ ns' ^.. folded . _2 . folded
         , _sStateType       = PA.fromAssocs (Z:.0) (Z:.maxState) sIllegal . map ((,) <$> ((Z:.) <$> view sid) <*> view sType) $ ns' ^.. folded . _2 . folded
         }
@@ -132,7 +133,7 @@ cmHeader = AT.choice
   , (\x -> trace ("HMM Parser: unknown line:" ++ T.unpack x) id) <$> AT.takeTill (=='\n') <* AT.take 1
   ] <?> "cmHeader"
   where
-    ecm s = (\a b c d e f -> set ecmlc (EValueParams a b c d e f)) <$> s ..*> ssD <*> ssD <*> ssD <*> ssN <*> ssN <*> ssD <* eolS <?> (T.unpack $ T.toLower s)
+    ecm s = (\a b c d e f -> set ecmlc (EValueParams a b c d e f)) <$> s ..*> ssD <*> ssD <*> ssD <*> ssN <*> ssN <*> ssD <* eolS <?> "ecm parser"
 
 -- | Parse a node together with the attached states.
 

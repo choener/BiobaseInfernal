@@ -27,8 +27,13 @@ description:
 extra-source-files:
   changelog.md
 
-flag devel
+flag benchmark
   description:  developer tools, builds criterion executable
+  default:      False
+  manual:       True
+
+flag llvm
+  description:  use llvm in executable compilation
   default:      False
   manual:       True
 
@@ -36,10 +41,10 @@ library
   build-depends:
 --    ADPfusion           == 0.3.*    ,
 --    ansi-wl-pprint      == 0.6.*    ,
-    attoparsec          == 0.11.*   ,
+    attoparsec          == 0.12.*   ,
 --    attoparsec-conduit  >= 1      ,
-    BiobaseXNA          == 0.9.*    ,
-    biocore             == 0.3    ,
+    BiobaseXNA          == 0.9.1.*  ,
+    biocore             == 0.3.*    ,
     bytestring                    ,
 --    bytestring-lexing   >= 0.4    ,
     conduit             == 1.*    ,
@@ -52,12 +57,12 @@ library
 ----    log-domain          >= 0.8    ,
     primitive           == 0.5.*    ,
     PrimitiveArray      == 0.6.*    ,
-    repa                == 3.2.*    ,
+    repa                == 3.3.*    ,
     resourcet           == 1.*    ,
 --    strict              >= 0.3    ,
-    text                          ,
+    text                 == 1.*        ,
       transformers                  ,
---    tuple               >= 0.2    ,
+    tuple               == 0.3.*    ,
     vector              == 0.10.*   ,
     vector-th-unbox     == 0.2.*    ,
     base                == 4.*
@@ -113,20 +118,23 @@ executable CMhit
     -O2
 
 executable CriterionInfernal
-  if flag(devel)
+  if flag(benchmark)
     buildable: True
     build-depends:
-      criterion == 0.8.*
+      criterion == 1.*
   else
     buildable: False
   main-is:
-    devel/CriterionInfernal.hs
+    src/CriterionInfernal.hs
   ghc-options:
     -O2
---    -fllvm
---    -optlo-O3 -optlo-std-compile-opts
---    -fllvm-tbaa
+  if flag(llvm)
+    ghc-options:
+      -fllvm
+      -optlo-O3 -optlo-std-compile-opts
+      -fllvm-tbaa
 
 source-repository head
   type: git
   location: git://github.com/choener/BiobaseInfernal
+

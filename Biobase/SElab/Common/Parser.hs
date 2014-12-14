@@ -31,7 +31,7 @@ xChar   = skipSpace *> (Nothing <$ "-" <|> Just <$> ABC.anyChar)
 infoLine = (,) <$> ABC.takeWhile isAlpha <* skipSpace <*> takeTill isEndOfLine <* endOfLine
 
 -}
-(..*>) s t = s .*> skipSpace *> t
+(..*>) s t = s *> skipSpace *> t
 
 eolS = takeTill isEndOfLine <* endOfLine  -- TODO do we want a version that skips space? probably yes ...
 eolB = skipSpace *> (True <$ "yes" <|> False <$ "no") <* endOfLine
