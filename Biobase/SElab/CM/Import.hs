@@ -141,8 +141,8 @@ node :: AT.Parser (Node, [State])
 node = (,) <$> aNode <*> AT.many1 aState where
   aNode  = Node VU.empty <$ AT.skipSpace <* "[ " <*> anType <*> ssN <* AT.skipSpace <* "]" <*> ssN_ <*> ssN_ <*> ssC <*> ssC <*> ssC <*> ssC
   anType :: AT.Parser NodeType
-  anType = AT.choice [ nBif  <$ "BIF" , nMatP <$ "MATP", nMatL <$ "MATL", nMatR <$ "MATR"
-                     , nBegL <$ "BEGL", nBegR <$ "BEGR", nRoot <$ "ROOT", nEnd  <$ "END" ]
+  anType = AT.choice [ Bif  <$ "BIF" , MatP <$ "MATP", MatL <$ "MATL", MatR <$ "MATR"
+                     , BegL <$ "BEGL", BegR <$ "BEGR", Root <$ "ROOT", End  <$ "END" ]
   aState = do AT.skipSpace
               _sType     <- asType
               _sid       <- ssN

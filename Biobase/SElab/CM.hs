@@ -68,30 +68,6 @@ instance Default EValueParams where
 makeLenses ''EValueParams
 makePrisms ''EValueParams
 
--- | The type of a node, efficiently encoded as an Int.
---
--- TODO we might want a nice read instance
-
-newtype NodeType = NodeType {unNodeType :: Int}
-  deriving (Eq)
-
-instance Show NodeType where
-  show n
-    | n==nBif   = "BIF"
-    | n==nMatP  = "MATP"
-    | n==nMatL  = "MATL"
-    | n==nMatR  = "MATR"
-    | n==nBegL  = "BEGL"
-    | n==nBegR  = "BEGR"
-    | n==nRoot  = "ROOT"
-    | n==nEnd   = "END"
-    | otherwise = "N??N"
-
--- | The individual node types are set to the same numeric ID as in Infernal
--- itself.
-
-(nBif : nMatP : nMatL : nMatR : nBegL: nBegR : nRoot : nEnd : _) = map NodeType [0..]
-
 -- newtype StateId = Sid {unSid :: Int}
 
 newtype StateType = StateType {unStateType :: Int}
