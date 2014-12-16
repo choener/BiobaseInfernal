@@ -77,8 +77,8 @@ parseCM = do
     $ set states States
         { _sTransitions     = PA.fromAssocs (Z:.0:.0) (Z:.0:.5) (-1,def)
                             . concatMap (\s -> [((Z:.s^.sid:.k),(i,e)) | k <- [0..5]
-                                                                       | (i,e) <- if s^.sType == sB then map (,0) $ s^..sChildren.both
-                                                                                                    else zip (uncurry enumFromTo $ s^.sChildren) (VU.toList $ s^.transitions)
+                                                                       | (i,e) <- if s^.sType == B then map (,0) $ s^..sChildren.both
+                                                                                                   else zip (uncurry enumFromTo $ s^.sChildren) (VU.toList $ s^.transitions)
                                                 ])
                             $ ns'^..folded._2.folded
         , _sPairEmissions   = PA.fromAssocs (Z:.0:.A:.A) (Z:.maxState:.U:.U) def
@@ -86,7 +86,7 @@ parseCM = do
                             . concatMap (\s -> [((Z:.s^.sid:.n1:.n2),e) | emitsPair (s^.sType), (n1,n2,e) <- zip3 acgu acgu (VU.toList $ s^.emissions)]) $ ns'^..folded._2.folded
         , _sSingleEmissions = PA.fromAssocs (Z:.0:.A) (Z:.maxState:.U) def
                             . concatMap (\s -> [((Z:.s^.sid:.nt),e) | emitsSingle (s^.sType), (nt,e) <- zip acgu (VU.toList $ s^.emissions)] ) $ ns' ^.. folded . _2 . folded
-        , _sStateType       = PA.fromAssocs (Z:.0) (Z:.maxState) sIllegal . map ((,) <$> ((Z:.) <$> view sid) <*> view sType) $ ns' ^.. folded . _2 . folded
+        , _sStateType       = PA.fromAssocs (Z:.0) (Z:.maxState) (StateType $ -1) . map ((,) <$> ((Z:.) <$> view sid) <*> view sType) $ ns' ^.. folded . _2 . folded
         }
     $ set hmm cmhmm
     $ set nodes ns
@@ -149,16 +149,16 @@ node = (,) <$> aNode <*> AT.many1 aState where
               _sParents  <- (,) <$> ssZ <*> ssN
               _sChildren <- (,) <$> ssZ <*> ssN
               _sqdb      <- (,,,) <$> ssN <*> ssN <*> ssN <*> ssN
-              _transitions <- if | _sType==sB -> pure VU.empty
+              _transitions <- if | _sType==B  -> pure VU.empty
                                  | otherwise  -> VU.fromList <$> AT.count (_sChildren^._2) (Bitscore <$> ssD')
-              _emissions   <- if | _sType==sMP -> VU.fromList <$> AT.count 16 (Bitscore <$> ssD)
-                                 | _sType `elem` [sML,sMR,sIL,sIR] -> VU.fromList <$> AT.count 4 (Bitscore <$> ssD)
+              _emissions   <- if | _sType==MP -> VU.fromList <$> AT.count 16 (Bitscore <$> ssD)
+                                 | _sType `elem` [ML,MR,IL,IR] -> VU.fromList <$> AT.count 4 (Bitscore <$> ssD)
                                  | otherwise -> pure VU.empty
               eolS
               return State{..}
   asType :: AT.Parser StateType
-  asType = AT.choice [ sD <$ "D", sMP <$ "MP", sML <$ "ML", sMR <$ "MR"
-                     , sIL <$ "IL", sIR <$ "IR", sS <$ "S", sE <$ "E", sB <$ "B" ]
+  asType = AT.choice [ D  <$ "D" , MP <$ "MP", ML <$ "ML", MR <$ "MR"
+                     , IL <$ "IL", IR <$ "IR", S  <$ "S" , E  <$ "E" , B <$ "B" ]
 
 -- | Read a list of CMs from a given filename.
 

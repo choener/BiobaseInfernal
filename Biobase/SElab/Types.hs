@@ -9,6 +9,7 @@
 {-# LANGUAGE PatternSynonyms #-}
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE ViewPatterns #-}
 
@@ -22,14 +23,17 @@
 
 module Biobase.SElab.Types where
 
-import           Control.Arrow
+import           Control.Applicative
+import           Control.Arrow ()
 import           Data.Ix (Ix)
 import           Data.String
 import           Data.Text (Text)
-import           GHC.Generics
+import           Data.Vector.Unboxed.Deriving
+import           GHC.Generics (Generic)
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.List as L
 import qualified Data.Text as T
+import           Text.Read
 
 
 
@@ -105,16 +109,67 @@ instance Show NodeType where
     End  -> "END"
 
 instance Read NodeType where
-  readsPrec p = \case
-    (null      -> True)    -> []
-    (sp " "    -> Just ys) -> readsPrec p ys
-    (sp "BIF"  -> Just ys) -> [(Bif , ys)]
-    (sp "MATP" -> Just ys) -> [(MatP, ys)]
-    (sp "MATL" -> Just ys) -> [(MatL, ys)]
-    (sp "MATR" -> Just ys) -> [(MatR, ys)]
-    (sp "BEGL" -> Just ys) -> [(BegL, ys)]
-    (sp "BEGR" -> Just ys) -> [(BegR, ys)]
-    (sp "ROOT" -> Just ys) -> [(Root, ys)]
-    (sp "END"  -> Just ys) -> [(End , ys)]
-    where sp = L.stripPrefix
+  readPrec = parens $ do
+    Ident s <- lexP
+    return $ case s of
+      "BIF"  -> Bif
+      "MATP" -> MatP
+      "MATL" -> MatL
+      "MATR" -> MatR
+      "BEGL" -> BegL
+      "BEGR" -> BegR
+      "ROOT" -> Root
+      "END"  -> End
+      _      -> error $ "read NodeType: " ++ s
+
+derivingUnbox "NodeType"
+  [t| NodeType -> Int |] [| unNodeType |] [| NodeType |]
+
+-- | Type of a state, a newtype wrapper for performance
+
+newtype StateType = StateType {unStateType :: Int}
+  deriving (Eq,Ord,Generic,Ix)
+
+pattern D  = StateType 0
+pattern MP = StateType 1
+pattern ML = StateType 2
+pattern MR = StateType 3
+pattern IL = StateType 4
+pattern IR = StateType 5
+pattern S  = StateType 6
+pattern E  = StateType 7
+pattern B  = StateType 8
+pattern EL = StateType 9
+
+instance Show StateType where
+  show = \case
+    D  -> "D"
+    MP -> "MP"
+    ML -> "ML"
+    MR -> "MR"
+    IL -> "IL"
+    IR -> "IR"
+    S  -> "S"
+    E  -> "E"
+    B  -> "B"
+    EL -> "EL"
+
+instance Read StateType where
+  readPrec = parens $ do
+    Ident s <- lexP
+    return $ case s of
+      "D"  -> D
+      "MP" -> MP
+      "ML" -> ML
+      "MR" -> MR
+      "IL" -> IL
+      "IR" -> IR
+      "S"  -> S
+      "E"  -> E
+      "B"  -> B
+      "EL" -> EL
+      _    -> error $ "read StateType: " ++ s
+
+derivingUnbox "StateType"
+  [t| StateType -> Int |] [| unStateType |] [| StateType |]
 

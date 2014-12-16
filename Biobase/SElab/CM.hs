@@ -68,21 +68,11 @@ instance Default EValueParams where
 makeLenses ''EValueParams
 makePrisms ''EValueParams
 
--- newtype StateId = Sid {unSid :: Int}
-
-newtype StateType = StateType {unStateType :: Int}
-  deriving (Eq,Show)
-
-derivingUnbox "StateType"
-  [t| StateType -> Int |] [| unStateType |] [| StateType |]
-
-( sD : sMP : sML : sMR : sIL : sIR : sS : sE : sB : sEL : sIllegal : _) = map StateType [0..]
-
 emitsSingle :: StateType -> Bool
-emitsSingle s | s `elem` [sML,sMR,sIL,sIR] = True
-              | otherwise                  = False
+emitsSingle s | s `elem` [ML,MR,IL,IR] = True
+              | otherwise              = False
 
-emitsPair = (==) sMP
+emitsPair = (==) MP
 
 -- |
 
@@ -145,10 +135,10 @@ makePrisms ''States
 
 instance Default States where
   def = States
-    { _sTransitions     = PA.fromAssocs (Z:.0:.0)    (Z:.0:.0)    (0,0)    []
-    , _sPairEmissions   = PA.fromAssocs (Z:.0:.A:.A) (Z:.0:.A:.A) 0        []
-    , _sSingleEmissions = PA.fromAssocs (Z:.0:.A)    (Z:.0:.A)    0        []
-    , _sStateType       = PA.fromAssocs (Z:.0)       (Z:.0)       sIllegal []
+    { _sTransitions     = PA.fromAssocs (Z:.0:.0)    (Z:.0:.0)    (0,0)             []
+    , _sPairEmissions   = PA.fromAssocs (Z:.0:.A:.A) (Z:.0:.A:.A) 0                 []
+    , _sSingleEmissions = PA.fromAssocs (Z:.0:.A)    (Z:.0:.A)    0                 []
+    , _sStateType       = PA.fromAssocs (Z:.0)       (Z:.0)       (StateType $ -1)  []
     }
 
 -- |
