@@ -1,3 +1,5 @@
+
+{-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE TemplateHaskell #-}
@@ -5,13 +7,18 @@
 
 module Biobase.SElab.Bitscore where
 
-import Data.Default.Class
-import Data.Primitive.Types
-import Data.Vector.Generic as VG
-import Data.Vector.Generic.Mutable as VGM
-import Data.Vector.Unboxed as VU
-import Data.Vector.Unboxed.Base
-import Data.Vector.Unboxed.Deriving
+import           Data.Default.Class
+import           Data.Primitive.Types
+import qualified Data.Vector.Generic as VG
+import qualified Data.Vector.Generic.Mutable as VGM
+import qualified Data.Vector.Unboxed as VU
+import           Data.Vector.Unboxed.Base
+import           Data.Vector.Unboxed.Deriving
+import           Data.Aeson
+import           Data.Binary
+import           Data.Hashable (Hashable)
+import           Data.Serialize
+import           GHC.Generics (Generic)
 
 
 
@@ -27,7 +34,13 @@ import Data.Vector.Unboxed.Deriving
 -- like floats, but internally they handle everything in log-space).
 
 newtype Bitscore = Bitscore {rawBitscore :: Double}
-  deriving (Eq,Ord,Read,Show,Num)
+  deriving (Eq,Ord,Read,Show,Num,Generic)
+
+instance Binary    Bitscore
+instance FromJSON  Bitscore
+instance Hashable  Bitscore
+instance Serialize Bitscore
+instance ToJSON    Bitscore
 
 derivingUnbox "Bitscore"
   [t| Bitscore -> Double |] [| rawBitscore |] [| Bitscore |]

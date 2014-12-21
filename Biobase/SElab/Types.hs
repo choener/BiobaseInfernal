@@ -1,32 +1,31 @@
 
 {-# LANGUAGE DeriveGeneric #-}
 {-# LANGUAGE EmptyDataDecls #-}
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE PatternGuards #-}
 {-# LANGUAGE PatternSynonyms #-}
-{-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE RankNTypes #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE ViewPatterns #-}
 
 -- | Infernal Stockholm files and covariance models, and other related files
 -- use a bunch of different identifiers. We provide newtypes for more type
 -- safety.
 --
 -- TODO Use (Bio.Core.Sequence.Offset) instead of Int for sequence info
---
--- TODO move 'BitScore's, null models, probabilities into its own library.
 
 module Biobase.SElab.Types where
 
 import           Control.Applicative
 import           Control.Arrow ()
+import           Data.Aeson
+import           Data.Binary
+import           Data.Hashable (Hashable)
 import           Data.Ix (Ix)
+import           Data.Serialize
+import           Data.Serialize.Text
 import           Data.String
+import           Data.Text.Binary
 import           Data.Text (Text)
 import           Data.Vector.Unboxed.Deriving
 import           GHC.Generics (Generic)
@@ -43,17 +42,32 @@ import           Text.Read
 -- only the Int-part. A phantom type specifies which kind of accession number
 -- this is. For Species, we just have an index, it seems.
 
-newtype Accession t = ACC {unACC :: Int}
-  deriving (Eq,Ord,Read,Show)
+newtype Accession t = Accession Int
+  deriving (Eq,Ord,Read,Show,Generic,Ix)
+
+instance Binary    (Accession t)
+instance FromJSON  (Accession t)
+instance Hashable  (Accession t)
+instance Serialize (Accession t)
+instance ToJSON    (Accession t)
+
+derivingUnbox "Accession"
+  [t| forall t . Accession t -> Int |] [| \(Accession a) -> a |] [| Accession |]
 
 -- | One word name for the family or clan. Phantom-typed with the correct type
 -- of model. Can be a longer name for species.
 
-newtype Identification t = IDD {unIDD :: Text}
-  deriving (Eq,Ord,Read,Show)
+newtype Identification t = Identification Text
+  deriving (Eq,Ord,Read,Show,Generic)
+
+instance Binary    (Identification t)
+instance FromJSON  (Identification t)
+instance Hashable  (Identification t)
+instance Serialize (Identification t)
+instance ToJSON    (Identification t)
 
 instance IsString (Identification t) where
-  fromString = IDD . T.pack
+  fromString = Identification . T.pack
 
 -- | Tag as being a clan.
 
@@ -74,8 +88,17 @@ data Species
 
 -- | Classification names (taxonomic classification)
 
-newtype Classification = Classification {unClassification :: Text}
-  deriving (Eq,Ord,Read,Show)
+newtype Classification = Classification Text
+  deriving (Eq,Ord,Read,Show,Generic)
+
+instance Binary    Classification
+instance FromJSON  Classification
+instance Hashable  Classification
+instance Serialize Classification
+instance ToJSON    Classification
+
+instance IsString Classification where
+  fromString = Classification . T.pack
 
 
 
@@ -85,7 +108,7 @@ newtype Classification = Classification {unClassification :: Text}
 --
 -- TODO we might want a nice read instance
 
-newtype NodeType = NodeType {unNodeType :: Int}
+newtype NodeType = NodeType Int
   deriving (Eq,Ord,Generic,Ix)
 
 pattern Bif  = NodeType 0
@@ -96,6 +119,12 @@ pattern BegL = NodeType 4
 pattern BegR = NodeType 5
 pattern Root = NodeType 6
 pattern End  = NodeType 7
+
+instance Binary    NodeType
+instance FromJSON  NodeType
+instance Hashable  NodeType
+instance Serialize NodeType
+instance ToJSON    NodeType
 
 instance Show NodeType where
   show = \case
@@ -123,11 +152,11 @@ instance Read NodeType where
       _      -> error $ "read NodeType: " ++ s
 
 derivingUnbox "NodeType"
-  [t| NodeType -> Int |] [| unNodeType |] [| NodeType |]
+  [t| NodeType -> Int |] [| \(NodeType n) -> n |] [| NodeType |]
 
 -- | Type of a state, a newtype wrapper for performance
 
-newtype StateType = StateType {unStateType :: Int}
+newtype StateType = StateType Int
   deriving (Eq,Ord,Generic,Ix)
 
 pattern D  = StateType 0
@@ -140,6 +169,12 @@ pattern S  = StateType 6
 pattern E  = StateType 7
 pattern B  = StateType 8
 pattern EL = StateType 9
+
+instance Binary    StateType
+instance FromJSON  StateType
+instance Hashable  StateType
+instance Serialize StateType
+instance ToJSON    StateType
 
 instance Show StateType where
   show = \case
@@ -171,5 +206,5 @@ instance Read StateType where
       _    -> error $ "read StateType: " ++ s
 
 derivingUnbox "StateType"
-  [t| StateType -> Int |] [| unStateType |] [| StateType |]
+  [t| StateType -> Int |] [| \(StateType s) -> s |] [| StateType |]
 
