@@ -1,8 +1,8 @@
 name:           BiobaseInfernal
 version:        0.8.0.0
 author:         Christian Hoener zu Siederdissen
-maintainer:     choener@tbi.univie.ac.at
-homepage:       http://www.tbi.univie.ac.at/~choener/
+maintainer:     choener@bioinf.uni-leipzig.de
+homepage:       http://www.bioinf.uni-leipzig.de/~choener/
 copyright:      Christian Hoener zu Siederdissen, 2011-2014
 category:       Bioinformatics
 synopsis:       Infernal data structures and tools
