@@ -15,7 +15,6 @@ import           Control.Lens
 import           Control.Monad
 import           Control.Monad.IO.Class (MonadIO)
 import           Control.Monad.Trans.Resource (runResourceT,MonadThrow)
-import           Data.Array.Repa.Index
 import           Data.Attoparsec.ByteString (count,many1,(<?>),manyTill,option)
 import           Data.ByteString.Char8 (ByteString,unpack)
 import           Data.Char (isSpace,isAlpha,isDigit)
@@ -34,11 +33,11 @@ import qualified Data.Attoparsec.ByteString.Char8 as ABC
 import qualified Data.Attoparsec.Text as AT
 import qualified Data.List as L
 import qualified Data.Map as M
-import qualified Data.PrimitiveArray as PA
-import qualified Data.PrimitiveArray.Zero as PA
 import qualified Data.Text as T
 import qualified Data.Vector.Unboxed as VU
 import           System.FilePath (takeExtension)
+
+import           Data.PrimitiveArray as PA hiding (map)
 
 import           Biobase.SElab.Bitscore
 import           Biobase.SElab.Common.Parser

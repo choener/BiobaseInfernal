@@ -23,7 +23,6 @@ module Biobase.SElab.CM where
 
 import           Control.Applicative
 import           Control.Lens
-import           Data.Array.Repa.Index
 import           Data.Default.Class
 import           Data.Text (Text)
 import           Data.Vector.Unboxed.Deriving
@@ -35,8 +34,7 @@ import qualified Data.Vector.Unboxed as VU
 
 import           Biobase.Primary
 import           Biobase.Primary.Nuc.RNA
-import qualified Data.PrimitiveArray as PA
-import qualified Data.PrimitiveArray.Zero as PA
+import           Data.PrimitiveArray as PA
 
 import           Biobase.SElab.Bitscore
 import           Biobase.SElab.HMM

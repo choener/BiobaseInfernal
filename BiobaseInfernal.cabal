@@ -27,7 +27,7 @@ description:
 extra-source-files:
   changelog.md
 
-flag benchmark
+flag devel
   description:  developer tools, builds criterion executable
   default:      False
   manual:       True
@@ -124,7 +124,7 @@ executable CMhit
     -O2
 
 executable CriterionInfernal
-  if flag(benchmark)
+  if flag(devel)
     buildable: True
     build-depends:
       criterion == 1.*

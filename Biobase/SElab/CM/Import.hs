@@ -24,7 +24,6 @@ import           Control.Lens
 import           Control.Monad
 import           Control.Monad.IO.Class (MonadIO)
 import           Control.Monad.Trans.Resource (runResourceT,MonadThrow)
-import           Data.Array.Repa.Index
 import           Data.Attoparsec.ByteString (takeTill,count,many1,(<?>),manyTill,option)
 import           Data.ByteString.Char8 (ByteString)
 import           Data.Conduit.Attoparsec (conduitParserEither)
@@ -43,8 +42,7 @@ import qualified Data.Vector as V
 import qualified Data.Vector.Unboxed as VU
 
 import           Biobase.Primary.Nuc.RNA
-import qualified Data.PrimitiveArray as PA
-import qualified Data.PrimitiveArray.Zero as PA
+import           Data.PrimitiveArray as PA hiding (map)
 
 import           Biobase.SElab.Bitscore
 import           Biobase.SElab.CM

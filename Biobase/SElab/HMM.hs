@@ -8,12 +8,10 @@
 module Biobase.SElab.HMM where
 
 import           Control.Lens
-import           Data.Array.Repa.Index
 import           Data.Default.Class
 import           Data.Text
 import           Data.Word (Word32(..))
-import qualified Data.PrimitiveArray as PA
-import qualified Data.PrimitiveArray.Zero as PA
+import           Data.PrimitiveArray as PA
 import qualified Data.Vector.Unboxed as VU
 
 import           Biobase.SElab.Bitscore
