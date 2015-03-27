@@ -1,6 +1,12 @@
 
 module Main where
 
+
+
+main :: IO ()
+main = return ()
+
+{-
 import Criterion.Main
 import Numeric.Log
 
@@ -19,4 +25,5 @@ main = defaultMain
                 , bench "Log:Uns" $ nf (mul (Exp (1::Double))) (Exp 2)
                 ]
   ]
+-}
 

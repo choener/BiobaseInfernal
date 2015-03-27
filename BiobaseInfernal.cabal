@@ -3,14 +3,14 @@ version:        0.8.0.0
 author:         Christian Hoener zu Siederdissen
 maintainer:     choener@bioinf.uni-leipzig.de
 homepage:       http://www.bioinf.uni-leipzig.de/~choener/
-copyright:      Christian Hoener zu Siederdissen, 2011-2014
+copyright:      Christian Hoener zu Siederdissen, 2011 - 2015
 category:       Bioinformatics
 synopsis:       Infernal data structures and tools
 license:        GPL-3
 license-file:   LICENSE
 build-type:     Simple
 stability:      experimental
-cabal-version:  >= 1.6.0
+cabal-version:  >= 1.8.0
 description:
                 Provides import and export facilities for Infernal/Rfam data
                 formats. We include Stockholm, CM, verbose Infernal results,
@@ -20,14 +20,15 @@ description:
                 annotations. This extension should be backward-compatible with
                 standard-compliant parsers.
                 .
-                The @CMhit@ program provides filtering and coloring options.
+                The @cmsearchFilter@ program provides filtering and coloring
+                options.
 
 
 
 extra-source-files:
   changelog.md
 
-flag devel
+flag benchmark
   description:  developer tools, builds criterion executable
   default:      False
   manual:       True
@@ -38,40 +39,38 @@ flag llvm
   manual:       True
 
 library
-  build-depends:
+  build-depends:  base                >= 4.7        && < 4.9
+               ,  aeson               == 0.8.*
+               ,  attoparsec          == 0.12.*
+               ,  binary              == 0.7.*
+               ,  BiobaseXNA          == 0.9.1.*
+               ,  biocore             == 0.3.*
+               ,  bytestring
+               ,  cereal              == 0.4.*
+               ,  cereal-text         == 0.1.*
+               ,  conduit             == 1.*
+               ,  conduit-extra       == 1.*
+               ,  containers
+               ,  data-default-class  == 0.0.1.*
+               ,  filepath            >= 1.3        && < 1.5
+               ,  hashable            == 1.2.*
+               ,  lens                == 4.*
+               ,  primitive           == 0.5.*
+               ,  PrimitiveArray      == 0.6.*
+               ,  resourcet           == 1.*
+               ,  text                == 1.*
+               ,  text-binary         == 0.1.*
+               ,  transformers
+               ,  tuple               == 0.3.*
+               ,  vector              == 0.10.*
+               ,  vector-th-unbox     == 0.2.*
 --    ADPfusion           == 0.3.*    ,
-    aeson               == 0.8.*    ,
 --    ansi-wl-pprint      == 0.6.*    ,
-    attoparsec          == 0.12.*   ,
 --    attoparsec-conduit  >= 1      ,
-    binary              == 0.7.*    ,
-    BiobaseXNA          == 0.9.1.*  ,
-    biocore             == 0.3.*    ,
-    bytestring                    ,
 --    bytestring-lexing   >= 0.4    ,
-    cereal              == 0.4.*    ,
-    conduit             == 1.*    ,
-    conduit-extra       == 1.*    ,
-    containers                    ,
-    data-default-class  == 0.0.1.*  ,
 --    either-unwrap       >= 1.1    ,
-    filepath            == 1.3.*    ,
-    hashable            == 1.2.*    ,
-    lens                == 4.*    ,
 ----    log-domain          >= 0.8    ,
-    primitive           == 0.5.*    ,
-    PrimitiveArray      == 0.6.*    ,
-    repa                == 3.3.*    ,
-    resourcet           == 1.*    ,
 --    strict              >= 0.3    ,
-    text                == 1.*        ,
-    text-binary         == 0.1.*    ,
-      transformers                  ,
-    tuple               == 0.3.*    ,
-    vector              == 0.10.*   ,
-    vector-th-unbox     == 0.2.*    ,
-    cereal-text         == 0.1.*    ,
-    base                == 4.*
 
   exposed-modules:
 -- --    Biobase.Infernal.Align
@@ -112,26 +111,36 @@ library
   ghc-options:
     -O2 -funbox-strict-fields
 
--- CMhit provides advanced cm hit filtering functionality.
+-- provides advanced cmsearch hit filtering functionality.
 
-executable CMhit
-  build-depends:
-    cmdargs         == 0.10.*   ,
-    base            == 4.*
+executable cmsearchFilter
+  build-depends:  base
+               ,  BiobaseInfernal
+               ,  cmdargs           == 0.10.*
+  hs-source-dirs:
+    src
   main-is:
-    CMhit.hs
+    cmsearchFilter.hs
   ghc-options:
     -O2
+  if flag(llvm)
+    ghc-options:
+      -fllvm
+      -optlo-O3 -optlo-std-compile-opts
+      -fllvm-tbaa
 
-executable CriterionInfernal
-  if flag(devel)
+executable BenchmarkBiobaseInfernal
+  if flag(benchmark)
     buildable: True
-    build-depends:
-      criterion == 1.*
+    build-depends:  base
+                 ,  BiobaseInfernal
+                 ,  criterion         >= 1.1.0.0    && < 1.2
   else
     buildable: False
+  hs-source-dirs:
+    src
   main-is:
-    src/CriterionInfernal.hs
+    CriterionInfernal.hs
   ghc-options:
     -O2
   if flag(llvm)
