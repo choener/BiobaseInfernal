@@ -1,13 +1,4 @@
 
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE EmptyDataDecls #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE PatternSynonyms #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeFamilies #-}
-
 -- | Infernal Stockholm files and covariance models, and other related files
 -- use a bunch of different identifiers. We provide newtypes for more type
 -- safety.
@@ -38,25 +29,6 @@ import           Text.Read
 
 -- * 'Accession' and string 'Identifier' with phantom types.
 
--- | Accession number, in the format of RFxxxxx, PFxxxxx, or CLxxxxx. We keep
--- only the Int-part. A phantom type specifies which kind of accession number
--- this is. For Species, we just have an index, it seems.
-
-newtype Accession t = Accession Int
-  deriving (Eq,Ord,Read,Show,Generic,Ix)
-
-instance Binary    (Accession t)
-instance FromJSON  (Accession t)
-instance Hashable  (Accession t)
-instance Serialize (Accession t)
-instance ToJSON    (Accession t)
-
-derivingUnbox "Accession"
-  [t| forall t . Accession t -> Int |] [| \(Accession a) -> a |] [| Accession |]
-
--- | One word name for the family or clan. Phantom-typed with the correct type
--- of model. Can be a longer name for species.
-
 newtype Identification t = Identification Text
   deriving (Eq,Ord,Read,Show,Generic)
 
@@ -69,21 +41,6 @@ instance ToJSON    (Identification t)
 instance IsString (Identification t) where
   fromString = Identification . T.pack
 
--- | Tag as being a clan.
-
-data Clan
-
--- | Tag as being a Pfam model.
-
-data Pfam
-
--- | Tag as being an Rfam model. Used for Stockholm and CM files.
-
-data Rfam
-
--- | Species have an accession number, too.
-
-data Species
 
 
 -- | Classification names (taxonomic classification)

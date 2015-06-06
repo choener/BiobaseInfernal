@@ -1,7 +1,3 @@
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE DoAndIfThenElse #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE NoMonomorphismRestriction #-}
 
 -- | Import HMMER3 HMM models.
 
@@ -37,18 +33,19 @@ import qualified Data.Text as T
 import qualified Data.Vector.Unboxed as VU
 import           System.FilePath (takeExtension)
 
+import           Biobase.Types.Accession (Accession(..))
 import           Data.PrimitiveArray as PA hiding (map)
 
 import           Biobase.SElab.Bitscore
 import           Biobase.SElab.Common.Parser
-import           Biobase.SElab.HMM
+import           Biobase.SElab.HMM.Types
 import           Biobase.SElab.Types
 
 
 
 -- |
 
-conduitHMM :: (Monad m, MonadIO m, MonadThrow m) => Conduit ByteString m HMM
+conduitHMM :: (Monad m, MonadIO m, MonadThrow m) => Conduit ByteString m (HMM xfam)
 conduitHMM = decodeUtf8 =$= conduitParserEither (parseHMM <?> "HMM parser") =$= awaitForever (either (error . show) (yield . snd)) where
 
 -- |
@@ -56,7 +53,7 @@ conduitHMM = decodeUtf8 =$= conduitParserEither (parseHMM <?> "HMM parser") =$= 
 -- NOTE the idea of filling with @999999@ is that if we run the HMM, then any
 -- score bugs will yield weird results that show up immediately.
 
-parseHMM :: AT.Parser HMM
+parseHMM :: AT.Parser (HMM xfam)
 parseHMM = do
   v <- acceptedVersion
   let hmm' = version .~ v $ def
@@ -78,23 +75,23 @@ acceptedVersion :: AT.Parser (Text,Text)
 acceptedVersion = (,) <$> vOk <* AT.skipSpace <*> eolS <?> "accepted Version" where
     vOk = "HMMER3/b" <|> "HMMER3/f"
 
-hmmHeader :: AT.Parser (HMM -> HMM)
+hmmHeader :: AT.Parser (HMM xfam -> HMM xfam)
 hmmHeader = AT.choice
-  [ set name            <$> "NAME"  ..*> eolS <?> "name"
-  , set accession       <$> "ACC"   ..*> eolS <?> "hmmAccession"
-  , set description     <$> "DESC"  ..*> eolS <?> "description"
-  , id                  <$  "LENG"  ..*> eolS <?> "leng"   -- TODO
-  , set alph            <$> "ALPH"  ..*> eolS <?> "alph"
-  , set rf              <$> "RF"    ..*> eolB <?> "rf"
-  , set cs              <$> "CS"    ..*> eolB <?> "cs"
-  , id                  <$  "MAP"   ..*> eolB <?> "map"    -- TODO
-  , set date            <$> "DATE"  ..*> eolS <?> "date"
-  , set nseq . Just     <$> "NSEQ"  ..*> eolN <?> "nseq"
-  , set effnseq . Just  <$> "EFFN"  ..*> eolD <?> "effn"
-  , set chksum  . Just  <$> "CKSUM" ..*> eolN <?> "cksum"
-  , id                  <$  "GA"    ..*> eolS <?> "ga"      -- TODO
-  , id                  <$  "TC"    ..*> eolS <?> "tc"      -- TODO
-  , id                  <$  "NC"    ..*> eolS <?> "nc"      -- TODO
+  [ set name                    <$> "NAME"  ..*> eolS <?> "name"
+  , set accession . Accession   <$> "ACC"   ..*> eolS <?> "hmmAccession"
+  , set description             <$> "DESC"  ..*> eolS <?> "description"
+  , id                          <$  "LENG"  ..*> eolS <?> "leng"   -- TODO
+  , set alph                    <$> "ALPH"  ..*> eolS <?> "alph"
+  , set rf                      <$> "RF"    ..*> eolB <?> "rf"
+  , set cs                      <$> "CS"    ..*> eolB <?> "cs"
+  , id                          <$  "MAP"   ..*> eolB <?> "map"    -- TODO
+  , set date                    <$> "DATE"  ..*> eolS <?> "date"
+  , set nseq . Just             <$> "NSEQ"  ..*> eolN <?> "nseq"
+  , set effnseq . Just          <$> "EFFN"  ..*> eolD <?> "effn"
+  , set chksum  . Just          <$> "CKSUM" ..*> eolN <?> "cksum"
+  , id                          <$  "GA"    ..*> eolS <?> "ga"      -- TODO
+  , id                          <$  "TC"    ..*> eolS <?> "tc"      -- TODO
+  , id                          <$  "NC"    ..*> eolS <?> "nc"      -- TODO
   , (\l r -> set msv     (Just (l,r))) <$ "STATS LOCAL MSC"     <*> ssD <*> ssD <* eolS
   , (\l r -> set viterbi (Just (l,r))) <$ "STATS LOCAL VITERBI" <*> ssD <*> ssD <* eolS
   , (\l r -> set forward (Just (l,r))) <$ "STATS LOCAL FORWARD" <*> ssD <*> ssD <* eolS
@@ -135,6 +132,6 @@ type Component  = (Int, ([Double],Int,Char,Char,Char), [Double], [Double])
 
 test :: IO ()
 test = do
-  xs <- runResourceT $ sourceFile "devel/test.hmm" $= conduitHMM $$ consume -- CB.lines $= CL.sequence parseHMM3 $$ consume -- sinkHandle stdout
+  xs <- runResourceT $ sourceFile "src/test.hmm" $= conduitHMM $$ consume -- CB.lines $= CL.sequence parseHMM3 $$ consume -- sinkHandle stdout
   print xs
 

@@ -1,10 +1,4 @@
 
-{-# LANGUAGE DeriveGeneric #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeFamilies #-}
-
 module Biobase.SElab.Bitscore where
 
 import           Data.Default.Class
@@ -20,6 +14,8 @@ import           Data.Hashable (Hashable)
 import           Data.Serialize
 import           GHC.Generics (Generic)
 
+import           Biobase.Types.NumericalExtremes
+
 
 
 -- | Infernal bit score. Behaves like a double (deriving Num).
@@ -33,7 +29,7 @@ import           GHC.Generics (Generic)
 -- the scores, i.e. we'd multiply in normal space; while LogFloat's act just
 -- like floats, but internally they handle everything in log-space).
 
-newtype Bitscore = Bitscore {rawBitscore :: Double}
+newtype Bitscore = Bitscore { getBitscore :: Double }
   deriving (Eq,Ord,Read,Show,Num,Generic)
 
 instance Binary    Bitscore
@@ -43,14 +39,15 @@ instance Serialize Bitscore
 instance ToJSON    Bitscore
 
 derivingUnbox "Bitscore"
-  [t| Bitscore -> Double |] [| rawBitscore |] [| Bitscore |]
+  [t| Bitscore -> Double |] [| getBitscore |] [| Bitscore |]
 
 -- | A default bitscore of "-infinity".
 --
 -- TODO Check out the different "defaults" Infernal uses
 
 instance Default Bitscore where
-  def = Bitscore (-999999)
+  def = Bitscore verySmall
+  {-# Inline def #-}
 
 -- | Given a null model and a probability, calculate the corresponding
 -- 'BitScore'.
@@ -65,8 +62,8 @@ prob2Score null x
 
 score2Prob :: Double -> Bitscore -> Double
 score2Prob null (Bitscore x)
-  | x<= -99999 = 0
-  | otherwise  = null * exp (x * log 2)
+  | x <= verySmall = 0
+  | otherwise      = null * exp (x * log 2)
 {-# INLINE score2Prob #-}
 
 -- | A simple alias for e-values.

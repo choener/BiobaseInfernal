@@ -2,15 +2,17 @@ name:           BiobaseInfernal
 version:        0.8.0.0
 author:         Christian Hoener zu Siederdissen
 maintainer:     choener@bioinf.uni-leipzig.de
-homepage:       http://www.bioinf.uni-leipzig.de/~choener/
+homepage:       https://github.com/choener/BiobaseInfernal
+bug-reports:    https://github.com/choener/BiobaseInfernal/issues
 copyright:      Christian Hoener zu Siederdissen, 2011 - 2015
 category:       Bioinformatics
-synopsis:       Infernal data structures and tools
 license:        GPL-3
 license-file:   LICENSE
 build-type:     Simple
 stability:      experimental
-cabal-version:  >= 1.8.0
+cabal-version:  >= 1.10.0
+tested-with:    GHC == 7.8.4, GHC == 7.10.1
+synopsis:       Infernal data structures and tools
 description:
                 Provides import and export facilities for Infernal/Rfam data
                 formats. We include Stockholm, CM, verbose Infernal results,
@@ -27,6 +29,9 @@ description:
 
 extra-source-files:
   changelog.md
+  README.md
+
+
 
 flag benchmark
   description:  developer tools, builds criterion executable
@@ -38,32 +43,35 @@ flag llvm
   default:      False
   manual:       True
 
+
+
 library
-  build-depends:  base                >= 4.7        && < 4.9
-               ,  aeson               == 0.8.*
-               ,  attoparsec          == 0.12.*
-               ,  binary              == 0.7.*
-               ,  BiobaseXNA          == 0.9.1.*
-               ,  biocore             == 0.3.*
-               ,  bytestring
-               ,  cereal              == 0.4.*
-               ,  cereal-text         == 0.1.*
-               ,  conduit             == 1.*
-               ,  conduit-extra       == 1.*
-               ,  containers
-               ,  data-default-class  == 0.0.1.*
-               ,  filepath            >= 1.3        && < 1.5
-               ,  hashable            == 1.2.*
-               ,  lens                == 4.*
-               ,  primitive           >= 0.5        && < 0.7
-               ,  PrimitiveArray      == 0.6.*
-               ,  resourcet           == 1.*
-               ,  text                == 1.*
-               ,  text-binary         == 0.1.*
-               ,  transformers
-               ,  tuple               == 0.3.*
-               ,  vector              == 0.10.*
-               ,  vector-th-unbox     == 0.2.*
+  build-depends: base                 >= 4.7      && < 4.9
+               , aeson                >= 0.8      && < 0.10
+               , attoparsec           >= 0.12     && < 0.14
+               , binary               >= 0.7      && < 0.8
+               , BiobaseXNA           >= 0.9.1    && < 0.9.3
+               , BiobaseTypes         >= 0.1.1    && < 0.2
+               , bytestring
+               , cereal               >= 0.4      && < 0.5
+               , cereal-text          >= 0.1      && < 0.2
+               , conduit              >= 1.2      && < 1.3
+               , conduit-extra        >= 1.1      && < 1.2
+               , containers
+               , data-default-class   >= 0.0.1    && < 0.0.2
+               , filepath             >= 1.3      && < 1.5
+               , hashable             >= 1.2      && < 1.3
+               , lens                 >= 4.0      && < 4.12
+               , primitive            >= 0.5      && < 0.7
+               , PrimitiveArray       >= 0.6.0    && < 0.6.2
+               , resourcet            >= 1.1      && < 1.2
+               , text                 >= 1.0      && < 1.3
+               , text-binary          >= 0.1      && < 0.3
+               , transformers
+               , tuple                >= 0.3      && < 0.4
+               , vector               >= 0.10     && < 0.11
+               , vector-th-unbox      >= 0.2      && < 0.3
+--               , biocore              >= 0.3      && < 0.4
 --    ADPfusion           == 0.3.*    ,
 --    ansi-wl-pprint      == 0.6.*    ,
 --    attoparsec-conduit  >= 1      ,
@@ -73,43 +81,58 @@ library
 --    strict              >= 0.3    ,
 
   exposed-modules:
--- --    Biobase.Infernal.Align
--- --    Biobase.Infernal.Align.Import
--- --    Biobase.Infernal.Clan
--- --    Biobase.Infernal.Clan.Import
--- --    Biobase.Infernal.Hit
--- --    Biobase.Infernal.RfamFasta
--- --    Biobase.Infernal.RfamFasta.Import
--- --    Biobase.Infernal.TabularHit
--- --    Biobase.Infernal.TabularHit.Import
--- --    Biobase.Infernal.VerboseHit
--- --    Biobase.Infernal.VerboseHit.Export
--- --    Biobase.Infernal.VerboseHit.Import
--- --    Biobase.Infernal.VerboseHit.Internal
-    Biobase.SElab
-    Biobase.SElab.ADPfusion
     Biobase.SElab.Bitscore
-    Biobase.SElab.CM
---    Biobase.SElab.CM.Export
-    Biobase.SElab.CM.Import
     Biobase.SElab.Common.Parser
-    Biobase.SElab.Hit
-    Biobase.SElab.Hit.Alignment
-    Biobase.SElab.Hit.Hit
-    Biobase.SElab.Hit.ScanIO
-    Biobase.SElab.Hit.SearchIO
     Biobase.SElab.HMM
-    Biobase.SElab.HMM.Export
     Biobase.SElab.HMM.Import
-    Biobase.SElab.RfamNames
---     Biobase.SElab.RfamNames.Import
---    Biobase.SElab.Taxonomy
---     Biobase.SElab.Taxonomy.Import
+    Biobase.SElab.HMM.Types
     Biobase.SElab.Types
---    Biobase.SElab.UnsafeNumeric
-
+-- -- --    Biobase.Infernal.Align
+-- -- --    Biobase.Infernal.Align.Import
+-- -- --    Biobase.Infernal.Clan
+-- -- --    Biobase.Infernal.Clan.Import
+-- -- --    Biobase.Infernal.Hit
+-- -- --    Biobase.Infernal.RfamFasta
+-- -- --    Biobase.Infernal.RfamFasta.Import
+-- -- --    Biobase.Infernal.TabularHit
+-- -- --    Biobase.Infernal.TabularHit.Import
+-- -- --    Biobase.Infernal.VerboseHit
+-- -- --    Biobase.Infernal.VerboseHit.Export
+-- -- --    Biobase.Infernal.VerboseHit.Import
+-- -- --    Biobase.Infernal.VerboseHit.Internal
+--     Biobase.SElab
+--     Biobase.SElab.ADPfusion
+--     Biobase.SElab.CM
+-- --    Biobase.SElab.CM.Export
+--     Biobase.SElab.CM.Import
+--     Biobase.SElab.Hit
+--     Biobase.SElab.Hit.Alignment
+--     Biobase.SElab.Hit.Hit
+--     Biobase.SElab.Hit.ScanIO
+--     Biobase.SElab.Hit.SearchIO
+--     Biobase.SElab.HMM.Export
+--     Biobase.SElab.RfamNames
+-- --     Biobase.SElab.RfamNames.Import
+-- --    Biobase.SElab.Taxonomy
+-- --     Biobase.SElab.Taxonomy.Import
+-- --    Biobase.SElab.UnsafeNumeric
+  default-language:
+    Haskell2010
+  default-extensions: BangPatterns
+                    , DeriveGeneric
+                    , LambdaCase
+                    , MultiParamTypeClasses
+                    , PatternSynonyms
+                    , RankNTypes
+                    , TemplateHaskell
+                    , TypeFamilies
+                    , TypeOperators
+                    , GeneralizedNewtypeDeriving
+                    , OverloadedStrings
   ghc-options:
     -O2 -funbox-strict-fields
+
+
 
 -- provides advanced cmsearch hit filtering functionality.
 
@@ -121,6 +144,8 @@ executable cmsearchFilter
     src
   main-is:
     cmsearchFilter.hs
+  default-language:
+    Haskell2010
   ghc-options:
     -O2
   if flag(llvm)
@@ -128,6 +153,8 @@ executable cmsearchFilter
       -fllvm
       -optlo-O3 -optlo-std-compile-opts
       -fllvm-tbaa
+
+
 
 executable BenchmarkBiobaseInfernal
   if flag(benchmark)
@@ -141,6 +168,8 @@ executable BenchmarkBiobaseInfernal
     src
   main-is:
     CriterionInfernal.hs
+  default-language:
+    Haskell2010
   ghc-options:
     -O2
   if flag(llvm)
@@ -148,6 +177,30 @@ executable BenchmarkBiobaseInfernal
       -fllvm
       -optlo-O3 -optlo-std-compile-opts
       -fllvm-tbaa
+
+
+
+test-suite properties
+  type:
+    exitcode-stdio-1.0
+  main-is:
+    properties.hs
+  ghc-options:
+    -threaded -rtsopts -with-rtsopts=-N
+  hs-source-dirs:
+    tests
+  default-language:
+    Haskell2010
+  default-extensions: ScopedTypeVariables
+                    , TemplateHaskell
+  build-depends: base
+               , BiobaseInfernal
+               , QuickCheck
+               , test-framework               >= 0.8  && < 0.9
+               , test-framework-quickcheck2   >= 0.3  && < 0.4
+               , test-framework-th            >= 0.2  && < 0.3
+
+
 
 source-repository head
   type: git
