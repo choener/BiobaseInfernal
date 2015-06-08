@@ -1,7 +1,7 @@
 
 module Biobase.SElab.Bitscore where
 
-import           Data.Default.Class
+import           Data.Default
 import           Data.Primitive.Types
 import qualified Data.Vector.Generic as VG
 import qualified Data.Vector.Generic.Mutable as VGM

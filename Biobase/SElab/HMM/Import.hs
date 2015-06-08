@@ -2,12 +2,13 @@
 -- | Import HMMER3 HMM models.
 
 module Biobase.SElab.HMM.Import
-  ( parseHMM
-  , conduitHMM
+  ( conduitHMM
+  , fromFile
+  , parseHMM
   ) where
 
 import           Control.Applicative
-import           Control.Lens
+import           Control.Lens hiding ((|>))
 import           Control.Monad
 import           Control.Monad.IO.Class (MonadIO)
 import           Control.Monad.Trans.Resource (runResourceT,MonadThrow)
@@ -20,7 +21,7 @@ import           Data.Conduit.List (consume)
 import           Data.Conduit.Text (decodeUtf8)
 import           Data.Conduit (yield,awaitForever,(=$=),Conduit,($$),($=))
 import           Data.Conduit.Zlib (ungzip)
-import           Data.Default.Class
+import           Data.Default
 import           Data.Text (Text)
 import           Data.Vector.Unboxed (fromList)
 import           Debug.Trace
@@ -32,6 +33,7 @@ import qualified Data.Map as M
 import qualified Data.Text as T
 import qualified Data.Vector.Unboxed as VU
 import           System.FilePath (takeExtension)
+import           Data.Sequence ((|>))
 
 import           Biobase.Types.Accession (Accession(..))
 import           Data.PrimitiveArray as PA hiding (map)
@@ -42,6 +44,11 @@ import           Biobase.SElab.HMM.Types
 import           Biobase.SElab.Types
 
 
+
+-- | Simple import of HMMs
+
+fromFile :: FilePath -> IO [HMM xfam]
+fromFile file = runResourceT $ sourceFile file $= conduitHMM $$ consume
 
 -- |
 
@@ -92,10 +99,11 @@ hmmHeader = AT.choice
   , id                          <$  "GA"    ..*> eolS <?> "ga"      -- TODO
   , id                          <$  "TC"    ..*> eolS <?> "tc"      -- TODO
   , id                          <$  "NC"    ..*> eolS <?> "nc"      -- TODO
-  , (\l r -> set msv     (Just (l,r))) <$ "STATS LOCAL MSC"     <*> ssD <*> ssD <* eolS
+  , (\l r -> set msv     (Just (l,r))) <$ "STATS LOCAL MSV"     <*> ssD <*> ssD <* eolS
   , (\l r -> set viterbi (Just (l,r))) <$ "STATS LOCAL VITERBI" <*> ssD <*> ssD <* eolS
   , (\l r -> set forward (Just (l,r))) <$ "STATS LOCAL FORWARD" <*> ssD <*> ssD <* eolS
-  , (\x -> trace ("HMM Parser: unknown line:" ++ T.unpack x) id) <$> AT.takeTill (=='\n') <* AT.take 1
+  , (\x ->   over unknownLines (|> x)) <$> AT.takeTill (=='\n') <* AT.take 1
+--  , (\x -> trace ("HMM Parser: unknown line:" ++ T.unpack x) id) <$> AT.takeTill (=='\n') <* AT.take 1
   ] <?> "hmmHeader"
 
 -- | TODO
@@ -113,7 +121,7 @@ component :: Int -> AT.Parser Component
 component k = (,,,) <$> ident <*> matches <*> inserts <*> moves <?> "component" where
   ident   = AT.skipSpace *> (error "COMPO parsed in component" <$ "COMPO" <|> AT.decimal) <?> "ident"
   matches = (,,,,) <$> count k ssD <*> (ssN <|> 0 <$ ssS <?> "MAP") <*> (ssC <?> "CONS") <*> (ssC <?> "RF") <*> (ssC <* AT.endOfLine <|> '.' <$ AT.endOfLine) <?> "matches"
-  inserts = traceShow k (count k ssD <* AT.endOfLine <?> "inserts")
+  inserts = {- traceShow k -} (count k ssD <* AT.endOfLine <?> "inserts")
   moves   = count 7 ssD' <* AT.endOfLine <?> "moves"
   brr x = traceShow x x
 

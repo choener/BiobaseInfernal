@@ -5,11 +5,12 @@
 module Biobase.SElab.HMM.Types where
 
 import Control.Lens
-import Data.Default.Class
+import Data.Default
 import Data.PrimitiveArray
 import Data.Text (Text)
 import Data.Vector.Unboxed (Vector,empty)
 import Data.Word (Word32)
+import Data.Sequence (Seq)
 
 import Data.PrimitiveArray
 import Biobase.Types.Accession
@@ -34,7 +35,7 @@ data HMM xfam = HMM
   , _consStruc        :: Bool
   , _mapAnno          :: Bool
   , _date             :: Text
-  , _commandLineLog   :: [Text]
+  , _commandLineLog   :: Seq Text
   , _nseq             :: Maybe Int              -- ^ number of sequences in multiple alignment
   , _effnseq          :: Maybe Double           -- ^ effective number of sequences (after weighting)
   , _chksum           :: Maybe Word32           -- ^ checksum (TODO: replace Word32 with actual checksum newtype)
@@ -47,6 +48,7 @@ data HMM xfam = HMM
   , _matchScores      :: Unboxed (Z:.Int:.Int) Bitscore
   , _insertScores     :: Unboxed (Z:.Int:.Int) Bitscore
   , _transitionScores :: Unboxed (Z:.Int:.Int) Bitscore
+  , _unknownLines     :: Seq Text               -- ^ filled with lines that can not be parsed
   } deriving (Show,Read)
 
 makeLenses ''HMM
@@ -65,7 +67,7 @@ instance Default (HMM xfam) where
     , _consStruc        = False
     , _mapAnno          = False
     , _date             = ""
-    , _commandLineLog   = []
+    , _commandLineLog   = def
     , _nseq             = Nothing
     , _effnseq          = Nothing
     , _chksum           = Nothing
@@ -78,5 +80,6 @@ instance Default (HMM xfam) where
     , _matchScores      = fromAssocs (Z:.0:.0) (Z:.0:.0) def []
     , _insertScores     = fromAssocs (Z:.0:.0) (Z:.0:.0) def []
     , _transitionScores = fromAssocs (Z:.0:.0) (Z:.0:.0) def []
+    , _unknownLines     = def
     }
 
