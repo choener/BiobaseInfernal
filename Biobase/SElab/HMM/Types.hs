@@ -5,12 +5,16 @@
 module Biobase.SElab.HMM.Types where
 
 import Control.Lens
+import Data.Aeson (FromJSON,ToJSON)
+import Data.Binary (Binary)
 import Data.Default
 import Data.PrimitiveArray
+import Data.Sequence (Seq)
+import Data.Serialize (Serialize)
 import Data.Text (Text)
 import Data.Vector.Unboxed (Vector,empty)
 import Data.Word (Word32)
-import Data.Sequence (Seq)
+import GHC.Generics (Generic)
 
 import Data.PrimitiveArray
 import Biobase.Types.Accession
@@ -49,7 +53,7 @@ data HMM xfam = HMM
   , _insertScores     :: Unboxed (Z:.Int:.Int) Bitscore
   , _transitionScores :: Unboxed (Z:.Int:.Int) Bitscore
   , _unknownLines     :: Seq Text               -- ^ filled with lines that can not be parsed
-  } deriving (Show,Read)
+  } deriving (Show,Read,Generic)
 
 makeLenses ''HMM
 makePrisms ''HMM
@@ -82,4 +86,9 @@ instance Default (HMM xfam) where
     , _transitionScores = fromAssocs (Z:.0:.0) (Z:.0:.0) def []
     , _unknownLines     = def
     }
+
+instance Binary    (HMM xfam)
+instance Serialize (HMM xfam)
+instance FromJSON  (HMM xfam)
+instance ToJSON    (HMM xfam)
 

@@ -77,6 +77,7 @@ library
 
   exposed-modules:
     Biobase.SElab.Bitscore
+    Biobase.SElab.CM.Types
     Biobase.SElab.Common.Parser
     Biobase.SElab.HMM
     Biobase.SElab.HMM.Import
