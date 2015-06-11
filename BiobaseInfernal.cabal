@@ -123,10 +123,12 @@ library
                     , MultiParamTypeClasses
                     , MultiWayIf
                     , OverloadedStrings
+                    , ParallelListComp
                     , PatternSynonyms
                     , RankNTypes
                     , RecordWildCards
                     , TemplateHaskell
+                    , TupleSections
                     , TypeFamilies
                     , TypeOperators
   ghc-options:

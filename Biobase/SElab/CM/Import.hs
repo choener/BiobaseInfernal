@@ -21,15 +21,7 @@ module Biobase.SElab.CM.Import where
 
 {-
 
-import           Control.Applicative
-import           Control.Lens
 import           Control.Monad
-import           Control.Monad.IO.Class (MonadIO)
-import           Data.Attoparsec.ByteString (takeTill,count,many1,(<?>),manyTill,option)
-import           Data.ByteString.Char8 (ByteString)
-import           Data.Conduit.Attoparsec (conduitParserEither)
-import           Data.Conduit.Binary (sourceFile)
-import           Data.Conduit.Text (decodeUtf8)
 import           Data.Conduit (yield,awaitForever,(=$=),Conduit,($$),($=))
 import           Data.Default.Class
 import           Data.Function (on)
@@ -52,15 +44,38 @@ import qualified Biobase.SElab.HMM.Import as HMM
 
 -}
 
+import           Control.Applicative ( (<|>) )
+import           Control.Lens
+import           Control.Monad.IO.Class (MonadIO)
 import           Control.Monad.Trans.Resource (runResourceT,MonadThrow)
+import           Data.Attoparsec.ByteString (takeTill,count,many1,(<?>),manyTill,option)
+import           Data.ByteString.Char8 (ByteString)
 import           Data.Conduit
+import           Data.Conduit.Attoparsec (conduitParserEither)
+import           Data.Conduit.Binary (sourceFile)
 import           Data.Conduit.List (consume)
+import           Data.Conduit.Text (decodeUtf8)
+import           Data.Default
+import           Data.Text (unpack)
+import           Data.Vector.Generic (fromList,empty,toList)
+import           Debug.Trace (trace)
 import qualified Data.Attoparsec.Text as AT
+import qualified Data.List as L
+import qualified Data.Text as T
 
+import           Biobase.Primary.Letter
+import           Biobase.Primary.Nuc.RNA
+import           Biobase.Types.Accession (Accession(Accession))
+import           Data.PrimitiveArray hiding (fromList,map,toList)
+
+import           Biobase.SElab.Bitscore
 import           Biobase.SElab.CM.Types
 import           Biobase.SElab.Common.Parser
-import           Biobase.SElab.HMM.Types
+import           Biobase.SElab.HMM.Import (parseHMM)
+import           Biobase.SElab.HMM.Types (HMM)
 import           Biobase.SElab.Types
+import qualified Biobase.SElab.CM.Types as CM
+import qualified Biobase.SElab.HMM.Types as HMM
 
 
 
@@ -79,23 +94,23 @@ parseCM = do
   eolS
   ns' <- manyTill node "//"
   let maxState = maximum $ ns' ^.. folded . _2 . folded . sid
-  let ns = V.fromList [ n & nstates .~ (VU.fromList $ map (view sid) ss) | (n,ss) <- ns' ]
+  let ns = fromList [ n & nstates .~ (fromList $ map (view sid) ss) | (n,ss) <- ns' ]
   eolS
-  cmhmm <- HMM.parseHMM <|> pure def  -- if there is no HMM, then return an empty one
+  cmhmm <- parseHMM <|> pure def  -- if there is no HMM, then return an empty one
   return
     $ set states States
-        { _sTransitions     = PA.fromAssocs (Z:.0:.0) (Z:.0:.5) (-1,def)
+        { _sTransitions     = fromAssocs (Z:.0:.0) (Z:.0:.5) (-1,def)
                             . concatMap (\s -> [((Z:.s^.sid:.k),(i,e)) | k <- [0..5]
                                                                        | (i,e) <- if s^.sType == B then map (,0) $ s^..sChildren.both
-                                                                                                   else zip (uncurry enumFromTo $ s^.sChildren) (VU.toList $ s^.transitions)
+                                                                                                   else zip (uncurry enumFromTo $ s^.sChildren) (toList $ s^.transitions)
                                                 ])
                             $ ns'^..folded._2.folded
-        , _sPairEmissions   = PA.fromAssocs (Z:.0:.A:.A) (Z:.maxState:.U:.U) def
+        , _sPairEmissions   = fromAssocs (Z:.0:.A:.A) (Z:.maxState:.U:.U) def
         -- TODO the zip3 seems to be a bug?
-                            . concatMap (\s -> [((Z:.s^.sid:.n1:.n2),e) | emitsPair (s^.sType), (n1,n2,e) <- zip3 acgu acgu (VU.toList $ s^.emissions)]) $ ns'^..folded._2.folded
-        , _sSingleEmissions = PA.fromAssocs (Z:.0:.A) (Z:.maxState:.U) def
-                            . concatMap (\s -> [((Z:.s^.sid:.nt),e) | emitsSingle (s^.sType), (nt,e) <- zip acgu (VU.toList $ s^.emissions)] ) $ ns' ^.. folded . _2 . folded
-        , _sStateType       = PA.fromAssocs (Z:.0) (Z:.maxState) (StateType $ -1) . map ((,) <$> ((Z:.) <$> view sid) <*> view sType) $ ns' ^.. folded . _2 . folded
+                            . concatMap (\s -> [((Z:.s^.sid:.n1:.n2),e) | emitsPair (s^.sType), (n1,n2,e) <- zip3 acgu acgu (toList $ s^.emissions)]) $ ns'^..folded._2.folded
+        , _sSingleEmissions = fromAssocs (Z:.0:.A) (Z:.maxState:.U) def
+                            . concatMap (\s -> [((Z:.s^.sid:.nt),e) | emitsSingle (s^.sType), (nt,e) <- zip acgu (toList $ s^.emissions)] ) $ ns' ^.. folded . _2 . folded
+        , _sStateType       = fromAssocs (Z:.0) (Z:.maxState) (StateType $ -1) . map ((,) <$> ((Z:.) <$> view sid) <*> view sType) $ ns' ^.. folded . _2 . folded
         }
     $ set hmm cmhmm
     $ set nodes ns
@@ -108,7 +123,7 @@ parseCM = do
 cmHeader :: AT.Parser (CM -> CM)
 cmHeader = AT.choice
   [ set name            <$> "NAME"      ..*> eolS <?> "name"
-  , set accession       <$> "ACC"       ..*> eolS <?> "hmmAccession"
+  , set accession . Accession      <$> "ACC"       ..*> eolS <?> "hmmAccession"
   , set description     <$> "DESC"      ..*> eolS <?> "description"
   , id                  <$  "STATES"    ..*> eolN <?> "states"
   , id                  <$  "NODES"     ..*> eolN <?> "nodes"
@@ -137,9 +152,9 @@ cmHeader = AT.choice
   , ecm "ECMLI"
   , ecm "ECMGI"
   , (\[a,b] -> set efp7gf (a,b)) <$> "EFP7GF" ..*> AT.count 2 ssD <* eolS <?> "efp7gf"
-  , set nullModel . VU.fromList . map Bitscore <$> "NULL"   ..*> AT.count 4 ssD <* eolS <?> "null"
-  , (\s -> over commandLog (++[s])) <$> "COM"  ..*> eolS <?> "com"
-  , (\x -> trace ("HMM Parser: unknown line:" ++ T.unpack x) id) <$> AT.takeTill (=='\n') <* AT.take 1
+  , set nullModel . fromList . map Bitscore <$> "NULL"   ..*> AT.count 4 ssD <* eolS <?> "null"
+  , (\s -> over commandLineLog (|>s)) <$> "COM"  ..*> eolS <?> "com"
+  , (\x -> trace ("HMM Parser: unknown line:" ++ unpack x) id) <$> AT.takeTill (=='\n') <* AT.take 1
   ] <?> "cmHeader"
   where
     ecm s = (\a b c d e f -> set ecmlc (EValueParams a b c d e f)) <$> s ..*> ssD <*> ssD <*> ssD <*> ssN <*> ssN <*> ssD <* eolS <?> "ecm parser"
@@ -148,7 +163,7 @@ cmHeader = AT.choice
 
 node :: AT.Parser (Node, [State])
 node = (,) <$> aNode <*> AT.many1 aState where
-  aNode  = Node VU.empty <$ AT.skipSpace <* "[ " <*> anType <*> ssN <* AT.skipSpace <* "]" <*> ssN_ <*> ssN_ <*> ssC <*> ssC <*> ssC <*> ssC
+  aNode  = Node empty <$ AT.skipSpace <* "[ " <*> anType <*> ssN <* AT.skipSpace <* "]" <*> ssN_ <*> ssN_ <*> ssC <*> ssC <*> ssC <*> ssC
   anType :: AT.Parser NodeType
   anType = AT.choice [ Bif  <$ "BIF" , MatP <$ "MATP", MatL <$ "MATL", MatR <$ "MATR"
                      , BegL <$ "BEGL", BegR <$ "BEGR", Root <$ "ROOT", End  <$ "END" ]
@@ -158,11 +173,11 @@ node = (,) <$> aNode <*> AT.many1 aState where
               _sParents  <- (,) <$> ssZ <*> ssN
               _sChildren <- (,) <$> ssZ <*> ssN
               _sqdb      <- (,,,) <$> ssN <*> ssN <*> ssN <*> ssN
-              _transitions <- if | _sType==B  -> pure VU.empty
-                                 | otherwise  -> VU.fromList <$> AT.count (_sChildren^._2) (Bitscore <$> ssD')
-              _emissions   <- if | _sType==MP -> VU.fromList <$> AT.count 16 (Bitscore <$> ssD)
-                                 | _sType `elem` [ML,MR,IL,IR] -> VU.fromList <$> AT.count 4 (Bitscore <$> ssD)
-                                 | otherwise -> pure VU.empty
+              _transitions <- if | _sType==B  -> pure empty
+                                 | otherwise  -> fromList <$> AT.count (_sChildren^._2) (Bitscore <$> ssD')
+              _emissions   <- if | _sType==MP -> fromList <$> AT.count 16 (Bitscore <$> ssD)
+                                 | _sType `elem` [ML,MR,IL,IR] -> fromList <$> AT.count 4 (Bitscore <$> ssD)
+                                 | otherwise -> pure empty
               eolS
               return State{..}
   asType :: AT.Parser StateType

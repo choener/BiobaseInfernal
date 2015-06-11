@@ -91,6 +91,12 @@ instance Serialize (State)
 instance FromJSON  (State)
 instance ToJSON    (State)
 
+emitsSingle :: StateType -> Bool
+emitsSingle s | s `elem` [ML,MR,IL,IR] = True
+              | otherwise              = False
+
+emitsPair = (==) MP
+
 
 
 -- | @Node@s are a high-level structure in covariance models, with each

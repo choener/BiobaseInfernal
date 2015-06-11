@@ -76,12 +76,6 @@ instance Default EValueParams where
 makeLenses ''EValueParams
 makePrisms ''EValueParams
 
-emitsSingle :: StateType -> Bool
-emitsSingle s | s `elem` [ML,MR,IL,IR] = True
-              | otherwise              = False
-
-emitsPair = (==) MP
-
 -- |
 
 data Node = Node
