@@ -77,6 +77,8 @@ library
 
   exposed-modules:
     Biobase.SElab.Bitscore
+    Biobase.SElab.CM
+    Biobase.SElab.CM.Import
     Biobase.SElab.CM.Types
     Biobase.SElab.Common.Parser
     Biobase.SElab.HMM
@@ -116,15 +118,17 @@ library
     Haskell2010
   default-extensions: BangPatterns
                     , DeriveGeneric
+                    , GeneralizedNewtypeDeriving
                     , LambdaCase
                     , MultiParamTypeClasses
+                    , MultiWayIf
+                    , OverloadedStrings
                     , PatternSynonyms
                     , RankNTypes
+                    , RecordWildCards
                     , TemplateHaskell
                     , TypeFamilies
                     , TypeOperators
-                    , GeneralizedNewtypeDeriving
-                    , OverloadedStrings
   ghc-options:
     -O2 -funbox-strict-fields
 

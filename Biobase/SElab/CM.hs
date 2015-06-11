@@ -1,16 +1,16 @@
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE GeneralizedNewtypeDeriving #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
-{-# LANGUAGE NoMonomorphismRestriction #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE PackageImports #-}
-{-# LANGUAGE RankNTypes #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE StandaloneDeriving #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE UndecidableInstances #-}
+{- LANGUAGE FlexibleInstances #-}
+{- LANGUAGE GeneralizedNewtypeDeriving #-}
+{- LANGUAGE MultiParamTypeClasses #-}
+{- LANGUAGE NoMonomorphismRestriction #-}
+{- LANGUAGE OverloadedStrings #-}
+{- LANGUAGE PackageImports #-}
+{- LANGUAGE RankNTypes #-}
+{- LANGUAGE RecordWildCards #-}
+{- LANGUAGE StandaloneDeriving #-}
+{- LANGUAGE TemplateHaskell #-}
+{- LANGUAGE TypeFamilies #-}
+{- LANGUAGE TypeOperators #-}
+{- LANGUAGE UndecidableInstances #-}
 
 -- | Infernal CMs.
 --
@@ -19,7 +19,17 @@
 -- TODO "fastCM :: CM -> FastCM" to make a data structure that is suitable for
 -- high-performance applications.
 
-module Biobase.SElab.CM where
+module Biobase.SElab.CM
+  ( module Biobase.SElab.CM.Types
+  , module Biobase.SElab.CM.Import
+  ) where
+
+import Biobase.SElab.CM.Import
+import Biobase.SElab.CM.Types
+
+
+
+{-
 
 import           Control.Applicative
 import           Control.Lens
@@ -442,6 +452,8 @@ instance ExtShape sh => ExtShape (sh:.StateID) where
 
   rangeList (sh1 :. StateID n1) (sh2 :. StateID n2) = [sh :. StateID n | sh <- rangeList sh1 sh2, n <- [n1 .. (n1+n2)] ]
   {-# INLINE rangeList #-}
+
+-}
 
 -}
 

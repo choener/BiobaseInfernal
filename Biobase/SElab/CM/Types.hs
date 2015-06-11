@@ -59,6 +59,40 @@ instance ToJSON    (EValueParams)
 
 
 
+-- |
+
+data State = State
+  { _sType        :: StateType
+  , _sid          :: Int
+  , _sParents     :: (Int,Int)
+  , _sChildren    :: (Int,Int)
+  , _sqdb         :: (Int,Int,Int,Int)
+  , _transitions  :: Vector Bitscore
+  , _emissions    :: Vector Bitscore  -- emission order is ACGU or AA,AC,AG,AU, CA,CC,CG,CU, GA,GC,GG,GU, UA,UC,UG,UU
+  }
+  deriving (Show,Read,Generic)
+
+makeLenses ''State
+makePrisms ''State
+
+instance Default State where
+  def = State
+    { _sType        = StateType (-1)
+    , _sid          = -1
+    , _sParents     = (-1,-1)
+    , _sChildren    = (-1,-1)
+    , _sqdb         = (-1,-1,-1,-1)
+    , _transitions  = empty
+    , _emissions    = empty
+    }
+
+instance Binary    (State)
+instance Serialize (State)
+instance FromJSON  (State)
+instance ToJSON    (State)
+
+
+
 -- | @Node@s are a high-level structure in covariance models, with each
 -- node having one or more states as children. In addition, nodes carry
 -- alignment-column based information.

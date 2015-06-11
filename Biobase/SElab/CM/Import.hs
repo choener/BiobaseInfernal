@@ -1,41 +1,40 @@
-{-# LANGUAGE BangPatterns #-}
-{-# LANGUAGE DoAndIfThenElse #-}
-{-# LANGUAGE LambdaCase #-}
-{-# LANGUAGE MultiWayIf #-}
-{-# LANGUAGE NoMonomorphismRestriction #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE ParallelListComp #-}
-{-# LANGUAGE PatternGuards #-}
-{-# LANGUAGE RecordWildCards #-}
-{-# LANGUAGE ScopedTypeVariables #-}
-{-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE TupleSections #-}
-{-# LANGUAGE ViewPatterns #-}
-{-# LANGUAGE ViewPatterns #-}
+{- LANGUAGE BangPatterns #-}
+{- LANGUAGE DoAndIfThenElse #-}
+{- LANGUAGE LambdaCase #-}
+{- LANGUAGE MultiWayIf #-}
+{- LANGUAGE NoMonomorphismRestriction #-}
+{- LANGUAGE OverloadedStrings #-}
+{- LANGUAGE OverloadedStrings #-}
+{- LANGUAGE ParallelListComp #-}
+{- LANGUAGE PatternGuards #-}
+{- LANGUAGE RecordWildCards #-}
+{- LANGUAGE ScopedTypeVariables #-}
+{- LANGUAGE TemplateHaskell #-}
+{- LANGUAGE TupleSections #-}
+{- LANGUAGE ViewPatterns #-}
+{- LANGUAGE ViewPatterns #-}
 
 -- | Parses text-based covariance-model descriptions. This parser is
 -- Utf8-aware.
 
 module Biobase.SElab.CM.Import where
 
+{-
+
 import           Control.Applicative
 import           Control.Lens
 import           Control.Monad
 import           Control.Monad.IO.Class (MonadIO)
-import           Control.Monad.Trans.Resource (runResourceT,MonadThrow)
 import           Data.Attoparsec.ByteString (takeTill,count,many1,(<?>),manyTill,option)
 import           Data.ByteString.Char8 (ByteString)
 import           Data.Conduit.Attoparsec (conduitParserEither)
 import           Data.Conduit.Binary (sourceFile)
-import           Data.Conduit.List (consume)
 import           Data.Conduit.Text (decodeUtf8)
 import           Data.Conduit (yield,awaitForever,(=$=),Conduit,($$),($=))
 import           Data.Default.Class
 import           Data.Function (on)
 import           Data.Ord (comparing)
 import           Debug.Trace
-import qualified Data.Attoparsec.Text as AT
 import qualified Data.List as L
 import qualified Data.Text as T
 import qualified Data.Vector as V
@@ -50,6 +49,18 @@ import           Biobase.SElab.Common.Parser
 import           Biobase.SElab.Types
 import qualified Biobase.SElab.HMM as HMM
 import qualified Biobase.SElab.HMM.Import as HMM
+
+-}
+
+import           Control.Monad.Trans.Resource (runResourceT,MonadThrow)
+import           Data.Conduit
+import           Data.Conduit.List (consume)
+import qualified Data.Attoparsec.Text as AT
+
+import           Biobase.SElab.CM.Types
+import           Biobase.SElab.Common.Parser
+import           Biobase.SElab.HMM.Types
+import           Biobase.SElab.Types
 
 
 
