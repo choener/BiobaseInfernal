@@ -64,7 +64,6 @@ parseHMM :: AT.Parser (HMM xfam)
 parseHMM = do
   v <- acceptedVersion
   let hmm' = version .~ v $ def
-  -- hmm' <- (\v d -> set version (v,T.init d) def) <$ AT.takeTill (=='[') <*> AT.takeTill (=='|') <*> eolS <?> "hmmVersion"
   ls <- hmmHeader `manyTill` "HMM"
   let hmm = L.foldl' (\a l -> l a) hmm' ls
   eolS
@@ -103,7 +102,6 @@ hmmHeader = AT.choice
   , (\l r -> set viterbi (Just (l,r))) <$ "STATS LOCAL VITERBI" <*> ssD <*> ssD <* eolS
   , (\l r -> set forward (Just (l,r))) <$ "STATS LOCAL FORWARD" <*> ssD <*> ssD <* eolS
   , (\x ->   over unknownLines (|> x)) <$> AT.takeTill (=='\n') <* AT.take 1
---  , (\x -> trace ("HMM Parser: unknown line:" ++ T.unpack x) id) <$> AT.takeTill (=='\n') <* AT.take 1
   ] <?> "hmmHeader"
 
 -- | TODO
@@ -118,12 +116,19 @@ component0 = (,,,) <$> ident <*> matches <*> inserts <*> moves <?> "COMPO/0" whe
 -- | Parse components. Matches come with annotations. These depend on the specific model.
 
 component :: Int -> AT.Parser Component
-component k = (,,,) <$> ident <*> matches <*> inserts <*> moves <?> "component" where
+component k = (,,,) <$> ident <*> (matches <?> "matches") <*> inserts <*> moves <?> "component" where
   ident   = AT.skipSpace *> (error "COMPO parsed in component" <$ "COMPO" <|> AT.decimal) <?> "ident"
-  matches = (,,,,) <$> count k ssD <*> (ssN <|> 0 <$ ssS <?> "MAP") <*> (ssC <?> "CONS") <*> (ssC <?> "RF") <*> (ssC <* AT.endOfLine <|> '.' <$ AT.endOfLine) <?> "matches"
-  inserts = {- traceShow k -} (count k ssD <* AT.endOfLine <?> "inserts")
+  matches = matchHMM <|> matchCM <?> "matches"
+  matchHMM = (,,,,,) <$> count k ssD <*> melMAP <*> pure ' ' <*> melRF <*> melCS <*> pure ' ' <* (AT.endOfLine <?> "eol") <?> "matchHMM"
+  matchCM  = (,,,,,) <$> count k ssD <*> melMAP <*> melCONS  <*> melRF <*> melCS <*> melStruc <* (AT.endOfLine <?> "eol") <?> "matchCM"
+  inserts = count k ssD <* AT.endOfLine <?> "inserts"
   moves   = count 7 ssD' <* AT.endOfLine <?> "moves"
-  brr x = traceShow x x
+  melMAP   = skipHorizSpace *> AT.signed AT.decimal <|> (0 <$ "-") <?> "MAP"
+  melCONS  = skipHorizSpace *> AT.anyChar <?> "CONS"
+  melRF    = skipHorizSpace *> AT.anyChar <?> "RF"
+  melCS    = skipHorizSpace *> AT.anyChar <?> "CS"
+  melStruc = skipHorizSpace *> AT.anyChar <?> "STRUC"   -- not defined in the Userguide!
+  skipHorizSpace = AT.skipWhile AT.isHorizontalSpace
 
 type Component0 = (Int,  [Double]                    , [Double], [Double])
 
@@ -132,7 +137,7 @@ type Component0 = (Int,  [Double]                    , [Double], [Double])
 -- annotation, and consensus structure. HMMer HMMs don't have a consensus
 -- structure.
 
-type Component  = (Int, ([Double],Int,Char,Char,Char), [Double], [Double])
+type Component  = (Int, ([Double],Int,Char,Char,Char,Char), [Double], [Double])
 
 
 
@@ -142,4 +147,7 @@ test :: IO ()
 test = do
   xs <- runResourceT $ sourceFile "src/test.hmm" $= conduitHMM $$ consume -- CB.lines $= CL.sequence parseHMM3 $$ consume -- sinkHandle stdout
   print xs
+
+hmmFromFile :: FilePath -> IO [HMM ()]
+hmmFromFile fp = runResourceT $ sourceFile fp $= conduitHMM $$ consume
 

@@ -95,11 +95,11 @@ parseCM = do
   ns' <- manyTill node "//"
   let maxState = maximum $ ns' ^.. folded . _2 . folded . sid
   let ns = fromList [ n & nstates .~ (fromList $ map (view sid) ss) | (n,ss) <- ns' ]
-  eolS
+  "\n" <?> "end of CM"
   cmhmm <- parseHMM <|> pure def  -- if there is no HMM, then return an empty one
   return
     $ set states States
-        { _sTransitions     = fromAssocs (Z:.0:.0) (Z:.0:.5) (-1,def)
+        { _sTransitions     = fromAssocs (Z:.0:.0) (Z:.maxState:.5) (-1,def)
                             . concatMap (\s -> [((Z:.s^.sid:.k),(i,e)) | k <- [0..5]
                                                                        | (i,e) <- if s^.sType == B then map (,0) $ s^..sChildren.both
                                                                                                    else zip (uncurry enumFromTo $ s^.sChildren) (toList $ s^.transitions)
@@ -154,7 +154,7 @@ cmHeader = AT.choice
   , (\[a,b] -> set efp7gf (a,b)) <$> "EFP7GF" ..*> AT.count 2 ssD <* eolS <?> "efp7gf"
   , set nullModel . fromList . map Bitscore <$> "NULL"   ..*> AT.count 4 ssD <* eolS <?> "null"
   , (\s -> over commandLineLog (|>s)) <$> "COM"  ..*> eolS <?> "com"
-  , (\x -> trace ("HMM Parser: unknown line:" ++ unpack x) id) <$> AT.takeTill (=='\n') <* AT.take 1
+  , (\x ->   over unknownLines (|> x)) <$> AT.takeTill (=='\n') <* AT.take 1
   ] <?> "cmHeader"
   where
     ecm s = (\a b c d e f -> set ecmlc (EValueParams a b c d e f)) <$> s ..*> ssD <*> ssD <*> ssD <*> ssN <*> ssN <*> ssD <* eolS <?> "ecm parser"
@@ -186,6 +186,6 @@ node = (,) <$> aNode <*> AT.many1 aState where
 
 -- | Read a list of CMs from a given filename.
 
-cmFromFile :: FilePath -> IO [CM]
-cmFromFile fp = runResourceT $ sourceFile fp $= conduitCM $$ consume
+fromFile :: FilePath -> IO [CM]
+fromFile fp = runResourceT $ sourceFile fp $= conduitCM $$ consume
 

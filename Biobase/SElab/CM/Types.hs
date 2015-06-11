@@ -214,6 +214,7 @@ data CM = CM
   , _nodes          :: V.Vector Node
   , _states         :: States
   , _hmm            :: HMM Rfam
+  , _unknownLines   :: Seq Text
   }
   deriving (Show,Read,Generic)
 
@@ -253,6 +254,7 @@ instance Default CM where
     , _nodes          = empty
     , _states         = def
     , _hmm            = def
+    , _unknownLines   = def
     }
 
 instance Binary    (CM)
