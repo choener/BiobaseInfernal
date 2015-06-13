@@ -83,24 +83,28 @@ acceptedVersion = (,) <$> vOk <* AT.skipSpace <*> eolS <?> "accepted Version" wh
 
 hmmHeader :: AT.Parser (HMM xfam -> HMM xfam)
 hmmHeader = AT.choice
-  [ set name                    <$> "NAME"  ..*> eolS <?> "name"
-  , set accession . Accession   <$> "ACC"   ..*> eolS <?> "hmmAccession"
-  , set description             <$> "DESC"  ..*> eolS <?> "description"
-  , id                          <$  "LENG"  ..*> eolS <?> "leng"   -- TODO
-  , set alph                    <$> "ALPH"  ..*> eolS <?> "alph"
-  , set rf                      <$> "RF"    ..*> eolB <?> "rf"
-  , set cs                      <$> "CS"    ..*> eolB <?> "cs"
-  , id                          <$  "MAP"   ..*> eolB <?> "map"    -- TODO
-  , set date                    <$> "DATE"  ..*> eolS <?> "date"
-  , set nseq . Just             <$> "NSEQ"  ..*> eolN <?> "nseq"
-  , set effnseq . Just          <$> "EFFN"  ..*> eolD <?> "effn"
-  , set chksum  . Just          <$> "CKSUM" ..*> eolN <?> "cksum"
-  , id                          <$  "GA"    ..*> eolS <?> "ga"      -- TODO
-  , id                          <$  "TC"    ..*> eolS <?> "tc"      -- TODO
-  , id                          <$  "NC"    ..*> eolS <?> "nc"      -- TODO
+  [ set name                    <$ "NAME"  <*> eolS <?> "name"
+  , set accession . Accession   <$ "ACC"   <*> eolS <?> "hmmAccession"
+  , set description             <$ "DESC"  <*> eolS <?> "description"
+  , set modelLength             <$ "LENG"  <*> eolN <?> "leng"
+  , set maxInstanceLen . Just   <$ "MAXL"  <*> eolN <?> "maxl"
+  , set alphabet                <$ "ALPH"  <*> eolS <?> "alph"
+  , set referenceAnno           <$ "RF"    <*> eolB <?> "rf"
+  , set consensusStruc          <$ "CS"    <*> eolB <?> "cs"
+  , set consensusRes            <$ "CONS"  <*> eolB <?> "cons"
+  , set alignColMap             <$ "MAP"   <*> eolB <?> "map"
+  , set modelMask               <$ "MM"    <*> eolB <?> "mm"
+  , set date                    <$ "DATE"  <*> eolS <?> "date"
+  , set nseq . Just             <$ "NSEQ"  <*> eolN <?> "nseq"
+  , set effnseq . Just          <$ "EFFN"  <*> eolD <?> "effn"
+  , set chksum  . Just          <$ "CKSUM" <*> eolN <?> "cksum"
+  , (\l r -> set gatheringTh   (Just (l,r))) <$ "GA" <*> ssD <*> ssD <* eolS
+  , (\l r -> set trustedCutoff (Just (l,r))) <$ "TC" <*> ssD <*> ssD <* eolS
+  , (\l r -> set noiseCutoff   (Just (l,r))) <$ "NC" <*> ssD <*> ssD <* eolS
   , (\l r -> set msv     (Just (l,r))) <$ "STATS LOCAL MSV"     <*> ssD <*> ssD <* eolS
   , (\l r -> set viterbi (Just (l,r))) <$ "STATS LOCAL VITERBI" <*> ssD <*> ssD <* eolS
   , (\l r -> set forward (Just (l,r))) <$ "STATS LOCAL FORWARD" <*> ssD <*> ssD <* eolS
+  , (\s -> over commandLineLog (|>s))  <$ "COM"                 <*> eolS <?> "com"
   , (\x ->   over unknownLines (|> x)) <$> AT.takeTill (=='\n') <* AT.take 1
   ] <?> "hmmHeader"
 

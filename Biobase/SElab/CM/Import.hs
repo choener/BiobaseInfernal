@@ -80,6 +80,12 @@ import qualified Biobase.SElab.HMM.Types as HMM
 
 
 -- | Stream a 'ByteString' into 'CM's.
+--
+-- TODO this should yield @Either CM HMM@. Internally we check if part of
+-- the stream @[... , CM, HMM, ...]@. We might want to provide a function
+-- @mergeCmHmm@ that merges consecutive @CMs@ and @HMMs@ into the @CM@ but
+-- still leaves the unmerged ones separately. Maybe we then want the
+-- @these@ package, which has @a , b, (a,b)@ style data types.
 
 conduitCM :: (Monad m, MonadIO m, MonadThrow m) => Conduit ByteString m CM
 conduitCM = decodeUtf8 =$= conduitParserEither (parseCM <?> "CM parser") =$= awaitForever (either (error . show) (yield . snd))

@@ -23,23 +23,29 @@ import Biobase.SElab.Bitscore
 
 
 
--- | An efficient encoding of Infernal HMM models.
+-- | An efficient encoding of Infernal HMM models. With @xfam@ phantom type
+-- that will pin the type to @Pfam@ or @Rfam@ (or maybe others later).
 --
 -- TODO Parsing has only been tested for HMMER3 and Infernal 1.1
 
 data HMM xfam = HMM
   { _version          :: (Text,Text)            -- ^ magic string aka @HMMER3/f@ (HMMer) or @HMMER3/i@ (Infernal), followed by the bracketed version info
-  , _name             :: Text                   -- ^ the name of this HMM, tagged as 'Rfam' as these are all Rfam/HMMer models
-  , _accession        :: Accession xfam
-  , _description      :: Text
-  , _alph             :: Text
-  , _rf               :: Bool
-  , _cs               :: Bool
-  , _consRes          :: Bool
-  , _consStruc        :: Bool
-  , _mapAnno          :: Bool
-  , _date             :: Text
-  , _commandLineLog   :: Seq Text
+  , _name             :: Text                   -- ^ the name of this HMM; for Rfam HMMs, same as CM
+  , _accession        :: Accession xfam         -- ^ a la @PF01234@ or @RF01234@.
+  , _description      :: Text                   -- ^ one-line free text description
+  , _maxInstanceLen   :: Maybe Int              -- ^ upper on length at which an instance of the model is expected to be found
+  , _alphabet         :: Text                   -- ^ alphabet type, case insensitive. We are interested in @amino@, @DNA@, @RNA@, but there are others as well.
+  , _modelLength      :: Int                    -- ^ number of match states in the model
+  , _referenceAnno    :: Bool                   -- ^ have we picked up reference annotation from @GC RF@ lines in Stockholm? and integrated into match states?
+  , _consensusRes     :: Bool                   -- ^ valid consensus residue annotation?
+  , _consensusStruc   :: Bool                   -- ^ picked up consensus annotation @@SS_cons@?
+  , _alignColMap      :: Bool                   -- ^ if yes, we have map annotation in the main model annotating which multiple-alignment column a state came from
+  , _modelMask        :: Bool                   -- ^ if yes, a model mask is active. Annotates columns which are set to background frequency instead of observed model frequency
+  , _gatheringTh      :: Maybe (Double,Double)  -- ^ gathering thresholds @ga1@ and @ga2@
+  , _trustedCutoff    :: Maybe (Double,Double)  -- ^ trusted cutoffs @tc1@ and @tc2@
+  , _noiseCutoff      :: Maybe (Double,Double)  -- ^ noise cutoffs @nc1@ and @nc2@
+  , _date             :: Text                   -- ^ model creation date
+  , _commandLineLog   :: Seq Text               -- ^ commands to build this model
   , _nseq             :: Maybe Int              -- ^ number of sequences in multiple alignment
   , _effnseq          :: Maybe Double           -- ^ effective number of sequences (after weighting)
   , _chksum           :: Maybe Word32           -- ^ checksum (TODO: replace Word32 with actual checksum newtype)
@@ -49,10 +55,10 @@ data HMM xfam = HMM
   , _matchMap         :: Vector Int             -- ^ match node alignment index
   , _matchRef         :: Vector Char            -- ^ match node reference annotation
   , _matchCons        :: Vector Char            -- ^ match node consensus annotation
-  , _matchScores      :: Unboxed (Z:.Int:.Int) Bitscore
-  , _insertScores     :: Unboxed (Z:.Int:.Int) Bitscore
-  , _transitionScores :: Unboxed (Z:.Int:.Int) Bitscore
-  , _unknownLines     :: Seq Text               -- ^ filled with lines that can not be parsed
+  , _matchScores      :: Unboxed (Z:.Int:.Int) Bitscore   -- ^
+  , _insertScores     :: Unboxed (Z:.Int:.Int) Bitscore   -- ^
+  , _transitionScores :: Unboxed (Z:.Int:.Int) Bitscore   -- ^
+  , _unknownLines     :: Seq Text               -- ^ filled with header lines that can not be parsed
   } deriving (Show,Read,Generic)
 
 makeLenses ''HMM
@@ -64,12 +70,17 @@ instance Default (HMM xfam) where
     , _name             = ""
     , _accession        = ""
     , _description      = ""
-    , _alph             = ""
-    , _rf               = False
-    , _cs               = False
-    , _consRes          = False
-    , _consStruc        = False
-    , _mapAnno          = False
+    , _maxInstanceLen   = Nothing
+    , _alphabet         = ""
+    , _modelLength      = -1
+    , _referenceAnno    = False
+    , _consensusRes     = False
+    , _consensusStruc   = False
+    , _alignColMap      = False
+    , _modelMask        = False
+    , _gatheringTh      = Nothing
+    , _trustedCutoff    = Nothing
+    , _noiseCutoff      = Nothing
     , _date             = ""
     , _commandLineLog   = def
     , _nseq             = Nothing
