@@ -53,7 +53,7 @@ fromFile file = runResourceT $ sourceFile file $= conduitHMM $$ consume
 -- |
 
 conduitHMM :: (Monad m, MonadIO m, MonadThrow m) => Conduit ByteString m (HMM xfam)
-conduitHMM = decodeUtf8 =$= conduitParserEither (parseHMM <?> "HMM parser") =$= awaitForever (either (error . show) (yield . snd)) where
+conduitHMM = decodeUtf8 =$= conduitParserEither (parseHMM <?> "HMM parser") =$= awaitForever (either (error . show) (yield . snd))
 
 -- |
 --
@@ -70,7 +70,7 @@ parseHMM = do
   eolS
   l  <- component0
   ls <- (component (length $ l^._2)) `manyTill` "//"
-  AT.skipSpace
+  AT.try AT.skipSpace
   return
     $ set matchScores      (PA.fromAssocs (Z:.0:.0) (Z:.length ls:.(length $ l^._2)-1) 999999 [((Z:.s:.k),Bitscore v) | (s,vs) <- zip [0..] (l^._2:map (view (_2._1)) ls), (k,v) <- zip [0..] vs ])
     $ set insertScores     (PA.fromAssocs (Z:.0:.0) (Z:.length ls:.(length $ l^._3)-1) 999999 [((Z:.s:.k),Bitscore v) | (s,vs) <- zip [0..] (l^._3:map (view  _3    ) ls), (k,v) <- zip [0..] vs ])
@@ -105,7 +105,7 @@ hmmHeader = AT.choice
   , (\l r -> set viterbi (Just (l,r))) <$ "STATS LOCAL VITERBI" <*> ssD <*> ssD <* eolS
   , (\l r -> set forward (Just (l,r))) <$ "STATS LOCAL FORWARD" <*> ssD <*> ssD <* eolS
   , (\s -> over commandLineLog (|>s))  <$ "COM"                 <*> eolS <?> "com"
-  , (\x ->   over unknownLines (|> x)) <$> AT.takeTill (=='\n') <* AT.take 1
+  , (\x ->   over unknownLines (|> x)) <$> AT.takeWhile1 (/='\n') <* AT.take 1
   ] <?> "hmmHeader"
 
 -- | TODO

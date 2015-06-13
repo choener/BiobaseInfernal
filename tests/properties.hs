@@ -22,7 +22,7 @@ case_HMM_import = do
   let h = head hmms
   assertEqual "tests/test.hmm has a single HMMER 3 HMM" 1 $ length hmms
   assertEqual "unknown lines:" mempty $ h ^. HMM.unknownLines
-  assertEqual "amino alphabet" "amino" $ h ^. HMM.alph
+  assertEqual "amino alphabet" "amino" $ h ^. HMM.alphabet
 
 case_CM__import = do
   cms <- CM.fromFile "tests/test11.cm"

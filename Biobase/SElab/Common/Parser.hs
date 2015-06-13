@@ -6,6 +6,7 @@ module Biobase.SElab.Common.Parser where
 import           Control.Applicative
 import           Data.Attoparsec.Text
 import           Data.Char (isSpace,isAlpha,isDigit)
+import           Prelude hiding (takeWhile)
 
 
 
@@ -20,23 +21,11 @@ ssD' = skipSpace *> ((-999999) <$ "*" <|> double) <?> "Double ('*' aware)"
 ssS  = skipSpace *> takeTill (\c -> isEndOfLine c || isHorizontalSpace c)
 ssC  = skipSpace *> anyChar
 
-{-
-ssString = skipSpace *> ABC.takeTill isSpace
-ssChar = skipSpace *> ABC.anyChar
-
-xN      = skipSpace *> (Nothing <$ "-" <|> Just <$> decimal)
-xString = skipSpace *> (Nothing <$ "-" <|> Just <$> ABC.takeTill isSpace)
-xChar   = skipSpace *> (Nothing <$ "-" <|> Just <$> ABC.anyChar)
-
-infoLine = (,) <$> ABC.takeWhile isAlpha <* skipSpace <*> takeTill isEndOfLine <* endOfLine
-
--}
-(..*>) s t = s *> t
-
-eolS = takeTill isEndOfLine <* endOfLine  -- TODO do we want a version that skips space? probably yes ...
-eolB = skipSpace *> (True <$ "yes" <|> False <$ "no") <* endOfLine
-eolR = skipSpace *> rational <* endOfLine
-eolD = skipSpace *> double <* endOfLine <?> "double, endOfLine"
-eolN = skipSpace *> decimal <* endOfLine
-eolZ = skipSpace *> signed decimal <* endOfLine
+eolD = skipSpace *> double         <* endOfLine <?> "eolD"
+eolN = skipSpace *> decimal        <* endOfLine <?> "eolN"
+eolR = skipSpace *> rational       <* endOfLine <?> "eolR"
+eolZ = skipSpace *> signed decimal <* endOfLine <?> "eolZ"
+eolC = skipSpace *> satisfy (not . isSpace)           <* endOfLine <?> "eolC"
+eolS = takeWhile isHorizontalSpace *> takeTill isEndOfLine              <* endOfLine <?> "eolS"
+eolB = skipSpace *> (True <$ "yes" <|> False <$ "no") <* endOfLine <?> "eolB"
 

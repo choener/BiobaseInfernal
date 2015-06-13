@@ -188,7 +188,12 @@ data CM = CM
   , _accession      :: Accession Rfam
   , _description    :: Text
   , _clen           :: Int
+  , _statesInModel  :: Int
+  , _nodesInModel   :: Int
   , _w              :: Int
+  , _referenceAnno  :: Bool                   -- ^ have we picked up reference annotation from @GC RF@ lines in Stockholm? and integrated into match states?
+  , _consensusRes   :: Bool                   -- ^ valid consensus residue annotation?
+  , _alignColMap    :: Bool                   -- ^ if yes, we have map annotation in the main model annotating which multiple-alignment column a state came from
   , _alph           :: Text
   , _date           :: Text
   , _commandLineLog :: Seq Text
@@ -228,7 +233,12 @@ instance Default CM where
     , _accession      = ""
     , _description    = ""
     , _clen           = 0
+    , _statesInModel  = 0
+    , _nodesInModel   = 0
     , _w              = 0
+    , _referenceAnno  = False
+    , _consensusRes   = False
+    , _alignColMap    = False
     , _alph           = ""
     , _date           = ""
     , _commandLineLog = def

@@ -145,6 +145,7 @@ instance Show StateType where
     E  -> "E"
     B  -> "B"
     EL -> "EL"
+    (StateType e) -> "StateType " ++ show e
 
 instance Read StateType where
   readPrec = parens $ do
