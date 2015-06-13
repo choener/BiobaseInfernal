@@ -29,7 +29,7 @@ case_CM__import = do
   let c = head cms
   assertEqual "tests/test.CM has a single Infernal 1.1 CM" 1 $ length cms
   assertEqual "unknown lines in CM:" mempty $ c ^. CM.unknownLines
---  assertEqual "unknown lines in sub-HMM:" mempty $ c ^. CM.hmm . HMM.unknownLines
+  assertEqual "unknown lines in sub-HMM:" mempty $ c ^. CM.hmm . HMM.unknownLines
   assertEqual "RNA alphabet" "RNA" $ c ^. CM.alph
 
 

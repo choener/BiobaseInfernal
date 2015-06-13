@@ -82,6 +82,9 @@ import qualified Biobase.SElab.HMM.Types as HMM
 
 -- | Stream a 'ByteString' into 'CM's.
 --
+-- NOTE Each CM is /always/ followed by the corresponding filter HMM.
+-- (Infernal 1.1.1. at least)
+--
 -- TODO this should yield @Either CM HMM@. Internally we check if part of
 -- the stream @[... , CM, HMM, ...]@. We might want to provide a function
 -- @mergeCmHmm@ that merges consecutive @CMs@ and @HMMs@ into the @CM@ but
