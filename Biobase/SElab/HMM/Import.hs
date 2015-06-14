@@ -7,7 +7,7 @@ module Biobase.SElab.HMM.Import
   , parseHMM
   ) where
 
-import           Control.Applicative ( (<|>), pure, (<$>), (<$), (<*>) )
+import           Control.Applicative ( (<|>), pure, (<$>), (<$), (<*>), (*>), (<*) )
 import           Control.Lens hiding ((|>))
 import           Control.Monad
 import           Control.Monad.IO.Class (MonadIO)
