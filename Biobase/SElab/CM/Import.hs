@@ -1,52 +1,12 @@
-{- LANGUAGE BangPatterns #-}
-{- LANGUAGE DoAndIfThenElse #-}
-{- LANGUAGE LambdaCase #-}
-{- LANGUAGE MultiWayIf #-}
-{- LANGUAGE NoMonomorphismRestriction #-}
-{- LANGUAGE OverloadedStrings #-}
-{- LANGUAGE OverloadedStrings #-}
-{- LANGUAGE ParallelListComp #-}
-{- LANGUAGE PatternGuards #-}
-{- LANGUAGE RecordWildCards #-}
-{- LANGUAGE ScopedTypeVariables #-}
-{- LANGUAGE TemplateHaskell #-}
-{- LANGUAGE TupleSections #-}
-{- LANGUAGE ViewPatterns #-}
-{- LANGUAGE ViewPatterns #-}
 
 -- | Parses text-based covariance-model descriptions. This parser is
 -- Utf8-aware.
 
 module Biobase.SElab.CM.Import where
 
-{-
-
-import           Control.Monad
-import           Data.Conduit (yield,awaitForever,(=$=),Conduit,($$),($=))
-import           Data.Default.Class
-import           Data.Function (on)
-import           Data.Ord (comparing)
-import           Debug.Trace
-import qualified Data.List as L
-import qualified Data.Text as T
-import qualified Data.Vector as V
-import qualified Data.Vector.Unboxed as VU
-
-import           Biobase.Primary.Nuc.RNA
-import           Data.PrimitiveArray as PA hiding (map)
-
-import           Biobase.SElab.Bitscore
-import           Biobase.SElab.CM
-import           Biobase.SElab.Common.Parser
-import           Biobase.SElab.Types
-import qualified Biobase.SElab.HMM as HMM
-import qualified Biobase.SElab.HMM.Import as HMM
-
--}
-
-import           Control.Monad (forM_)
 import           Control.Applicative ( (<|>), pure, (<$>), (<$), (<*>), (<*) )
 import           Control.Lens
+import           Control.Monad (forM_)
 import           Control.Monad.IO.Class (MonadIO)
 import           Control.Monad.Trans.Resource (runResourceT,MonadThrow)
 import           Data.Attoparsec.ByteString (takeTill,count,many1,(<?>),manyTill,option)
@@ -188,7 +148,7 @@ node = (,) <$> aNode <*> AT.many1 aState <?> "node" where
               _sChildren <- (,) <$> ssZ <*> ssN
               _sqdb      <- (,,,) <$> ssN <*> ssN <*> ssN <*> ssN
               _transitions <- if | _sType==B  -> pure empty
-                                 | otherwise  -> fromList <$> AT.count (_sChildren^._2) (Bitscore <$> ssD')
+                                 | otherwise  -> fromList <$> AT.count (getPInt $ _sChildren^._2) (Bitscore <$> ssD')
               _emissions   <- if | _sType==MP -> fromList <$> AT.count 16 (Bitscore <$> ssD)
                                  | _sType `elem` [ML,MR,IL,IR] -> fromList <$> AT.count 4 (Bitscore <$> ssD)
                                  | otherwise -> pure empty

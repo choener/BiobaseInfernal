@@ -16,9 +16,9 @@ import Data.Vector.Unboxed (Vector,empty)
 import Data.Word (Word32)
 import GHC.Generics (Generic)
 
-import Data.PrimitiveArray
-import Biobase.Types.Accession
 import Biobase.Primary
+import Biobase.Types.Accession
+import Data.PrimitiveArray
 
 import Biobase.SElab.Bitscore
 
