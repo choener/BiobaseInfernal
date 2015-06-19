@@ -37,6 +37,7 @@ import           Data.Sequence ((|>))
 
 import           Biobase.Types.Accession (Accession(..))
 import           Data.PrimitiveArray as PA hiding (map)
+import           Biobase.Primary
 
 import           Biobase.SElab.Bitscore
 import           Biobase.SElab.Common.Parser
@@ -72,9 +73,12 @@ parseHMM = do
   ls <- (component (length $ l^._2)) `manyTill` "//"
   AT.try AT.skipSpace
   return
-    $ set matchScores      (PA.fromAssocs (Z:.0:.0) (Z:.length ls:.(length $ l^._2)-1) 999999 [((Z:.s:.k),Bitscore v) | (s,vs) <- zip [0..] (l^._2:map (view (_2._1)) ls), (k,v) <- zip [0..] vs ])
-    $ set insertScores     (PA.fromAssocs (Z:.0:.0) (Z:.length ls:.(length $ l^._3)-1) 999999 [((Z:.s:.k),Bitscore v) | (s,vs) <- zip [0..] (l^._3:map (view  _3    ) ls), (k,v) <- zip [0..] vs ])
-    $ set transitionScores (PA.fromAssocs (Z:.0:.0) (Z:.length ls:.(length $ l^._4)-1) 999999 [((Z:.s:.k),Bitscore v) | (s,vs) <- zip [0..] (l^._4:map (view  _4    ) ls), (k,v) <- zip [0..] vs ])
+    $ set matchScores      (PA.fromAssocs (Z:.0:.Letter 0) (Z:.(PInt $ length ls):.(Letter . subtract 1 . length $ l^._2)) 999999
+                                          [((Z:.s:.k),Bitscore v) | (s,vs) <- zip [0..] (l^._2:map (view (_2._1)) ls), (k,v) <- zip [Letter 0 ..] vs ])
+    $ set insertScores     (PA.fromAssocs (Z:.0:.Letter 0) (Z:.(PInt $ length ls):.(Letter . subtract 1 . length $ l^._3)) 999999
+                                          [((Z:.s:.k),Bitscore v) | (s,vs) <- zip [0..] (l^._3:map (view  _3    ) ls), (k,v) <- zip [Letter 0 ..] vs ])
+    $ set transitionScores (PA.fromAssocs (Z:.0:.Letter 0) (Z:.(PInt $ length ls):.(Letter . subtract 1 . length $ l^._4)) 999999
+                                          [((Z:.s:.k),Bitscore v) | (s,vs) <- zip [0..] (l^._4:map (view  _4    ) ls), (k,v) <- zip [Letter 0 ..] vs ])
     $ hmm
 
 acceptedVersion :: AT.Parser (Text,Text)

@@ -18,10 +18,15 @@ import GHC.Generics (Generic)
 
 import Data.PrimitiveArray
 import Biobase.Types.Accession
+import Biobase.Primary
 
 import Biobase.SElab.Bitscore
 
 
+
+-- | Which node in the HMM are we in?
+
+data NodeIndex
 
 -- | An efficient encoding of Infernal HMM models. With @xfam@ phantom type
 -- that will pin the type to @Pfam@ or @Rfam@ (or maybe others later).
@@ -55,9 +60,9 @@ data HMM xfam = HMM
   , _matchMap         :: Vector Int             -- ^ match node alignment index
   , _matchRef         :: Vector Char            -- ^ match node reference annotation
   , _matchCons        :: Vector Char            -- ^ match node consensus annotation
-  , _matchScores      :: Unboxed (Z:.Int:.Int) Bitscore   -- ^
-  , _insertScores     :: Unboxed (Z:.Int:.Int) Bitscore   -- ^
-  , _transitionScores :: Unboxed (Z:.Int:.Int) Bitscore   -- ^
+  , _matchScores      :: Unboxed (Z:.PInt NodeIndex:.Letter Unknown) Bitscore   -- ^
+  , _insertScores     :: Unboxed (Z:.PInt NodeIndex:.Letter Unknown) Bitscore   -- ^
+  , _transitionScores :: Unboxed (Z:.PInt NodeIndex:.Letter Unknown) Bitscore   -- ^
   , _unknownLines     :: Seq Text               -- ^ filled with header lines that can not be parsed
   } deriving (Show,Read,Generic)
 
@@ -92,9 +97,9 @@ instance Default (HMM xfam) where
     , _matchMap         = empty
     , _matchRef         = empty
     , _matchCons        = empty
-    , _matchScores      = fromAssocs (Z:.0:.0) (Z:.0:.0) def []
-    , _insertScores     = fromAssocs (Z:.0:.0) (Z:.0:.0) def []
-    , _transitionScores = fromAssocs (Z:.0:.0) (Z:.0:.0) def []
+    , _matchScores      = fromAssocs (Z:.0:.Letter 0) (Z:.0:.Letter 0) def []
+    , _insertScores     = fromAssocs (Z:.0:.Letter 0) (Z:.0:.Letter 0) def []
+    , _transitionScores = fromAssocs (Z:.0:.Letter 0) (Z:.0:.Letter 0) def []
     , _unknownLines     = def
     }
 
