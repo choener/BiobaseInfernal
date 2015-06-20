@@ -176,7 +176,7 @@ data State = State
   { _sType        :: StateType
   , _sid          :: PInt StateIndex
   , _sParents     :: (PInt StateIndex, PInt StateIndex)
-  , _sChildren    :: (PInt StateIndex, PInt StateIndex)
+  , _sChildren    :: [PInt StateIndex] -- , Int)               -- ^ first child and number of children (all consecutive); for 'B', it is first and second child as direct index number
   , _sqdb         :: (Int,Int,Int,Int)
   , _transitions  :: Vector Bitscore
   , _emissions    :: Vector Bitscore  -- emission order is ACGU or AA,AC,AG,AU, CA,CC,CG,CU, GA,GC,GG,GU, UA,UC,UG,UU
@@ -191,7 +191,7 @@ instance Default State where
     { _sType        = StateType (-1)
     , _sid          = -1
     , _sParents     = (-1,-1)
-    , _sChildren    = (-1,-1)
+    , _sChildren    = []
     , _sqdb         = (-1,-1,-1,-1)
     , _transitions  = empty
     , _emissions    = empty

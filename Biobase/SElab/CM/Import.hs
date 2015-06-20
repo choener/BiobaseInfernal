@@ -63,6 +63,7 @@ parseCM = do
   ls <- manyTill cmHeader "CM"
   let cm = L.foldl' (\a l -> l a) cm' ls
   ns' <- manyTill node "//"
+--  error $ take 10000 $ show $ filter (\n -> n^.sType == MP) $ ns'^..folded._2.folded
   let maxState = maximum $ ns' ^.. folded . _2 . folded . sid
   let ns = fromList [ n & nstates .~ (fromList $ map (view sid) ss) | (n,ss) <- ns' ]
   AT.try AT.endOfLine
@@ -71,13 +72,12 @@ parseCM = do
     $ set states States
         { _sTransitions     = fromAssocs (Z:.0:.0) (Z:.maxState:.5) (-1,def)
                             . concatMap (\s -> [((Z:.s^.sid:.k),(i,e)) | k <- [0..5]
-                                                                       | (i,e) <- if s^.sType == B then map (,0) $ s^..sChildren.both
-                                                                                                   else zip (uncurry enumFromTo $ s^.sChildren) (toList $ s^.transitions)
+                                                                       | (i,e) <- if s^.sType == B then map (,0) (s^.sChildren)
+                                                                                                   else zip (s^.sChildren) (toList $ s^.transitions)
                                                 ])
                             $ ns'^..folded._2.folded
         , _sPairEmissions   = fromAssocs (Z:.0:.A:.A) (Z:.maxState:.U:.U) def
-        -- TODO the zip3 seems to be a bug?
-                            . concatMap (\s -> [((Z:.s^.sid:.n1:.n2),e) | emitsPair (s^.sType), (n1,n2,e) <- zip3 acgu acgu (toList $ s^.emissions)]) $ ns'^..folded._2.folded
+                            . concatMap (\s -> [((Z:.s^.sid:.n1:.n2),e) | emitsPair (s^.sType), ((n1,n2),e) <- zip ((,) <$> acgu <*> acgu) (toList $ s^.emissions)]) $ ns'^..folded._2.folded
         , _sSingleEmissions = fromAssocs (Z:.0:.A) (Z:.maxState:.U) def
                             . concatMap (\s -> [((Z:.s^.sid:.nt),e) | emitsSingle (s^.sType), (nt,e) <- zip acgu (toList $ s^.emissions)] ) $ ns' ^.. folded . _2 . folded
         , _sStateType       = fromAssocs (Z:.0) (Z:.maxState) (StateType $ -1) . map ((,) <$> ((Z:.) <$> view sid) <*> view sType) $ ns' ^.. folded . _2 . folded
@@ -145,10 +145,12 @@ node = (,) <$> aNode <*> AT.many1 aState <?> "node" where
               _sType     <- asType <?> "asType"
               _sid       <- ssN
               _sParents  <- (,) <$> ssZ <*> ssN
-              _sChildren <- (,) <$> ssZ <*> ssN
+              (c1,c2)    <- (,) <$> ssZ <*> ssN
+              let _sChildren = if _sType==B then [ PInt c1 , PInt c2 ]
+                                            else take c2 [ PInt c1 .. ]
               _sqdb      <- (,,,) <$> ssN <*> ssN <*> ssN <*> ssN
               _transitions <- if | _sType==B  -> pure empty
-                                 | otherwise  -> fromList <$> AT.count (getPInt $ _sChildren^._2) (Bitscore <$> ssD')
+                                 | otherwise  -> fromList <$> AT.count c2 (Bitscore <$> ssD')
               _emissions   <- if | _sType==MP -> fromList <$> AT.count 16 (Bitscore <$> ssD)
                                  | _sType `elem` [ML,MR,IL,IR] -> fromList <$> AT.count 4 (Bitscore <$> ssD)
                                  | otherwise -> pure empty
