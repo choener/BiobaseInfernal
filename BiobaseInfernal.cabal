@@ -42,6 +42,7 @@ flag llvm
 
 library
   build-depends: base                 >= 4.7      && < 4.9
+               , ADPfusion            >= 0.4.1.1  && < 0.4.2
                , aeson                >= 0.8.1    && < 0.10
                , attoparsec           >= 0.12     && < 0.14
                , binary               >= 0.7      && < 0.8
@@ -56,10 +57,11 @@ library
                , data-default         >= 0.5      && < 0.6
                , filepath             >= 1.3      && < 1.5
                , hashable             >= 1.2      && < 1.3
-               , lens                 >= 4.0      && < 4.12
+               , lens                 >= 4.0      && < 4.13
                , primitive            >= 0.5      && < 0.7
                , PrimitiveArray       >= 0.6.1    && < 0.6.2
                , resourcet            >= 1.1      && < 1.2
+               , strict               >= 0.3      && < 0.4
                , text                 >= 1.0      && < 1.3
                , text-binary          >= 0.1      && < 0.3
                , transformers
@@ -67,17 +69,16 @@ library
                , vector               >= 0.10     && < 0.11
                , vector-th-unbox      >= 0.2      && < 0.3
 --               , biocore              >= 0.3      && < 0.4
---    ADPfusion           == 0.3.*    ,
 --    ansi-wl-pprint      == 0.6.*    ,
 --    attoparsec-conduit  >= 1      ,
 --    bytestring-lexing   >= 0.4    ,
 --    either-unwrap       >= 1.1    ,
 ----    log-domain          >= 0.8    ,
---    strict              >= 0.3    ,
 
   exposed-modules:
     Biobase.SElab.Bitscore
     Biobase.SElab.CM
+    Biobase.SElab.CM.ADP.Fusion
     Biobase.SElab.CM.Import
     Biobase.SElab.CM.Types
     Biobase.SElab.Common.Parser
@@ -118,6 +119,9 @@ library
     Haskell2010
   default-extensions: BangPatterns
                     , DeriveGeneric
+                    , FlexibleContexts
+                    , FlexibleInstances
+                    , GADTs
                     , GeneralizedNewtypeDeriving
                     , LambdaCase
                     , MultiParamTypeClasses
@@ -131,6 +135,7 @@ library
                     , TupleSections
                     , TypeFamilies
                     , TypeOperators
+                    , TypeSynonymInstances
   ghc-options:
     -O2 -funbox-strict-fields
 
