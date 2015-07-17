@@ -45,8 +45,16 @@ instance
   ( Element ls i
   ) => Element (ls :!: CMstate) i where
   data Elm    (ls :!: CMstate) i = ElmCMstate !States !(PInt StateIndex) !i !i !(Elm ls i)
-  type Arg    (ls :!: CMstate)   = Arg ls :. (States :!: PInt StateIndex)
+  type Arg    (ls :!: CMstate)   = Arg ls :. (States :. PInt StateIndex)
   type RecElm (ls :!: CMstate) i = Elm ls i
+  getArg (ElmCMstate s k _ _ ls) = getArg ls :. (s:.k)
+  getIdx (ElmCMstate _ _ i _ _ ) = i
+  getOmx (ElmCMstate _ _ _ o _ ) = o
+  getElm (ElmCMstate _ _ _ _ ls) = ls
+  {-# Inline getArg #-}
+  {-# Inline getIdx #-}
+  {-# Inline getOmx #-}
+  {-# Inline getElm #-}
 
 instance
   ( Monad m
@@ -62,3 +70,4 @@ instance RuleContext (PInt StateIndex) where
   type Context (PInt StateIndex) = InsideContext ()
   initialContext _ = IStatic ()
   {-# Inline initialContext #-}
+
