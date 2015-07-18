@@ -14,6 +14,15 @@ import Biobase.SElab.CM.Types
 
 
 
+-- * Indexing into (fast) CMs.
+
+-- | A 'StateIx' needs to carry around the tree topology. We do this by
+-- carrying around the @sTransitions@ structure.
+
+data StateIx where
+  StateIx :: !States -> !(PInt StateIndex) -> StateIx
+
+
 -- * 
 
 -- | Capture the states of a covariance model and possibly restrict the
