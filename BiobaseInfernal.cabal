@@ -33,13 +33,6 @@ extra-source-files:
 
 
 
-flag llvm
-  description:  use llvm in executable compilation
-  default:      False
-  manual:       True
-
-
-
 library
   build-depends: base                 >= 4.7      && < 4.9
                , ADPfusion            >= 0.4.1.1  && < 0.4.2
@@ -155,11 +148,6 @@ executable cmsearchFilter
     Haskell2010
   ghc-options:
     -O2
-  if flag(llvm)
-    ghc-options:
-      -fllvm
-      -optlo-O3 -optlo-std-compile-opts
-      -fllvm-tbaa
 
 
 
@@ -177,11 +165,6 @@ benchmark BenchmarkBiobaseInfernal
     Haskell2010
   ghc-options:
     -O2
-  if flag(llvm)
-    ghc-options:
-      -fllvm
-      -optlo-O3 -optlo-std-compile-opts
-      -fllvm-tbaa
 
 
 
