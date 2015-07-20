@@ -6,6 +6,12 @@ module Biobase.SElab.CM.ADP.Fusion where
 import Data.Strict.Tuple
 import Data.Vector.Fusion.Stream.Monadic
 import Prelude hiding (map)
+import GHC.Generics
+import Data.Hashable (Hashable(..))
+import Data.Aeson
+import Data.Binary
+import Data.Serialize
+import Control.DeepSeq
 
 import ADP.Fusion
 import Data.PrimitiveArray hiding (map)
@@ -17,10 +23,31 @@ import Biobase.SElab.CM.Types
 -- * Indexing into (fast) CMs.
 
 -- | A 'StateIx' needs to carry around the tree topology. We do this by
--- carrying around the @sTransitions@ structure.
+-- carrying around the actual child targets from the @sTransitions@
+-- structure.
+--
+-- NOTE we @hash@ only on the current index, not the tree topology!
+--
+-- TODO currently, any @INS@ state will be visited just once.
 
 data StateIx where
-  StateIx :: !States -> !(PInt StateIndex) -> StateIx
+  StateIx
+    :: !(Unboxed (Z:.PInt StateIndex:.Int) (PInt StateIndex))
+    -> !(PInt StateIndex)
+    -> StateIx
+  deriving (Show,Read,Generic)
+
+instance Eq StateIx where
+  (StateIx _ x) == (StateIx _ y) = x == y
+  {-# Inline (==) #-}
+
+instance Ord StateIx where
+  (StateIx _ x) <= (StateIx _ y) = x <= y
+  {-# Inline (<=) #-}
+
+instance Hashable StateIx where
+  hashWithSalt s (StateIx _ p) = hashWithSalt s p
+  {-# Inline hashWithSalt #-}
 
 
 -- * 
