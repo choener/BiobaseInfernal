@@ -143,6 +143,23 @@ instance
           {-# Inline [0] step #-}
   {-# Inline mkStream #-}
 
+-- * capturing end states
+--
+-- TODO what about local ends? Probably means allowing @E@-like behaviour
+-- with non-@E@ states. Infernal uses a special state @EL@ of which there
+-- is one per model.
+
+instance
+  ( Monad m
+  , MkStream m ls StateIx
+  ) => MkStream m (ls :!: Epsilon) StateIx where
+  mkStream (ls :!: Epsilon) (IStatic ()) hh kk@(StateIx styC styA k)
+    = staticCheck (sty == E || sty == EL)
+    . map (\s -> ElmEpsilon kk kk s)
+    $ mkStream ls (IStatic ()) hh kk
+    where !sty = styA ! k
+  {-# Inline mkStream #-}
+
 -- * syntactic variable
 
 instance
