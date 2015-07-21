@@ -13,6 +13,7 @@ import Data.Aeson
 import Data.Binary
 import Data.Serialize (Serialize)
 import Control.DeepSeq
+import Data.Vector.Generic (Vector)
 
 import ADP.Fusion
 import Data.PrimitiveArray hiding (map)
@@ -103,6 +104,19 @@ instance
     . map (\s -> ElmCMstate cm k kk kk s)
     $ mkStream ls ctxt hh kk
   {-# Inline mkStream #-}
+
+-- * Emission of characters
+--
+-- This terminal symbol does *not* match characters but rather emits each
+-- character one after another. The elements to be emitted are given via
+-- the argument to the constructor.
+
+data EmitChar where
+  EmitChar :: (Vector v x) => (v x) -> EmitChar
+
+instance
+  ( Element ls i
+  ) => Element (ls :!: EmitChar) i where
 
 -- * syntactic variable
 
