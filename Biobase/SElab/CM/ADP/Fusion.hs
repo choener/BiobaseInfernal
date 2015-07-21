@@ -5,12 +5,13 @@ module Biobase.SElab.CM.ADP.Fusion where
 
 import Data.Strict.Tuple
 import Data.Vector.Fusion.Stream.Monadic
+import Data.Vector.Fusion.Stream.Size
 import Prelude hiding (map)
 import GHC.Generics
 import Data.Hashable (Hashable(..))
 import Data.Aeson
 import Data.Binary
-import Data.Serialize
+import Data.Serialize (Serialize)
 import Control.DeepSeq
 
 import ADP.Fusion
@@ -33,20 +34,21 @@ import Biobase.SElab.CM.Types
 data StateIx where
   StateIx
     :: !(Unboxed (Z:.PInt StateIndex:.Int) (PInt StateIndex))
+    -> !(Unboxed (PInt StateIndex)         StateType)
     -> !(PInt StateIndex)
     -> StateIx
   deriving (Show,Read,Generic)
 
 instance Eq StateIx where
-  (StateIx _ x) == (StateIx _ y) = x == y
+  (StateIx _ _ x) == (StateIx _ _ y) = x == y
   {-# Inline (==) #-}
 
 instance Ord StateIx where
-  (StateIx _ x) <= (StateIx _ y) = x <= y
+  (StateIx _ _ x) <= (StateIx _ _ y) = x <= y
   {-# Inline (<=) #-}
 
 instance Hashable StateIx where
-  hashWithSalt s (StateIx _ p) = hashWithSalt s p
+  hashWithSalt s (StateIx _ _ p) = hashWithSalt s p
   {-# Inline hashWithSalt #-}
 
 
@@ -94,16 +96,54 @@ instance
 
 instance
   ( Monad m
-  , MkStream m ls (PInt StateIndex)
-  ) => MkStream m (ls :!: CMstate) (PInt StateIndex) where
-  mkStream (ls :!: CMstate s cm) ctxt hh kk@(PInt k)
-    = staticCheck (s == (_sStateType cm ! (Z:.kk)))
-    . map (\s -> ElmCMstate cm kk kk (PInt (-1)) s)
+  , MkStream m ls StateIx
+  ) => MkStream m (ls :!: CMstate) StateIx where
+  mkStream (ls :!: CMstate s cm) ctxt hh kk@(StateIx _ styA k)
+    = staticCheck (s == styA ! k)
+    . map (\s -> ElmCMstate cm k kk kk s)
     $ mkStream ls ctxt hh kk
   {-# Inline mkStream #-}
 
-instance RuleContext (PInt StateIndex) where
-  type Context (PInt StateIndex) = InsideContext ()
+-- * syntactic variable
+
+instance
+  ( Monad m
+  , PrimArrayOps arr StateIx x
+  , MkStream m ls StateIx
+  ) => MkStream m (ls :!: ITbl m arr StateIx x) StateIx where
+  mkStream (ls :!: ITbl _ _ c t _) (IStatic ()) hh kk@(StateIx styC styA k)
+    = flatten mk step Unknown $ mkStream ls (IVariable ()) hh kk
+    where mk s | sty == B  = return $ Just $ Left  s
+               | otherwise = return $ Just $ Right (s,0)
+          step Nothing  = return $ Done
+          -- we have a branching state and extract the score for the
+          -- *right* child
+          step (Just (Left s)     ) = let ll = StateIx styC styA $ styC ! (Z:.k:.1) -- right child
+                                      in  return $ Yield (ElmITbl (t!ll) kk kk s) Nothing
+          -- linear grammar case. Iterate over all children
+          step (Just (Right (s,i)))
+            | i > 5 || styC ! (Z:.k:.i) < 0 = return $ Done
+            | otherwise                     = let ll = StateIx styC styA $ styC !(Z:.k:.i)
+                                              in  return $ Yield (ElmITbl (t!ll) kk kk s) (Just (Right (s,i+1)))
+          sty  = styA ! k
+          {-# Inline [0] mk   #-}
+          {-# Inline [0] step #-}
+  mkStream (ls :!: ITbl _ _ c t _) (IVariable ()) hh kk@(StateIx styC styA k)
+    = flatten mk step Unknown $ mkStream ls (IVariable ()) hh kk
+    where mk s | sty == B  = return $ Just s
+               | otherwise = return $ Nothing
+          step Nothing  = return $ Done
+          step (Just s) = let ll = StateIx styC styA $ styC !(Z:.k:.1)
+                          in  return $ Yield (ElmITbl (t!ll) kk kk s) Nothing
+          sty  = styA ! k
+          {-# Inline [0] mk   #-}
+          {-# Inline [0] step #-}
+  {-# Inline mkStream #-}
+
+-- * rule context stuff
+
+instance RuleContext StateIx where
+  type Context StateIx = InsideContext ()
   initialContext _ = IStatic ()
   {-# Inline initialContext #-}
 
