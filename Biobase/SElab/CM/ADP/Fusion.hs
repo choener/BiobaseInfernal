@@ -4,19 +4,19 @@
 module Biobase.SElab.CM.ADP.Fusion where
 
 import Data.Strict.Tuple
-import Data.Vector.Fusion.Stream.Monadic
+import Data.Vector.Fusion.Stream.Monadic hiding (length)
 import Data.Vector.Fusion.Stream.Size
-import Prelude hiding (map)
+import Prelude hiding (map,length)
 import GHC.Generics
 import Data.Hashable (Hashable(..))
 import Data.Aeson
 import Data.Binary
 import Data.Serialize (Serialize)
 import Control.DeepSeq
-import Data.Vector.Generic (Vector)
+import Data.Vector.Generic (Vector, length, unsafeIndex)
 
 import ADP.Fusion
-import Data.PrimitiveArray hiding (map)
+import Data.PrimitiveArray hiding (map, unsafeIndex)
 
 import Biobase.SElab.CM.Types
 
@@ -106,17 +106,42 @@ instance
   {-# Inline mkStream #-}
 
 -- * Emission of characters
---
--- This terminal symbol does *not* match characters but rather emits each
--- character one after another. The elements to be emitted are given via
--- the argument to the constructor.
 
-data EmitChar where
-  EmitChar :: (Vector v x) => (v x) -> EmitChar
+-- | The 'EmitChar' terminal symbol does *not* match or parse characters
+-- but rather emits each character one after another. The elements to be
+-- emitted are given via the argument to the constructor.
+
+data EmitChar c where
+  EmitChar :: (Vector v c) => (v c) -> EmitChar c
 
 instance
   ( Element ls i
-  ) => Element (ls :!: EmitChar) i where
+  ) => Element (ls :!: EmitChar c) i where
+  data Elm (ls :!: EmitChar c) i = ElmEmitChar !c !i !i !(Elm ls i)
+  type Arg (ls :!: EmitChar c)   = Arg ls :. c
+  type RecElm (ls :!: EmitChar c) i = Elm ls i
+  getArg (ElmEmitChar c _ _ ls) = getArg ls :. c
+  getIdx (ElmEmitChar _ i _ _ ) = i
+  getOmx (ElmEmitChar _ _ o _ ) = o
+  getElm (ElmEmitChar _ _ _ ls) = ls
+  {-# Inline getArg #-}
+  {-# Inline getIdx #-}
+  {-# Inline getOmx #-}
+  {-# Inline getElm #-}
+
+instance
+  ( Monad m
+  , MkStream m ls StateIx
+  ) => MkStream m (ls :!: EmitChar c) StateIx where
+  mkStream (ls :!: EmitChar vc) ctxt hh kk
+    = flatten mk step Unknown $ mkStream ls ctxt hh kk
+    where mk s = return (s :. length vc -1)
+          step (s :. z)
+            | z < 0     = return $ Done
+            | otherwise = return $ Yield (ElmEmitChar (unsafeIndex vc z) kk kk s) (s :. z-1)
+          {-# Inline [0] mk   #-}
+          {-# Inline [0] step #-}
+  {-# Inline mkStream #-}
 
 -- * syntactic variable
 
