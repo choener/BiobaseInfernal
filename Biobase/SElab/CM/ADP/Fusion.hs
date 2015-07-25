@@ -3,22 +3,25 @@
 
 module Biobase.SElab.CM.ADP.Fusion where
 
-import Control.DeepSeq
-import Data.Aeson
-import Data.Binary
-import Data.Hashable (Hashable(..))
-import Data.Serialize (Serialize)
-import Data.Strict.Tuple
-import Data.Vector.Fusion.Stream.Monadic hiding (length)
-import Data.Vector.Fusion.Stream.Size
-import Data.Vector.Generic (Vector, length, unsafeIndex)
-import GHC.Generics (Generic)
-import Prelude hiding (map,length,filter)
+import           Control.DeepSeq
+import           Control.Lens ( (^.), makeLenses, makePrisms )
+import           Data.Aeson
+import           Data.Binary
+import           Data.Hashable (Hashable(..))
+import           Data.Serialize (Serialize)
+import           Data.Strict.Tuple
+import           Data.Vector.Fusion.Stream.Monadic hiding (length)
+import           Data.Vector.Fusion.Stream.Size
+import           Data.Vector.Generic (Vector, length, unsafeIndex)
+import           Debug.Trace
+import           GHC.Generics (Generic)
+import           Prelude hiding (map,length,filter)
 
-import ADP.Fusion
-import Data.PrimitiveArray hiding (map, unsafeIndex)
+import           ADP.Fusion
+import           Data.PrimitiveArray hiding (map, unsafeIndex)
+import qualified Data.PrimitiveArray as PA
 
-import Biobase.SElab.CM.Types hiding (S)
+import           Biobase.SElab.CM.Types hiding (S)
 
 
 
@@ -33,12 +36,18 @@ import Biobase.SElab.CM.Types hiding (S)
 -- TODO currently, any @INS@ state will be visited just once.
 
 data StateIx where
-  StateIx
-    :: !(Unboxed (Z:.PInt StateIndex:.Int) (PInt StateIndex))
-    -> !(Unboxed (PInt StateIndex)         StateType)
-    -> !(PInt StateIndex)
-    -> StateIx
+  StateIx ::
+    { _siChilden :: !(Unboxed (Z:.PInt StateIndex:.Int) (PInt StateIndex))
+    , _siType    :: !(Unboxed (PInt StateIndex)         StateType)
+    , _siIx      :: !(PInt StateIndex)
+    } -> StateIx
   deriving (Show,Read,Generic)
+
+makeLenses ''StateIx
+makePrisms ''StateIx
+
+mkStateIx :: CM -> StateIx
+mkStateIx cm = StateIx (PA.map Prelude.fst $ cm^.states.sTransitions) (cm^.states.sStateType) 0
 
 instance Eq StateIx where
   (StateIx _ _ x) == (StateIx _ _ y) = x == y
@@ -65,23 +74,29 @@ instance Index StateIx where
   {-# Inline inBounds #-}
 
 -- TODO Need to write in accordance to @cs@. For now, assume correct ordering
+--
+-- (p.59 Infernal 1.1.1 manual) it is guaranteed that all children have
+-- indices >= then the current index with (==) only in case of insert
+-- self-transitions.
+--
+-- @streamUp@ actually needs to go from higher to lower states...
 
 instance IndexStream z => IndexStream (z:.StateIx) where
   streamUp (ls:.StateIx cs ty l) (hs:.StateIx _ _ h)
     = flatten mk step Unknown $ streamUp ls hs
-    where mk s = return (s,l)
+    where mk s = return (s,h)
           step (s,i)
-            | i > h     = return $ Done
-            | otherwise = return $ Yield (s:.StateIx cs ty i) (s,i+1)
+            | i < l     = return $ Done
+            | otherwise = return $ Yield (s:.StateIx cs ty i) (s,i-1)
           {-# Inline [0] mk   #-}
           {-# Inline [0] step #-}
   {-# Inline streamUp #-}
   streamDown (ls:.StateIx cs ty l) (hs:.StateIx _ _ h)
     = flatten mk step Unknown $ streamDown ls hs
-    where mk s = return (s,h)
+    where mk s = return (s,l)
           step (s,i)
-            | i < l     = return $ Done
-            | otherwise = return $ Yield (s:.StateIx cs ty i) (s,i-1)
+            | i > h     = return $ Done
+            | otherwise = return $ Yield (s:.StateIx cs ty i) (s,i+1)
           {-# Inline [0] mk   #-}
           {-# Inline [0] step #-}
   {-# Inline streamDown #-}
@@ -213,10 +228,14 @@ instance
                                       in  return $ Yield (ElmITbl (t!ll) kk kk s) Nothing
           -- linear grammar case. Iterate over all children
           step (Just (Right (s,i)))
-            | i > 5 || styC ! (Z:.k:.i) < 0 = return $ Done
-            | otherwise                     = let ll = StateIx styC styA $ styC !(Z:.k:.i)
-                                              in  return $ Yield (ElmITbl (t!ll) kk kk s) (Just (Right (s,i+1)))
+            | i > hI || styC ! (Z:.k:.i) < 0 = return $ Done
+            -- TODO we skip here, because we do not want self-loops.
+            -- These will require a slightly more involved index structure
+            | styC ! (Z:.k:.i) == k          = return $ Skip (Just (Right (s,i+1)))
+            | otherwise                      = let ll = StateIx styC styA $ styC !(Z:.k:.i)
+                                               in  return $ Yield (ElmITbl (t!ll) kk kk s) (Just (Right (s,i+1)))
           sty  = styA ! k
+          (_,Z:._:. (!hI)) = bounds styC
           {-# Inline [0] mk   #-}
           {-# Inline [0] step #-}
   mkStream (ls :!: ITbl _ _ c t _) (IVariable ()) hh kk@(StateIx styC styA k)

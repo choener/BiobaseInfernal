@@ -80,7 +80,7 @@ parseCM = do
                             . concatMap (\s -> [((Z:.s^.sid:.n1:.n2),e) | emitsPair (s^.sType), ((n1,n2),e) <- zip ((,) <$> acgu <*> acgu) (toList $ s^.emissions)]) $ ns'^..folded._2.folded
         , _sSingleEmissions = fromAssocs (Z:.0:.A) (Z:.maxState:.U) def
                             . concatMap (\s -> [((Z:.s^.sid:.nt),e) | emitsSingle (s^.sType), (nt,e) <- zip acgu (toList $ s^.emissions)] ) $ ns' ^.. folded . _2 . folded
-        , _sStateType       = fromAssocs (Z:.0) (Z:.maxState) (StateType $ -1) . map ((,) <$> ((Z:.) <$> view sid) <*> view sType) $ ns' ^.. folded . _2 . folded
+        , _sStateType       = fromAssocs 0 maxState (StateType $ -1) . map ((,) <$> view sid <*> view sType) $ ns' ^.. folded . _2 . folded
         }
     $ set hmm cmhmm
     $ set nodes ns

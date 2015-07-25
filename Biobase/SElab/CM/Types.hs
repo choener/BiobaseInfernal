@@ -274,19 +274,25 @@ data States = States
   { _sTransitions     :: ! (Unboxed (Z:.PInt StateIndex:.Int) (PInt StateIndex,Bitscore))   -- ^ Transitions to a state, together with the transition score; unpopulated transitions are set to @-1@.
   , _sPairEmissions   :: ! (Unboxed (Z:.PInt StateIndex:.Letter RNA:.Letter RNA) Bitscore)  -- ^ Scores for the emission of a pair
   , _sSingleEmissions :: ! (Unboxed (Z:.PInt StateIndex:.Letter RNA) Bitscore)              -- ^ Scores for the emission of a single nucleotide
-  , _sStateType       :: ! (Unboxed (Z:.PInt StateIndex) StateType)                         -- ^ Type of the state at the current index
+  , _sStateType       :: ! (Unboxed (PInt StateIndex) StateType)                            -- ^ Type of the state at the current index
   }
   deriving (Show,Read,Generic)
 
 makeLenses ''States
 makePrisms ''States
 
+-- | A pure getter to retrieve the last state
+
+sLastState :: Getter States (PInt StateIndex)
+sLastState = sStateType . to bounds . to snd
+{-# Inline sLastState #-}
+
 instance Default States where
   def = States
     { _sTransitions     = fromAssocs (Z:.0:.0)    (Z:.0:.0)    (0,0)             []
     , _sPairEmissions   = fromAssocs (Z:.0:.A:.A) (Z:.0:.A:.A) 0                 []
     , _sSingleEmissions = fromAssocs (Z:.0:.A)    (Z:.0:.A)    0                 []
-    , _sStateType       = fromAssocs (Z:.0)       (Z:.0)       (StateType $ -1)  []
+    , _sStateType       = fromAssocs 0            0            (StateType $ -1)  []
     }
 
 instance Binary    (States)
