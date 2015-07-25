@@ -3,22 +3,22 @@
 
 module Biobase.SElab.CM.ADP.Fusion where
 
+import Control.DeepSeq
+import Data.Aeson
+import Data.Binary
+import Data.Hashable (Hashable(..))
+import Data.Serialize (Serialize)
 import Data.Strict.Tuple
 import Data.Vector.Fusion.Stream.Monadic hiding (length)
 import Data.Vector.Fusion.Stream.Size
-import Prelude hiding (map,length)
-import GHC.Generics
-import Data.Hashable (Hashable(..))
-import Data.Aeson
-import Data.Binary
-import Data.Serialize (Serialize)
-import Control.DeepSeq
 import Data.Vector.Generic (Vector, length, unsafeIndex)
+import GHC.Generics (Generic)
+import Prelude hiding (map,length,filter)
 
 import ADP.Fusion
 import Data.PrimitiveArray hiding (map, unsafeIndex)
 
-import Biobase.SElab.CM.Types
+import Biobase.SElab.CM.Types hiding (S)
 
 
 
@@ -52,6 +52,41 @@ instance Hashable StateIx where
   hashWithSalt s (StateIx _ _ p) = hashWithSalt s p
   {-# Inline hashWithSalt #-}
 
+instance Index StateIx where
+  linearIndex _ h (StateIx _ _ i) = getPInt i
+  {-# Inline linearIndex #-}
+  smallestLinearIndex _ = error "still needed?"
+  {-# Inline smallestLinearIndex #-}
+  largestLinearIndex (StateIx _ _ h) = getPInt h
+  {-# Inline largestLinearIndex #-}
+  size _ (StateIx _ _ h) = getPInt h + 1
+  {-# Inline size #-}
+  inBounds _ (StateIx _ _ h) (StateIx _ _ i) = 0 <= i && i <= h
+  {-# Inline inBounds #-}
+
+-- TODO Need to write in accordance to @cs@. For now, assume correct ordering
+
+instance IndexStream z => IndexStream (z:.StateIx) where
+  streamUp (ls:.StateIx cs ty l) (hs:.StateIx _ _ h)
+    = flatten mk step Unknown $ streamUp ls hs
+    where mk s = return (s,l)
+          step (s,i)
+            | i > h     = return $ Done
+            | otherwise = return $ Yield (s:.StateIx cs ty i) (s,i+1)
+          {-# Inline [0] mk   #-}
+          {-# Inline [0] step #-}
+  {-# Inline streamUp #-}
+  streamDown (ls:.StateIx cs ty l) (hs:.StateIx _ _ h)
+    = flatten mk step Unknown $ streamDown ls hs
+    where mk s = return (s,h)
+          step (s,i)
+            | i < l     = return $ Done
+            | otherwise = return $ Yield (s:.StateIx cs ty i) (s,i-1)
+          {-# Inline [0] mk   #-}
+          {-# Inline [0] step #-}
+  {-# Inline streamDown #-}
+
+instance IndexStream StateIx
 
 -- * 
 
@@ -202,4 +237,16 @@ instance RuleContext StateIx where
   type Context StateIx = InsideContext ()
   initialContext _ = IStatic ()
   {-# Inline initialContext #-}
+
+type instance TblConstraint StateIx = TableConstraint
+
+instance
+  ( Monad m
+  ) => MkStream m S StateIx where
+  mkStream S (IStatic ()) (StateIx _ _ h) (StateIx cs ty i)
+    = staticCheck (i>=0 && i<=h) . singleton $ ElmS (StateIx cs ty i) (StateIx cs ty (-1))
+  mkStream S (IVariable ()) (StateIx _ _ h) (StateIx cs ty i)
+    = filter (const $ 0<=i && i<=h) . singleton $ ElmS (StateIx cs ty i) (StateIx cs ty (-1))
+  {-# Inline mkStream #-}
+
 
