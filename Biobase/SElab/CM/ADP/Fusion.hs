@@ -9,7 +9,7 @@ import           Data.Aeson
 import           Data.Binary
 import           Data.Hashable (Hashable(..))
 import           Data.Serialize (Serialize)
-import           Data.Strict.Tuple
+import           Data.Strict.Tuple hiding (fst,snd)
 import           Data.Vector.Fusion.Stream.Monadic hiding (length)
 import           Data.Vector.Fusion.Stream.Size
 import           Data.Vector.Generic (Vector, length, unsafeIndex)
@@ -22,6 +22,7 @@ import           Data.PrimitiveArray hiding (map, unsafeIndex)
 import qualified Data.PrimitiveArray as PA
 
 import           Biobase.SElab.CM.Types hiding (S)
+import           Biobase.SElab.Bitscore
 
 
 
@@ -37,9 +38,10 @@ import           Biobase.SElab.CM.Types hiding (S)
 
 data StateIx where
   StateIx ::
-    { _siChilden :: !(Unboxed (Z:.PInt StateIndex:.Int) (PInt StateIndex))
-    , _siType    :: !(Unboxed (PInt StateIndex)         StateType)
-    , _siIx      :: !(PInt StateIndex)
+    { _siChilden  :: !(Unboxed (Z:.PInt StateIndex:.Int) (PInt StateIndex, Bitscore))
+    , _siType     :: !(Unboxed (PInt StateIndex)         StateType)
+    , _siIx       :: !(PInt StateIndex)
+    , _siChild    :: !Int   -- ^ @-1@ or set to the child of @_siChildren@ we look at
     } -> StateIx
   deriving (Show,Read,Generic)
 
@@ -47,30 +49,30 @@ makeLenses ''StateIx
 makePrisms ''StateIx
 
 mkStateIx :: CM -> StateIx
-mkStateIx cm = StateIx (PA.map Prelude.fst $ cm^.states.sTransitions) (cm^.states.sStateType) 0
+mkStateIx cm = StateIx (cm^.states.sTransitions) (cm^.states.sStateType) 0 (-1)
 
 instance Eq StateIx where
-  (StateIx _ _ x) == (StateIx _ _ y) = x == y
+  (StateIx _ _ x c) == (StateIx _ _ y d) = x == y && c == d
   {-# Inline (==) #-}
 
 instance Ord StateIx where
-  (StateIx _ _ x) <= (StateIx _ _ y) = x <= y
+  (StateIx _ _ x c) <= (StateIx _ _ y d) = (x,c) <= (y,d)
   {-# Inline (<=) #-}
 
 instance Hashable StateIx where
-  hashWithSalt s (StateIx _ _ p) = hashWithSalt s p
+  hashWithSalt s (StateIx _ _ p q) = hashWithSalt s (p,q)
   {-# Inline hashWithSalt #-}
 
 instance Index StateIx where
-  linearIndex _ h (StateIx _ _ i) = getPInt i
+  linearIndex _ h (StateIx _ _ i _) = getPInt i
   {-# Inline linearIndex #-}
   smallestLinearIndex _ = error "still needed?"
   {-# Inline smallestLinearIndex #-}
-  largestLinearIndex (StateIx _ _ h) = getPInt h
+  largestLinearIndex (StateIx _ _ h _) = getPInt h
   {-# Inline largestLinearIndex #-}
-  size _ (StateIx _ _ h) = getPInt h + 1
+  size _ (StateIx _ _ h _) = getPInt h + 1
   {-# Inline size #-}
-  inBounds _ (StateIx _ _ h) (StateIx _ _ i) = 0 <= i && i <= h
+  inBounds _ (StateIx _ _ h _) (StateIx _ _ i _) = 0 <= i && i <= h
   {-# Inline inBounds #-}
 
 -- TODO Need to write in accordance to @cs@. For now, assume correct ordering
@@ -82,21 +84,21 @@ instance Index StateIx where
 -- @streamUp@ actually needs to go from higher to lower states...
 
 instance IndexStream z => IndexStream (z:.StateIx) where
-  streamUp (ls:.StateIx cs ty l) (hs:.StateIx _ _ h)
+  streamUp (ls:.StateIx cs ty l _) (hs:.StateIx _ _ h _)
     = flatten mk step Unknown $ streamUp ls hs
     where mk s = return (s,h)
           step (s,i)
             | i < l     = return $ Done
-            | otherwise = return $ Yield (s:.StateIx cs ty i) (s,i-1)
+            | otherwise = return $ Yield (s:.StateIx cs ty i (-1)) (s,i-1)
           {-# Inline [0] mk   #-}
           {-# Inline [0] step #-}
   {-# Inline streamUp #-}
-  streamDown (ls:.StateIx cs ty l) (hs:.StateIx _ _ h)
+  streamDown (ls:.StateIx cs ty l _) (hs:.StateIx _ _ h _)
     = flatten mk step Unknown $ streamDown ls hs
     where mk s = return (s,l)
           step (s,i)
             | i > h     = return $ Done
-            | otherwise = return $ Yield (s:.StateIx cs ty i) (s,i+1)
+            | otherwise = return $ Yield (s:.StateIx cs ty i (-1)) (s,i+1)
           {-# Inline [0] mk   #-}
           {-# Inline [0] step #-}
   {-# Inline streamDown #-}
@@ -149,7 +151,7 @@ instance
   ( Monad m
   , MkStream m ls StateIx
   ) => MkStream m (ls :!: CMstate) StateIx where
-  mkStream (ls :!: CMstate s cm) ctxt hh kk@(StateIx _ styA k)
+  mkStream (ls :!: CMstate s cm) ctxt hh kk@(StateIx _ styA k _)
     = staticCheck (s == styA ! k)
     . map (\s -> ElmCMstate cm k kk kk s)
     $ mkStream ls ctxt hh kk
@@ -193,6 +195,46 @@ instance
           {-# Inline [0] step #-}
   {-# Inline mkStream #-}
 
+-- * Capturing transition scores
+-- 
+-- I'd rather return the transition scores together with the synvar, but
+-- alas right now we can't.
+
+-- | TODO maybe have a more interesting return? Maybe where we transitioned
+-- from?
+
+data Transition = Transition
+  deriving (Eq,Ord,Show)
+
+instance
+  ( Element ls i
+  ) => Element (ls :!: Transition) i where
+  data Elm (ls :!: Transition)    i = ElmTransition !Bitscore !i !i !(Elm ls i)
+  type Arg (ls :!: Transition)      = Arg ls :. Bitscore
+  type RecElm (ls :!: Transition) i = Elm ls i
+  getArg (ElmTransition b _ _ ls) = getArg ls :. b
+  getIdx (ElmTransition _ i _ _ ) = i
+  getOmx (ElmTransition _ _ o _ ) = o
+  getElm (ElmTransition _ _ _ ls) = ls
+  {-# Inline getArg #-}
+  {-# Inline getIdx #-}
+  {-# Inline getOmx #-}
+  {-# Inline getElm #-}
+
+instance
+  ( Monad m
+  , Element ls StateIx
+  , MkStream m ls StateIx
+  ) => MkStream m (ls :!: Transition) StateIx where
+  mkStream (ls :!: Transition) ctxt hh kk@(StateIx styC styA k _)
+    = map (\s -> let k = getIdx s ^. siIx
+                     c = getIdx s ^. siChild
+                 in  ElmTransition (if c>=0 then (Prelude.snd $ styC ! (Z:.k:.c)) else 0) kk kk s)
+    $ mkStream ls ctxt hh kk
+  {-# Inline mkStream #-}
+
+
+
 -- * capturing end states
 --
 -- TODO what about local ends? Probably means allowing @E@-like behaviour
@@ -203,7 +245,7 @@ instance
   ( Monad m
   , MkStream m ls StateIx
   ) => MkStream m (ls :!: Epsilon) StateIx where
-  mkStream (ls :!: Epsilon) (IStatic ()) hh kk@(StateIx styC styA k)
+  mkStream (ls :!: Epsilon) (IStatic ()) hh kk@(StateIx styC styA k _)
     = staticCheck (sty == E || sty == EL)
     . map (\s -> ElmEpsilon kk kk s)
     $ mkStream ls (IStatic ()) hh kk
@@ -217,33 +259,33 @@ instance
   , PrimArrayOps arr StateIx x
   , MkStream m ls StateIx
   ) => MkStream m (ls :!: ITbl m arr StateIx x) StateIx where
-  mkStream (ls :!: ITbl _ _ c t _) (IStatic ()) hh kk@(StateIx styC styA k)
+  mkStream (ls :!: ITbl _ _ c t _) (IStatic ()) hh kk@(StateIx styC styA k _)
     = flatten mk step Unknown $ mkStream ls (IVariable ()) hh kk
     where mk s | sty == B  = return $ Just $ Left  s
                | otherwise = return $ Just $ Right (s,0)
           step Nothing  = return $ Done
           -- we have a branching state and extract the score for the
           -- *right* child
-          step (Just (Left s)     ) = let ll = StateIx styC styA $ styC ! (Z:.k:.1) -- right child
+          step (Just (Left s)     ) = let ll = StateIx styC styA (fst $ styC ! (Z:.k:.1)) 1 -- right child
                                       in  return $ Yield (ElmITbl (t!ll) kk kk s) Nothing
           -- linear grammar case. Iterate over all children
           step (Just (Right (s,i)))
-            | i > hI || styC ! (Z:.k:.i) < 0 = return $ Done
+            | i > hI || (fst $ styC ! (Z:.k:.i)) < 0 = return $ Done
             -- TODO we skip here, because we do not want self-loops.
             -- These will require a slightly more involved index structure
-            | styC ! (Z:.k:.i) == k          = return $ Skip (Just (Right (s,i+1)))
-            | otherwise                      = let ll = StateIx styC styA $ styC !(Z:.k:.i)
-                                               in  return $ Yield (ElmITbl (t!ll) kk kk s) (Just (Right (s,i+1)))
+            | (fst $ styC ! (Z:.k:.i)) == k  = return $ Skip (Just (Right (s,i+1)))
+            | otherwise                      = let ll = StateIx styC styA (fst $ styC !(Z:.k:.i)) i
+                                               in  return $ Yield (ElmITbl (t!ll) (StateIx styC styA k i) kk s) (Just (Right (s,i+1)))
           sty  = styA ! k
           (_,Z:._:. (!hI)) = bounds styC
           {-# Inline [0] mk   #-}
           {-# Inline [0] step #-}
-  mkStream (ls :!: ITbl _ _ c t _) (IVariable ()) hh kk@(StateIx styC styA k)
+  mkStream (ls :!: ITbl _ _ c t _) (IVariable ()) hh kk@(StateIx styC styA k _)
     = flatten mk step Unknown $ mkStream ls (IVariable ()) hh kk
     where mk s | sty == B  = return $ Just s
                | otherwise = return $ Nothing
           step Nothing  = return $ Done
-          step (Just s) = let ll = StateIx styC styA $ styC !(Z:.k:.1)
+          step (Just s) = let ll = StateIx styC styA (fst $ styC !(Z:.k:.0)) 0 -- left child
                           in  return $ Yield (ElmITbl (t!ll) kk kk s) Nothing
           sty  = styA ! k
           {-# Inline [0] mk   #-}
@@ -262,10 +304,10 @@ type instance TblConstraint StateIx = TableConstraint
 instance
   ( Monad m
   ) => MkStream m S StateIx where
-  mkStream S (IStatic ()) (StateIx _ _ h) (StateIx cs ty i)
-    = staticCheck (i>=0 && i<=h) . singleton $ ElmS (StateIx cs ty i) (StateIx cs ty (-1))
-  mkStream S (IVariable ()) (StateIx _ _ h) (StateIx cs ty i)
-    = filter (const $ 0<=i && i<=h) . singleton $ ElmS (StateIx cs ty i) (StateIx cs ty (-1))
+  mkStream S (IStatic ()) (StateIx _ _ h _) (StateIx cs ty i _)
+    = staticCheck (i>=0 && i<=h) . singleton $ ElmS (StateIx cs ty i (-1)) (StateIx cs ty (-1) (-1))
+  mkStream S (IVariable ()) (StateIx _ _ h _) (StateIx cs ty i _)
+    = filter (const $ 0<=i && i<=h) . singleton $ ElmS (StateIx cs ty i (-1)) (StateIx cs ty (-1) (-1))
   {-# Inline mkStream #-}
 
 
