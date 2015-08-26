@@ -126,6 +126,8 @@ instance IndexStream StateIx
 -- programming effort to do it the easy way.
 --
 -- TODO how about running time if I were to use a Proxy?
+--
+-- TODO use a function for membership, not a @StateType@ constant
 
 data CMstate where
   CMstate :: StateType -> States -> CMstate
@@ -310,4 +312,42 @@ instance
     = filter (const $ 0<=i && i<=h) . singleton $ ElmS (StateIx cs ty i (-1)) (StateIx cs ty (-1) (-1))
   {-# Inline mkStream #-}
 
+
+
+-- * Multi-dimensional extensions
+
+-- ** Extensions for CMstate
+
+type instance TermArg (TermSymbol a CMstate) = TermArg a :. (States :!: PInt StateIndex)
+
+instance 
+  ( Monad m
+  , TerminalStream m a is
+  ) => TerminalStream m (TermSymbol a CMstate) (is:.StateIx) where
+  terminalStream (a:|CMstate s cm) (sv:.ctxt) (is:.i@(StateIx _ styA k _))
+    = staticCheck (s == styA ! k)
+    . map (\(S6 s (zi:._) (zo:._) is os e) -> S6 s zi zo (is:.i) (os:.i) (e :. (cm :!: k)))
+    . iPackTerminalStream a sv (is:.i)
+  {-# Inline terminalStream #-}
+
+instance TermStaticVar CMstate StateIx where
+  termStaticVar _ sv _ = sv
+  termStreamIndex _ _ i = i
+  {-# Inline termStaticVar   #-}
+  {-# Inline termStreamIndex #-}
+
+-- ** Extensions for Transition
+
+type instance TermArg (TermSymbol a Transition) = TermArg a :. Bitscore
+
+instance
+  ( Monad m
+  , TerminalStream m a is
+  ) => TerminalStream m (TermSymbol a Transition) (is:.StateIx) where
+  terminalStream (a:|Transition) (sv:.ctxt) (is:.i@(StateIx styC styA k _))
+    = map (\(S6 s (zi:._) (zo:._) is os e) ->
+        let c = undefined
+        in  S6 s zi zo (is:.i) (os:.i) (e :. (if c>=0 then (Prelude.snd $ styC ! (Z:.k:.c)) else 0)))
+    . iPackTerminalStream a sv (is:.i)
+  {-# Inline terminalStream #-}
 
