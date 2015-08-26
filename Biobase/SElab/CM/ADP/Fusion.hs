@@ -345,9 +345,16 @@ instance
   , TerminalStream m a is
   ) => TerminalStream m (TermSymbol a Transition) (is:.StateIx) where
   terminalStream (a:|Transition) (sv:.ctxt) (is:.i@(StateIx styC styA k _))
-    = map (\(S6 s (zi:._) (zo:._) is os e) ->
-        let c = undefined
+    = map (\(S6 s (zi:.c') (zo:._) is os e) ->
+        let c = c' ^. siChild -- TODO ok?
         in  S6 s zi zo (is:.i) (os:.i) (e :. (if c>=0 then (Prelude.snd $ styC ! (Z:.k:.c)) else 0)))
     . iPackTerminalStream a sv (is:.i)
   {-# Inline terminalStream #-}
+
+instance TermStaticVar Transition StateIx where
+  termStaticVar _ sv _ = sv
+  termStreamIndex _ _ i = i
+  {-# Inline termStaticVar   #-}
+  {-# Inline termStreamIndex #-}
+
 
