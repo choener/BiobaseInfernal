@@ -357,4 +357,27 @@ instance TermStaticVar Transition StateIx where
   {-# Inline termStaticVar   #-}
   {-# Inline termStreamIndex #-}
 
+-- ** Emitting characters
+
+type instance TermArg (TermSymbol a (EmitChar c)) = TermArg a :. c
+
+instance
+  ( Monad m
+  , TerminalStream m a is
+  ) => TerminalStream m (TermSymbol a (EmitChar c)) (is:.StateIx) where
+  terminalStream (a:|EmitChar vc) (sv:.ctxt) (is:.i@(StateIx styC styA k _))
+    = flatten mk step Unknown . iPackTerminalStream a sv (is:.i)
+    where mk s = return (s:.length vc -1)
+          step (ss@(S6 s (zi:._) (zo:._) is os e) :. z)
+            | z < 0     = return $ Done
+            | otherwise = return $ Yield (S6 s zi zo (is:.i) (os:.i) (e:.unsafeIndex vc z)) (ss :. z-1)
+          {-# Inline [0] mk   #-}
+          {-# Inline [0] step #-}
+  {-# Inline terminalStream #-}
+
+instance TermStaticVar (EmitChar c) StateIx where
+  termStaticVar _ sv _ = sv
+  termStreamIndex _ _ i = i
+  {-# Inline termStaticVar   #-}
+  {-# Inline termStreamIndex #-}
 
