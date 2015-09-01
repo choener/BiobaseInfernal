@@ -35,7 +35,7 @@ extra-source-files:
 
 library
   build-depends: base                 >= 4.7      && < 4.9
-               , ADPfusion            >= 0.4.1.1  && < 0.4.2
+               , ADPfusion            >= 0.4.1.1  && < 0.4.3
                , aeson                >= 0.8.1    && < 0.10
                , attoparsec           >= 0.12     && < 0.14
                , binary               >= 0.7      && < 0.8
