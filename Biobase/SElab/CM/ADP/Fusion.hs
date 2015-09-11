@@ -130,7 +130,7 @@ instance IndexStream StateIx
 -- TODO use a function for membership, not a @StateType@ constant
 
 data CMstate where
-  CMstate :: StateType -> States -> CMstate
+  CMstate :: (StateType -> Bool) -> States -> CMstate
 
 instance Build CMstate
 
@@ -153,8 +153,8 @@ instance
   ( Monad m
   , MkStream m ls StateIx
   ) => MkStream m (ls :!: CMstate) StateIx where
-  mkStream (ls :!: CMstate s cm) ctxt hh kk@(StateIx _ styA k _)
-    = staticCheck (s == styA ! k)
+  mkStream (ls :!: CMstate admit cm) ctxt hh kk@(StateIx _ styA k _)
+    = staticCheck (admit $ styA ! k)
     . map (\s -> ElmCMstate cm k kk kk s)
     $ mkStream ls ctxt hh kk
   {-# Inline mkStream #-}
@@ -204,6 +204,8 @@ instance
 
 -- | TODO maybe have a more interesting return? Maybe where we transitioned
 -- from?
+--
+-- TODO not needed anymore?
 
 data Transition = Transition
   deriving (Eq,Ord,Show)
@@ -324,8 +326,8 @@ instance
   ( Monad m
   , TerminalStream m a is
   ) => TerminalStream m (TermSymbol a CMstate) (is:.StateIx) where
-  terminalStream (a:|CMstate s cm) (sv:.ctxt) (is:.i@(StateIx _ styA k _))
-    = staticCheck (s == styA ! k)
+  terminalStream (a:|CMstate admit cm) (sv:.ctxt) (is:.i@(StateIx _ styA k _))
+    = staticCheck (admit $ styA ! k)
     . map (\(S6 s (zi:._) (zo:._) is os e) -> S6 s zi zo (is:.i) (os:.i) (e :. (cm :!: k)))
     . iPackTerminalStream a sv (is:.i)
   {-# Inline terminalStream #-}
