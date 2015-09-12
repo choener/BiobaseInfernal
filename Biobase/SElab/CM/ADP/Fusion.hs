@@ -18,6 +18,7 @@ import           GHC.Generics (Generic)
 import           Prelude hiding (map,length,filter)
 
 import           ADP.Fusion
+import           ADP.Fusion.SynVar.Indices
 import           Data.PrimitiveArray hiding (map, unsafeIndex)
 import qualified Data.PrimitiveArray as PA
 
@@ -317,6 +318,21 @@ instance
 
 
 -- * Multi-dimensional extensions
+
+instance TableIndices is => TableIndices (is:.StateIx) where
+  tableIndices (cs:._) (vs:.IStatic _) (ixs:._)
+    = flatten mk step Unknown
+    . tableIndices cs vs ixs
+    . map undefined
+    where mk (S5 s (zi:.six@(StateIx styC styA k _)) (zo:._) is os)
+            | sty == B  = return $ Just $ Left  six -- (S5 s zi zo is os, six)
+            | otherwise = return $ Just $ Right (S5 s zi zo is os, six,0)
+            where sty = styA ! k
+          step Nothing = return $ Done
+          step (Just (Left (StateIx styC styA k _))) = return undefined
+          {-# Inline [0] mk   #-}
+          {-# Inline [0] step #-}
+  {-# Inline tableIndices #-}
 
 -- ** Extensions for CMstate
 
