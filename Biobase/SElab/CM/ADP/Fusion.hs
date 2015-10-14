@@ -10,8 +10,7 @@ import           Data.Binary
 import           Data.Hashable (Hashable(..))
 import           Data.Serialize (Serialize)
 import           Data.Strict.Tuple hiding (fst,snd)
-import           Data.Vector.Fusion.Stream.Monadic hiding (length)
-import           Data.Vector.Fusion.Stream.Size
+import           Data.Vector.Fusion.Stream.Monadic hiding (length,flatten)
 import           Data.Vector.Generic (Vector, length, unsafeIndex)
 import           Debug.Trace
 import           GHC.Generics (Generic)
@@ -27,6 +26,8 @@ import           Biobase.SElab.Bitscore
 
 
 
+{-
+
 -- * Indexing into (fast) CMs.
 
 -- | A 'StateIx' needs to carry around the tree topology. We do this by
@@ -39,9 +40,9 @@ import           Biobase.SElab.Bitscore
 
 data StateIx where
   StateIx ::
-    { _siChilden  :: !(Unboxed (Z:.PInt StateIndex:.Int) (PInt StateIndex, Bitscore))
-    , _siType     :: !(Unboxed (PInt StateIndex)         StateType)
-    , _siIx       :: !(PInt StateIndex)
+    { _siChilden  :: !(Unboxed (Z:.PInt I StateIndex:.Int) (PInt I StateIndex, Bitscore))
+    , _siType     :: !(Unboxed (PInt I StateIndex)         StateType)
+    , _siIx       :: !(PInt I StateIndex)
     , _siChild    :: !Int   -- ^ @-1@ or set to the child of @_siChildren@ we look at
     } -> StateIx
   deriving (Show,Read,Generic)
@@ -86,7 +87,7 @@ instance Index StateIx where
 
 instance IndexStream z => IndexStream (z:.StateIx) where
   streamUp (ls:.StateIx cs ty l _) (hs:.StateIx _ _ h _)
-    = flatten mk step Unknown $ streamUp ls hs
+    = flatten mk step $ streamUp ls hs
     where mk s = return (s,h)
           step (s,i)
             | i < l     = return $ Done
@@ -95,7 +96,7 @@ instance IndexStream z => IndexStream (z:.StateIx) where
           {-# Inline [0] step #-}
   {-# Inline streamUp #-}
   streamDown (ls:.StateIx cs ty l _) (hs:.StateIx _ _ h _)
-    = flatten mk step Unknown $ streamDown ls hs
+    = flatten mk step $ streamDown ls hs
     where mk s = return (s,l)
           step (s,i)
             | i > h     = return $ Done
@@ -189,7 +190,7 @@ instance
   , MkStream m ls StateIx
   ) => MkStream m (ls :!: EmitChar c) StateIx where
   mkStream (ls :!: EmitChar vc) ctxt hh kk
-    = flatten mk step Unknown $ mkStream ls ctxt hh kk
+    = flatten mk step $ mkStream ls ctxt hh kk
     where mk s = return (s :. length vc -1)
           step (s :. z)
             | z < 0     = return $ Done
@@ -265,7 +266,7 @@ instance
   , MkStream m ls StateIx
   ) => MkStream m (ls :!: ITbl m arr StateIx x) StateIx where
   mkStream (ls :!: ITbl _ _ c t _) (IStatic ()) hh kk@(StateIx styC styA k _)
-    = flatten mk step Unknown $ mkStream ls (IVariable ()) hh kk
+    = flatten mk step $ mkStream ls (IVariable ()) hh kk
     where mk s | sty == B  = return $ Just $ Left  s
                | otherwise = return $ Just $ Right (s,0)
           step Nothing  = return $ Done
@@ -286,7 +287,7 @@ instance
           {-# Inline [0] mk   #-}
           {-# Inline [0] step #-}
   mkStream (ls :!: ITbl _ _ c t _) (IVariable ()) hh kk@(StateIx styC styA k _)
-    = flatten mk step Unknown $ mkStream ls (IVariable ()) hh kk
+    = flatten mk step $ mkStream ls (IVariable ()) hh kk
     where mk s | sty == B  = return $ Just s
                | otherwise = return $ Nothing
           step Nothing  = return $ Done
@@ -319,20 +320,20 @@ instance
 
 -- * Multi-dimensional extensions
 
-instance TableIndices is => TableIndices (is:.StateIx) where
-  tableIndices (cs:._) (vs:.IStatic _) (ixs:._)
-    = flatten mk step Unknown
-    . tableIndices cs vs ixs
-    . map undefined
-    where mk (S5 s (zi:.six@(StateIx styC styA k _)) (zo:._) is os)
-            | sty == B  = return $ Just $ Left  six -- (S5 s zi zo is os, six)
-            | otherwise = return $ Just $ Right (S5 s zi zo is os, six,0)
-            where sty = styA ! k
-          step Nothing = return $ Done
-          step (Just (Left (StateIx styC styA k _))) = return undefined
-          {-# Inline [0] mk   #-}
-          {-# Inline [0] step #-}
-  {-# Inline tableIndices #-}
+-- instance TableIndices is => TableIndices (is:.StateIx) where
+--   tableIndices (cs:._) (vs:.IStatic _) (ixs:._)
+--     = flatten mk step 
+--     . tableIndices cs vs ixs
+--     . map undefined
+--     where mk (S5 s (zi:.six@(StateIx styC styA k _)) (zo:._) is os)
+--             | sty == B  = return $ Just $ Left  six -- (S5 s zi zo is os, six)
+--             | otherwise = return $ Just $ Right (S5 s zi zo is os, six,0)
+--             where sty = styA ! k
+--           step Nothing = return $ Done
+--           step (Just (Left (StateIx styC styA k _))) = return undefined
+--           {-# Inline [0] mk   #-}
+--           {-# Inline [0] step #-}
+--   {-# Inline tableIndices #-}
 
 -- ** Extensions for CMstate
 
@@ -356,18 +357,18 @@ instance TermStaticVar CMstate StateIx where
 
 -- ** Extensions for Transition
 
-type instance TermArg (TermSymbol a Transition) = TermArg a :. Bitscore
-
-instance
-  ( Monad m
-  , TerminalStream m a is
-  ) => TerminalStream m (TermSymbol a Transition) (is:.StateIx) where
-  terminalStream (a:|Transition) (sv:.ctxt) (is:.i@(StateIx styC styA k _))
-    = map (\(S6 s (zi:.c') (zo:._) is os e) ->
-        let c = c' ^. siChild -- TODO ok?
-        in  S6 s zi zo (is:.i) (os:.i) (e :. (if c>=0 then (Prelude.snd $ styC ! (Z:.k:.c)) else 0)))
-    . iPackTerminalStream a sv (is:.i)
-  {-# Inline terminalStream #-}
+-- type instance TermArg (TermSymbol a Transition) = TermArg a :. Bitscore
+-- 
+-- instance
+--   ( Monad m
+--   , TerminalStream m a is
+--   ) => TerminalStream m (TermSymbol a Transition) (is:.StateIx) where
+--   terminalStream (a:|Transition) (sv:.ctxt) (is:.i@(StateIx styC styA k _))
+--     = map (\(S6 s (zi:.c') (zo:._) is os e) ->
+--         let c = c' ^. siChild -- TODO ok?
+--         in  S6 s zi zo (is:.i) (os:.i) (e :. (if c>=0 then (Prelude.snd $ styC ! (Z:.k:.c)) else 0)))
+--     . iPackTerminalStream a sv (is:.i)
+--   {-# Inline terminalStream #-}
 
 instance TermStaticVar Transition StateIx where
   termStaticVar _ sv _ = sv
@@ -377,25 +378,27 @@ instance TermStaticVar Transition StateIx where
 
 -- ** Emitting characters
 
-type instance TermArg (TermSymbol a (EmitChar c)) = TermArg a :. c
+-- type instance TermArg (TermSymbol a (EmitChar c)) = TermArg a :. c
 
-instance
-  ( Monad m
-  , TerminalStream m a is
-  ) => TerminalStream m (TermSymbol a (EmitChar c)) (is:.StateIx) where
-  terminalStream (a:|EmitChar vc) (sv:.ctxt) (is:.i@(StateIx styC styA k _))
-    = flatten mk step Unknown . iPackTerminalStream a sv (is:.i)
-    where mk s = return (s:.length vc -1)
-          step (ss@(S6 s (zi:._) (zo:._) is os e) :. z)
-            | z < 0     = return $ Done
-            | otherwise = return $ Yield (S6 s zi zo (is:.i) (os:.i) (e:.unsafeIndex vc z)) (ss :. z-1)
-          {-# Inline [0] mk   #-}
-          {-# Inline [0] step #-}
-  {-# Inline terminalStream #-}
+-- instance
+--   ( Monad m
+--   , TerminalStream m a is
+--   ) => TerminalStream m (TermSymbol a (EmitChar c)) (is:.StateIx) where
+--   terminalStream (a:|EmitChar vc) (sv:.ctxt) (is:.i@(StateIx styC styA k _))
+--     = flatten mk step . iPackTerminalStream a sv (is:.i)
+--     where mk s = return (s:.length vc -1)
+--           step (ss@(S6 s (zi:._) (zo:._) is os e) :. z)
+--             | z < 0     = return $ Done
+--             | otherwise = return $ Yield (S6 s zi zo (is:.i) (os:.i) (e:.unsafeIndex vc z)) (ss :. z-1)
+--           {-# Inline [0] mk   #-}
+--           {-# Inline [0] step #-}
+--   {-# Inline terminalStream #-}
 
 instance TermStaticVar (EmitChar c) StateIx where
   termStaticVar _ sv _ = sv
   termStreamIndex _ _ i = i
   {-# Inline termStaticVar   #-}
   {-# Inline termStreamIndex #-}
+
+-}
 

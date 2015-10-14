@@ -60,9 +60,9 @@ data HMM xfam = HMM
   , _matchMap         :: Vector Int             -- ^ match node alignment index
   , _matchRef         :: Vector Char            -- ^ match node reference annotation
   , _matchCons        :: Vector Char            -- ^ match node consensus annotation
-  , _matchScores      :: Unboxed (Z:.PInt NodeIndex:.Letter Unknown) Bitscore   -- ^
-  , _insertScores     :: Unboxed (Z:.PInt NodeIndex:.Letter Unknown) Bitscore   -- ^
-  , _transitionScores :: Unboxed (Z:.PInt NodeIndex:.Letter Unknown) Bitscore   -- ^
+  , _matchScores      :: Unboxed (Z:.PInt I NodeIndex:.Letter Unknown) Bitscore   -- ^
+  , _insertScores     :: Unboxed (Z:.PInt I NodeIndex:.Letter Unknown) Bitscore   -- ^
+  , _transitionScores :: Unboxed (Z:.PInt I NodeIndex:.Letter Unknown) Bitscore   -- ^
   , _unknownLines     :: Seq Text               -- ^ filled with header lines that can not be parsed
   } deriving (Show,Read,Generic)
 
