@@ -1,6 +1,6 @@
 0.8.0.0
 
-- ???
+- updated travis file to use stack
 
 0.7.1.0
 -------

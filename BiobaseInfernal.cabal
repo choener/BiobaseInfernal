@@ -159,7 +159,7 @@ benchmark BenchmarkBiobaseInfernal
                ,  BiobaseInfernal
                ,  criterion         >= 1.1.0.0    && < 1.2
   hs-source-dirs:
-    src
+    tests
   main-is:
     CriterionInfernal.hs
   default-language:
