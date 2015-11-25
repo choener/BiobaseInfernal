@@ -17,9 +17,17 @@ before_install:
   - travis_retry curl -L https://www.stackage.org/stack/linux-x86_64 | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
 
 install:
+<<<<<<< HEAD
   - stack --version
+||||||| merged common ancestors
+  - cabal install --only-dependencies --enable-tests --reorder-goals
+=======
+  - ghc --version
+  - stack --version
+>>>>>>> a57e92c5536fd81e764ea1b95fc27aa46d2ae0a6
 
 script:
+<<<<<<< HEAD
   - stack setup
   - stack build --no-terminal
   - stack test  --test-arguments --plain
@@ -27,4 +35,15 @@ script:
 cache:
   directories:
   - $HOME/.stack
+||||||| merged common ancestors
+  - cabal configure --enable-tests && cabal build && cabal test
+=======
+  - stack setup --system-ghc
+  - stack build --system-ghc --no-terminal
+  - stack test  --system-ghc --test-arguments --plain
+
+cache:
+  directories:
+  - $HOME/.stack
+>>>>>>> a57e92c5536fd81e764ea1b95fc27aa46d2ae0a6
 

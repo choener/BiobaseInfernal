@@ -1,25 +1,68 @@
 # For more information, see: https://github.com/commercialhaskell/stack/blob/master/doc/yaml_configuration.md
 
 # Specifies the GHC version and set of packages available (e.g., lts-3.5, nightly-2015-09-21, ghc-7.10.2)
+<<<<<<< HEAD
 resolver: lts-3.14
+||||||| merged common ancestors
+resolver: lts-3.9
+=======
+resolver: lts-3.15
+>>>>>>> a57e92c5536fd81e764ea1b95fc27aa46d2ae0a6
 
 # Local packages, usually specified by relative directory name
 packages:
 - '.'
+<<<<<<< HEAD
 - location: ../Lib-BiobaseTypes/
   extra-dep: true
+||||||| merged common ancestors
+- location: ../Lib-OrderedBits/
+  extra-dep: true
+- location: ../Lib-PrimitiveArray/
+  extra-dep: true
+- location: ../Lib-ADPfusion/
+  extra-dep: true
+- location: ../Lib-BiobaseTypes/
+  extra-dep: true
+=======
+>>>>>>> a57e92c5536fd81e764ea1b95fc27aa46d2ae0a6
 - location: ../Lib-BiobaseXNA/
   extra-dep: true
+<<<<<<< HEAD
+||||||| merged common ancestors
+- location: ../Lib-bimaps/
+  extra-dep: true
+- location: ../Lib-BenchmarkHistory/
+  extra-dep: true
+=======
+- location: ../Lib-BiobaseTypes/
+  extra-dep: true
+>>>>>>> a57e92c5536fd81e764ea1b95fc27aa46d2ae0a6
 
 # Packages to be pulled from upstream that are not in the resolver (e.g., acme-missiles-0.3)
 extra-deps:
 - ADPfusion-0.5.0.0
 - aeson-0.10.0.0
 - attoparsec-0.13.0.1
+<<<<<<< HEAD
 - bimaps-0.0.0.4
+||||||| merged common ancestors
+=======
+- bimaps-0.0.0.4
+- BiobaseTypes-0.1.1.1
+- BiobaseXNA-0.9.2.1
+>>>>>>> a57e92c5536fd81e764ea1b95fc27aa46d2ae0a6
 - cereal-text-0.1.0.1
+<<<<<<< HEAD
 - OrderedBits-0.0.1.0
 - PrimitiveArray-0.7.0.0
+||||||| merged common ancestors
+- safecopy-0.8.6
+=======
+- OrderedBits-0.0.1.0
+- PrimitiveArray-0.7.0.0
+- safecopy-0.8.6
+>>>>>>> a57e92c5536fd81e764ea1b95fc27aa46d2ae0a6
 - storable-record-0.0.3
 - storable-tuple-0.0.2
 - utility-ht-0.0.11
