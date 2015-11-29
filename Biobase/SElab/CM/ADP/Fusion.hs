@@ -172,23 +172,31 @@ instance
 instance
   ( TstCtx1 m ts a is (StateIx I)
   ) => TermStream m (TermSymbol ts CMstate) a (is:.StateIx I) where
-  termStream (ts:|CMstate admit xs) (cs:.IStatic ()) (us:.u) (is:.StateIx _ styA i _)
+  termStream (ts:|CMstate admit xs) (cs:._) (us:.u) (is:.ix@(StateIx _ styA i _)) -- same code for static+variable
     = map (\(TState s a b ii oo ee) ->
-              TState s a b (ii:.undefined) (oo:.undefined) (ee:.(undefined:.undefined)) )
+              TState s a b (ii:.ix) (oo:.ix) (ee:.(xs:.(PInt $ getPInt i))) )
     . termStream ts cs us is
     . staticCheck (admit $ styA ! i)  -- only allow going on if the type is admissable here
   {-# Inline termStream #-}
 
-{-
+instance TermStaticVar CMstate (StateIx t) where
+  termStaticVar _ sv _ = sv
+  termStreamIndex _ _ i = i
+  {-# Inline [0] termStaticVar   #-}
+  {-# Inline [0] termStreamIndex #-}
 
 -- * Emission of characters
 
 -- | The 'EmitChar' terminal symbol does *not* match or parse characters
 -- but rather emits each character one after another. The elements to be
 -- emitted are given via the argument to the constructor.
+--
+-- TODO seems useful enough to put into ADPfusion itself at some point
 
 data EmitChar c where
   EmitChar :: (Vector v c) => (v c) -> EmitChar c
+
+type instance TermArg (EmitChar c) = c
 
 instance
   ( Element ls i
@@ -206,18 +214,82 @@ instance
   {-# Inline getElm #-}
 
 instance
-  ( Monad m
-  , MkStream m ls StateIx
-  ) => MkStream m (ls :!: EmitChar c) StateIx where
-  mkStream (ls :!: EmitChar vc) ctxt hh kk
-    = flatten mk step $ mkStream ls ctxt hh kk
-    where mk s = return (s :. length vc -1)
-          step (s :. z)
-            | z < 0     = return $ Done
-            | otherwise = return $ Yield (ElmEmitChar (unsafeIndex vc z) kk kk s) (s :. z-1)
+  ( TmkCtx1 m ls (EmitChar c) (StateIx t)
+  ) => MkStream m (ls :!: EmitChar c) (StateIx t) where
+  mkStream (ls :!: EmitChar xs) sv us is
+    = map (\(ss,ee,ii,oo) -> ElmEmitChar ee ii oo ss)
+    . addTermStream1 (EmitChar xs) sv us is
+    $ mkStream ls (termStaticVar (EmitChar xs) sv is) us (termStreamIndex (EmitChar xs) sv is)
+  {-# Inline mkStream #-}
+
+instance
+  ( TstCtx1 m ts a is (StateIx I)
+  ) => TermStream m (TermSymbol ts (EmitChar c)) a (is:.StateIx I) where
+  termStream (ts:|EmitChar xs) (cs:._) (us:.u) (is:.ix@(StateIx _ _ _ _))
+    = flatten mk step . termStream ts cs us is
+    where mk s = return (s :. length xs - 1)
+          step (tstate@(TState s a b ii oo ee) :. k)
+            | k < 0     = return $ Done
+            | otherwise = return $ Yield (TState s a b (ii:.ix) (oo:.ix) (ee:.(unsafeIndex xs k)))
+                                         (tstate :. k-1)
           {-# Inline [0] mk   #-}
           {-# Inline [0] step #-}
+  {-# Inline termStream #-}
+
+instance TermStaticVar (EmitChar c) (StateIx t) where
+  termStaticVar _ sv _ = sv
+  termStreamIndex _ _ i = i
+  {-# Inline [0] termStaticVar   #-}
+  {-# Inline [0] termStreamIndex #-}
+
+
+
+-- * Epsilon state
+
+-- |
+--
+-- TODO what about local ends? Probably means allowing @E@-like behaviour
+-- with non-@E@ states. Infernal uses a special state @EL@ of which there
+-- is one per model.
+
+instance
+  ( TmkCtx1 m ls Epsilon (StateIx t)
+  ) => MkStream m (ls :!: Epsilon) (StateIx t) where
+  mkStream (ls :!: Epsilon) sv us is
+    = map (\(ss,ee,ii,oo) -> ElmEpsilon ii oo ss)
+    . addTermStream1 Epsilon sv us is
+    $ mkStream ls (termStaticVar Epsilon sv is) us (termStreamIndex Epsilon sv is)
   {-# Inline mkStream #-}
+
+instance
+  ( TstCtx1 m ts a is (StateIx I)
+  ) => TermStream m (TermSymbol ts Epsilon) a (is:.StateIx I) where
+  termStream (ts :| Epsilon) (cs:._) (us:._) (is:.ix@(StateIx styC styA i _))
+    = map (\(TState s a b ii oo ee) ->
+              TState s a b (ii:.ix) (oo:.ix) (ee:.()) )
+    . termStream ts cs us is
+    . staticCheck (sty == E || sty == EL)
+    where !sty = styA ! i
+  {-# Inline termStream #-}
+
+
+
+-- * Invisible starting symbol
+
+instance
+  ( Monad m
+  ) => MkStream m S (StateIx I) where
+  mkStream S (IStatic ()) (StateIx _ _ h _) (StateIx cs ty i _)
+    = staticCheck (i>=0 && i<=h) . singleton $ ElmS (StateIx cs ty i (-1)) (StateIx cs ty (-1) (-1))
+  mkStream S (IVariable ()) (StateIx _ _ h _) (StateIx cs ty i _)
+    = filter (const $ 0<=i && i<=h) . singleton $ ElmS (StateIx cs ty i (-1)) (StateIx cs ty (-1) (-1))
+  {-# Inline mkStream #-}
+
+
+
+-- * Syntactic variables
+
+{-
 
 -- * Capturing transition scores
 -- 
@@ -260,23 +332,6 @@ instance
   {-# Inline mkStream #-}
 
 
-
--- * capturing end states
---
--- TODO what about local ends? Probably means allowing @E@-like behaviour
--- with non-@E@ states. Infernal uses a special state @EL@ of which there
--- is one per model.
-
-instance
-  ( Monad m
-  , MkStream m ls StateIx
-  ) => MkStream m (ls :!: Epsilon) StateIx where
-  mkStream (ls :!: Epsilon) (IStatic ()) hh kk@(StateIx styC styA k _)
-    = staticCheck (sty == E || sty == EL)
-    . map (\s -> ElmEpsilon kk kk s)
-    $ mkStream ls (IStatic ()) hh kk
-    where !sty = styA ! k
-  {-# Inline mkStream #-}
 
 -- * syntactic variable
 
@@ -327,53 +382,11 @@ instance RuleContext StateIx where
 
 type instance TblConstraint StateIx = TableConstraint
 
-instance
-  ( Monad m
-  ) => MkStream m S StateIx where
-  mkStream S (IStatic ()) (StateIx _ _ h _) (StateIx cs ty i _)
-    = staticCheck (i>=0 && i<=h) . singleton $ ElmS (StateIx cs ty i (-1)) (StateIx cs ty (-1) (-1))
-  mkStream S (IVariable ()) (StateIx _ _ h _) (StateIx cs ty i _)
-    = filter (const $ 0<=i && i<=h) . singleton $ ElmS (StateIx cs ty i (-1)) (StateIx cs ty (-1) (-1))
-  {-# Inline mkStream #-}
 
 
 
 -- * Multi-dimensional extensions
 
--- instance TableIndices is => TableIndices (is:.StateIx) where
---   tableIndices (cs:._) (vs:.IStatic _) (ixs:._)
---     = flatten mk step 
---     . tableIndices cs vs ixs
---     . map undefined
---     where mk (S5 s (zi:.six@(StateIx styC styA k _)) (zo:._) is os)
---             | sty == B  = return $ Just $ Left  six -- (S5 s zi zo is os, six)
---             | otherwise = return $ Just $ Right (S5 s zi zo is os, six,0)
---             where sty = styA ! k
---           step Nothing = return $ Done
---           step (Just (Left (StateIx styC styA k _))) = return undefined
---           {-# Inline [0] mk   #-}
---           {-# Inline [0] step #-}
---   {-# Inline tableIndices #-}
-
--- ** Extensions for CMstate
-
-type instance TermArg (TermSymbol a CMstate) = TermArg a :. (States :!: PInt StateIndex)
-
-instance 
-  ( Monad m
-  , TerminalStream m a is
-  ) => TerminalStream m (TermSymbol a CMstate) (is:.StateIx) where
-  terminalStream (a:|CMstate admit cm) (sv:.ctxt) (is:.i@(StateIx _ styA k _))
-    = staticCheck (admit $ styA ! k)
-    . map (\(S6 s (zi:._) (zo:._) is os e) -> S6 s zi zo (is:.i) (os:.i) (e :. (cm :!: k)))
-    . iPackTerminalStream a sv (is:.i)
-  {-# Inline terminalStream #-}
-
-instance TermStaticVar CMstate StateIx where
-  termStaticVar _ sv _ = sv
-  termStreamIndex _ _ i = i
-  {-# Inline termStaticVar   #-}
-  {-# Inline termStreamIndex #-}
 
 -- ** Extensions for Transition
 
@@ -396,29 +409,7 @@ instance TermStaticVar Transition StateIx where
   {-# Inline termStaticVar   #-}
   {-# Inline termStreamIndex #-}
 
--- ** Emitting characters
 
--- type instance TermArg (TermSymbol a (EmitChar c)) = TermArg a :. c
-
--- instance
---   ( Monad m
---   , TerminalStream m a is
---   ) => TerminalStream m (TermSymbol a (EmitChar c)) (is:.StateIx) where
---   terminalStream (a:|EmitChar vc) (sv:.ctxt) (is:.i@(StateIx styC styA k _))
---     = flatten mk step . iPackTerminalStream a sv (is:.i)
---     where mk s = return (s:.length vc -1)
---           step (ss@(S6 s (zi:._) (zo:._) is os e) :. z)
---             | z < 0     = return $ Done
---             | otherwise = return $ Yield (S6 s zi zo (is:.i) (os:.i) (e:.unsafeIndex vc z)) (ss :. z-1)
---           {-# Inline [0] mk   #-}
---           {-# Inline [0] step #-}
---   {-# Inline terminalStream #-}
-
-instance TermStaticVar (EmitChar c) StateIx where
-  termStaticVar _ sv _ = sv
-  termStreamIndex _ _ i = i
-  {-# Inline termStaticVar   #-}
-  {-# Inline termStreamIndex #-}
 
 -}
 
