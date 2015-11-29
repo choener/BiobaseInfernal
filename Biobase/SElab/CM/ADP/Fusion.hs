@@ -135,24 +135,27 @@ type instance TblConstraint (StateIx t) = TableConstraint
 -- TODO how about running time if I were to use a Proxy?
 --
 -- TODO use a function for membership, not a @StateType@ constant
+--
+-- TODO we might want to give TRANSITION scores with this thing? We would
+-- have to populate the @children@ at this point as well?!
 
 data CMstate where
   CMstate :: (StateType -> Bool) -> States -> CMstate
 
-type instance TermArg CMstate = States :. PInt () StateIndex
+type instance TermArg CMstate = States :. PInt () StateIndex :. Bitscore
 
 instance Build CMstate
 
 instance
   ( Element ls i
   ) => Element (ls :!: CMstate) i where
-  data Elm    (ls :!: CMstate) i = ElmCMstate !States !(PInt () StateIndex) !i !i !(Elm ls i)
-  type Arg    (ls :!: CMstate)   = Arg ls :. (States :. PInt () StateIndex)
+  data Elm    (ls :!: CMstate) i = ElmCMstate !States !(PInt () StateIndex) !Bitscore !i !i !(Elm ls i)
+  type Arg    (ls :!: CMstate)   = Arg ls :. (States :. PInt () StateIndex :. Bitscore)
   type RecElm (ls :!: CMstate) i = Elm ls i
-  getArg (ElmCMstate s k _ _ ls) = getArg ls :. (s:.k)
-  getIdx (ElmCMstate _ _ i _ _ ) = i
-  getOmx (ElmCMstate _ _ _ o _ ) = o
-  getElm (ElmCMstate _ _ _ _ ls) = ls
+  getArg (ElmCMstate s k b _ _ ls) = getArg ls :. (s:.k:.b)
+  getIdx (ElmCMstate _ _ _ i _ _ ) = i
+  getOmx (ElmCMstate _ _ _ _ o _ ) = o
+  getElm (ElmCMstate _ _ _ _ _ ls) = ls
   {-# Inline getArg #-}
   {-# Inline getIdx #-}
   {-# Inline getOmx #-}
@@ -162,21 +165,51 @@ instance
   ( TmkCtx1 m ls CMstate (StateIx t)
   ) => MkStream m (ls :!: CMstate) (StateIx t) where
   mkStream (ls :!: CMstate f xs) sv us is
-    = map (\(ss,(eex:.eek),ii,oo) -> ElmCMstate eex eek ii oo ss)
+    = map (\(ss,(eex:.eek:.eeb),ii,oo) -> ElmCMstate eex eek eeb ii oo ss)
     . addTermStream1 (CMstate f xs) sv us is
     $ mkStream ls (termStaticVar (CMstate f xs) sv is) us (termStreamIndex (CMstate f xs) sv is)
   {-# Inline mkStream #-}
 
--- |
+-- | Will populate the index with the first child! Depending on the current
+-- state type, we'll have to do different things.
+--
+-- If we have a branching state, we only set the first child, as the 2nd
+-- synvar will grab the 2nd child.
+--
+-- Otherwise, we'll go through all children. This will also net us the
+-- transition score.
 
 instance
   ( TstCtx1 m ts a is (StateIx I)
   ) => TermStream m (TermSymbol ts CMstate) a (is:.StateIx I) where
-  termStream (ts:|CMstate admit xs) (cs:._) (us:.u) (is:.ix@(StateIx _ styA i _)) -- same code for static+variable
-    = map (\(TState s a b ii oo ee) ->
-              TState s a b (ii:.ix) (oo:.ix) (ee:.(xs:.(PInt $ getPInt i))) )
+  termStream (ts:|CMstate admit xs) (cs:._) (us:.u) (is:.ix@(StateIx styC styA i _)) -- same code for static+variable
+    = flatten mk step
     . termStream ts cs us is
-    . staticCheck (admit $ styA ! i)  -- only allow going on if the type is admissable here
+--    . staticCheck (admit $ styA ! i)  -- only allow going on if the type is admissable here (TODO: better here or in step?)
+    where mk s = if (admit stya) then return $ Just (s, 0) else return Nothing
+          step Nothing = return $ Done
+          step (Just (tstate@(TState s a b ii oo ee), c))
+            -- if we @B@ranch, then the 2nd child is consumed by the static
+            -- synvar!
+            -- TODO i think, the @B@ and @E@ cases can be merged
+            | stya == B = return $ Yield (TState s a b (ii:.k) (oo:.k) (ee:.e)) Nothing
+            -- this state has no children! It is an @E@ or @EL@ state. We
+            -- don't check on styc, because end states have none.
+            | stya == E || stya == EL  = return $ Yield (TState s a b (ii:.k) (oo:.k) (ee:.e)) Nothing
+            -- no more valid children left. Assumes that all valid children
+            -- are stored consecutively.
+            | c>5 || styc < 0 = return $ Done
+            -- this child was given a very bad transition score, we skip.
+            | trns < (error "very negative") = return $ Skip $ Just (tstate,c+1)
+            -- normal state with many children
+            | otherwise = return $ Yield (TState s a b (ii:.k) (oo:.k) (ee:.e)) (Just (tstate, c+1))
+            where (styc,trns) = styC ! (Z:.i:.c)
+                  styc' = PInt $ getPInt styc
+                  k = StateIx styC styA i c
+                  e = xs:.styc':.trns -- states structure, child index, transition score
+          {-# Inline [0] mk   #-}
+          {-# Inline [0] step #-}
+          stya = styA ! i
   {-# Inline termStream #-}
 
 instance TermStaticVar CMstate (StateIx t) where
@@ -288,6 +321,105 @@ instance
 
 
 -- * Syntactic variables
+--
+-- Table:   Inside
+-- Grammar: Inside
+--
+-- Each grammar should have 0, 1, or 2 syntactic variables per rule, not
+-- more. We have 1 synvars for @B@ranching states, @1@ for most others.
+-- Those with 0 synvars are not interesting here.
+--
+-- Depending on the state (branch or not) have to handle two different
+-- cases.
+
+--instance
+--  ( AddIndexDense a us is
+--  , GetIndex a (is:.StateIx I)
+--  , GetIx a (is:.StateIx I) ~ (StateIx I)
+--  ) => AddIndexDense a (us:.StateIx i) (is:.StateIx I) where
+--  addIndexDenseGo (cs:.c) (vs:.IStatic ()) (us:._) (is:.ix@(StateIx styC styA i _))
+--    = flatten mk step . addIndexDenseGo cs vs us is
+--    where mk s | sty == B  = return $ Branching s
+--               | otherwise = return $ Single    s
+--          -- we are done here
+--          step Fini = return $ Done
+--          -- since we are @IStatic@, this is the right child!
+--          step (Branching svs@(SvS s a b t y z))
+--            = let k = StateIx styC styA (fst $ styC ! (Z:.i:.1)) 1 -- right child
+--              in  return $ Yield undefined undefined
+--          sty = styA ! i
+--          {-# Inline [0] mk   #-}
+--          {-# Inline [0] step #-}
+--  {-# Inline addIndexDenseGo #-}
+
+data TwoOrOneOrFini a
+  = Branching a
+  | Single    a
+  | Fini
+
+{-
+instance
+  ( Monad m
+  , PrimArrayOps arr StateIx x
+  , MkStream m ls StateIx
+  ) => MkStream m (ls :!: ITbl m arr StateIx x) StateIx where
+  mkStream (ls :!: ITbl _ _ c t _) (IStatic ()) hh kk@(StateIx styC styA k _)
+    = flatten mk step $ mkStream ls (IVariable ()) hh kk
+    where mk s | sty == B  = return $ Just $ Left  s
+               | otherwise = return $ Just $ Right (s,0)
+          step Nothing  = return $ Done
+          -- we have a branching state and extract the score for the
+          -- *right* child
+          step (Just (Left s)     ) = let ll = StateIx styC styA (fst $ styC ! (Z:.k:.1)) 1 -- right child
+                                      in  return $ Yield (ElmITbl (t!ll) kk kk s) Nothing
+          -- linear grammar case. Iterate over all children
+          step (Just (Right (s,i)))
+            | i > hI || (fst $ styC ! (Z:.k:.i)) < 0 = return $ Done
+            -- TODO we skip here, because we do not want self-loops.
+            -- These will require a slightly more involved index structure
+            | (fst $ styC ! (Z:.k:.i)) == k  = return $ Skip (Just (Right (s,i+1)))
+            | otherwise                      = let ll = StateIx styC styA (fst $ styC !(Z:.k:.i)) i
+                                               in  return $ Yield (ElmITbl (t!ll) (StateIx styC styA k i) kk s) (Just (Right (s,i+1)))
+          sty  = styA ! k
+          (_,Z:._:. (!hI)) = bounds styC
+          {-# Inline [0] mk   #-}
+          {-# Inline [0] step #-}
+  mkStream (ls :!: ITbl _ _ c t _) (IVariable ()) hh kk@(StateIx styC styA k _)
+    = flatten mk step $ mkStream ls (IVariable ()) hh kk
+    where mk s | sty == B  = return $ Just s
+               | otherwise = return $ Nothing
+          step Nothing  = return $ Done
+          step (Just s) = let ll = StateIx styC styA (fst $ styC !(Z:.k:.0)) 0 -- left child
+                          in  return $ Yield (ElmITbl (t!ll) kk kk s) Nothing
+          sty  = styA ! k
+          {-# Inline [0] mk   #-}
+          {-# Inline [0] step #-}
+  {-# Inline mkStream #-}
+
+-- * rule context stuff
+
+-}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 {-
 
@@ -333,54 +465,6 @@ instance
 
 
 
--- * syntactic variable
-
-instance
-  ( Monad m
-  , PrimArrayOps arr StateIx x
-  , MkStream m ls StateIx
-  ) => MkStream m (ls :!: ITbl m arr StateIx x) StateIx where
-  mkStream (ls :!: ITbl _ _ c t _) (IStatic ()) hh kk@(StateIx styC styA k _)
-    = flatten mk step $ mkStream ls (IVariable ()) hh kk
-    where mk s | sty == B  = return $ Just $ Left  s
-               | otherwise = return $ Just $ Right (s,0)
-          step Nothing  = return $ Done
-          -- we have a branching state and extract the score for the
-          -- *right* child
-          step (Just (Left s)     ) = let ll = StateIx styC styA (fst $ styC ! (Z:.k:.1)) 1 -- right child
-                                      in  return $ Yield (ElmITbl (t!ll) kk kk s) Nothing
-          -- linear grammar case. Iterate over all children
-          step (Just (Right (s,i)))
-            | i > hI || (fst $ styC ! (Z:.k:.i)) < 0 = return $ Done
-            -- TODO we skip here, because we do not want self-loops.
-            -- These will require a slightly more involved index structure
-            | (fst $ styC ! (Z:.k:.i)) == k  = return $ Skip (Just (Right (s,i+1)))
-            | otherwise                      = let ll = StateIx styC styA (fst $ styC !(Z:.k:.i)) i
-                                               in  return $ Yield (ElmITbl (t!ll) (StateIx styC styA k i) kk s) (Just (Right (s,i+1)))
-          sty  = styA ! k
-          (_,Z:._:. (!hI)) = bounds styC
-          {-# Inline [0] mk   #-}
-          {-# Inline [0] step #-}
-  mkStream (ls :!: ITbl _ _ c t _) (IVariable ()) hh kk@(StateIx styC styA k _)
-    = flatten mk step $ mkStream ls (IVariable ()) hh kk
-    where mk s | sty == B  = return $ Just s
-               | otherwise = return $ Nothing
-          step Nothing  = return $ Done
-          step (Just s) = let ll = StateIx styC styA (fst $ styC !(Z:.k:.0)) 0 -- left child
-                          in  return $ Yield (ElmITbl (t!ll) kk kk s) Nothing
-          sty  = styA ! k
-          {-# Inline [0] mk   #-}
-          {-# Inline [0] step #-}
-  {-# Inline mkStream #-}
-
--- * rule context stuff
-
-instance RuleContext StateIx where
-  type Context StateIx = InsideContext ()
-  initialContext _ = IStatic ()
-  {-# Inline initialContext #-}
-
-type instance TblConstraint StateIx = TableConstraint
 
 
 
