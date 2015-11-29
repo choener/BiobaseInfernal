@@ -26,8 +26,6 @@ import           Biobase.SElab.Bitscore
 
 
 
-{-
-
 -- * Indexing into (fast) CMs.
 
 -- | A 'StateIx' needs to carry around the tree topology. We do this by
@@ -38,34 +36,34 @@ import           Biobase.SElab.Bitscore
 --
 -- TODO currently, any @INS@ state will be visited just once.
 
-data StateIx where
+data StateIx t where
   StateIx ::
     { _siChilden  :: !(Unboxed (Z:.PInt I StateIndex:.Int) (PInt I StateIndex, Bitscore))
     , _siType     :: !(Unboxed (PInt I StateIndex)         StateType)
     , _siIx       :: !(PInt I StateIndex)
     , _siChild    :: !Int   -- ^ @-1@ or set to the child of @_siChildren@ we look at
-    } -> StateIx
+    } -> StateIx t
   deriving (Show,Read,Generic)
 
 makeLenses ''StateIx
 makePrisms ''StateIx
 
-mkStateIx :: CM -> StateIx
+mkStateIx :: CM -> StateIx I
 mkStateIx cm = StateIx (cm^.states.sTransitions) (cm^.states.sStateType) 0 (-1)
 
-instance Eq StateIx where
+instance Eq (StateIx t) where
   (StateIx _ _ x c) == (StateIx _ _ y d) = x == y && c == d
   {-# Inline (==) #-}
 
-instance Ord StateIx where
+instance Ord (StateIx t) where
   (StateIx _ _ x c) <= (StateIx _ _ y d) = (x,c) <= (y,d)
   {-# Inline (<=) #-}
 
-instance Hashable StateIx where
+instance Hashable (StateIx t) where
   hashWithSalt s (StateIx _ _ p q) = hashWithSalt s (p,q)
   {-# Inline hashWithSalt #-}
 
-instance Index StateIx where
+instance Index (StateIx t) where
   linearIndex _ h (StateIx _ _ i _) = getPInt i
   {-# Inline linearIndex #-}
   smallestLinearIndex _ = error "still needed?"
@@ -85,7 +83,7 @@ instance Index StateIx where
 --
 -- @streamUp@ actually needs to go from higher to lower states...
 
-instance IndexStream z => IndexStream (z:.StateIx) where
+instance IndexStream z => IndexStream (z:.StateIx I) where
   streamUp (ls:.StateIx cs ty l _) (hs:.StateIx _ _ h _)
     = flatten mk step $ streamUp ls hs
     where mk s = return (s,h)
@@ -105,7 +103,14 @@ instance IndexStream z => IndexStream (z:.StateIx) where
           {-# Inline [0] step #-}
   {-# Inline streamDown #-}
 
-instance IndexStream StateIx
+instance IndexStream (StateIx I)
+
+instance RuleContext (StateIx I) where
+  type Context (StateIx I) = InsideContext ()
+  initialContext _ = IStatic ()
+  {-# Inline initialContext #-}
+
+type instance TblConstraint (StateIx t) = TableConstraint
 
 -- * 
 
@@ -134,13 +139,15 @@ instance IndexStream StateIx
 data CMstate where
   CMstate :: (StateType -> Bool) -> States -> CMstate
 
+type instance TermArg CMstate = States :. PInt () StateIndex
+
 instance Build CMstate
 
 instance
   ( Element ls i
   ) => Element (ls :!: CMstate) i where
-  data Elm    (ls :!: CMstate) i = ElmCMstate !States !(PInt StateIndex) !i !i !(Elm ls i)
-  type Arg    (ls :!: CMstate)   = Arg ls :. (States :. PInt StateIndex)
+  data Elm    (ls :!: CMstate) i = ElmCMstate !States !(PInt () StateIndex) !i !i !(Elm ls i)
+  type Arg    (ls :!: CMstate)   = Arg ls :. (States :. PInt () StateIndex)
   type RecElm (ls :!: CMstate) i = Elm ls i
   getArg (ElmCMstate s k _ _ ls) = getArg ls :. (s:.k)
   getIdx (ElmCMstate _ _ i _ _ ) = i
@@ -152,14 +159,27 @@ instance
   {-# Inline getElm #-}
 
 instance
-  ( Monad m
-  , MkStream m ls StateIx
-  ) => MkStream m (ls :!: CMstate) StateIx where
-  mkStream (ls :!: CMstate admit cm) ctxt hh kk@(StateIx _ styA k _)
-    = staticCheck (admit $ styA ! k)
-    . map (\s -> ElmCMstate cm k kk kk s)
-    $ mkStream ls ctxt hh kk
+  ( TmkCtx1 m ls CMstate (StateIx t)
+  ) => MkStream m (ls :!: CMstate) (StateIx t) where
+  mkStream (ls :!: CMstate f xs) sv us is
+    = map (\(ss,(eex:.eek),ii,oo) -> ElmCMstate eex eek ii oo ss)
+    . addTermStream1 (CMstate f xs) sv us is
+    $ mkStream ls (termStaticVar (CMstate f xs) sv is) us (termStreamIndex (CMstate f xs) sv is)
   {-# Inline mkStream #-}
+
+-- |
+
+instance
+  ( TstCtx1 m ts a is (StateIx I)
+  ) => TermStream m (TermSymbol ts CMstate) a (is:.StateIx I) where
+  termStream (ts:|CMstate admit xs) (cs:.IStatic ()) (us:.u) (is:.StateIx _ styA i _)
+    = map (\(TState s a b ii oo ee) ->
+              TState s a b (ii:.undefined) (oo:.undefined) (ee:.(undefined:.undefined)) )
+    . termStream ts cs us is
+    . staticCheck (admit $ styA ! i)  -- only allow going on if the type is admissable here
+  {-# Inline termStream #-}
+
+{-
 
 -- * Emission of characters
 
