@@ -332,168 +332,31 @@ instance
 -- Depending on the state (branch or not) have to handle two different
 -- cases.
 
---instance
---  ( AddIndexDense a us is
---  , GetIndex a (is:.StateIx I)
---  , GetIx a (is:.StateIx I) ~ (StateIx I)
---  ) => AddIndexDense a (us:.StateIx i) (is:.StateIx I) where
---  addIndexDenseGo (cs:.c) (vs:.IStatic ()) (us:._) (is:.ix@(StateIx styC styA i _))
---    = flatten mk step . addIndexDenseGo cs vs us is
---    where mk s | sty == B  = return $ Branching s
---               | otherwise = return $ Single    s
---          -- we are done here
---          step Fini = return $ Done
---          -- since we are @IStatic@, this is the right child!
---          step (Branching svs@(SvS s a b t y z))
---            = let k = StateIx styC styA (fst $ styC ! (Z:.i:.1)) 1 -- right child
---              in  return $ Yield undefined undefined
---          sty = styA ! i
---          {-# Inline [0] mk   #-}
---          {-# Inline [0] step #-}
---  {-# Inline addIndexDenseGo #-}
-
-data TwoOrOneOrFini a
-  = Branching a
-  | Single    a
-  | Fini
-
-{-
 instance
-  ( Monad m
-  , PrimArrayOps arr StateIx x
-  , MkStream m ls StateIx
-  ) => MkStream m (ls :!: ITbl m arr StateIx x) StateIx where
-  mkStream (ls :!: ITbl _ _ c t _) (IStatic ()) hh kk@(StateIx styC styA k _)
-    = flatten mk step $ mkStream ls (IVariable ()) hh kk
-    where mk s | sty == B  = return $ Just $ Left  s
-               | otherwise = return $ Just $ Right (s,0)
-          step Nothing  = return $ Done
-          -- we have a branching state and extract the score for the
-          -- *right* child
-          step (Just (Left s)     ) = let ll = StateIx styC styA (fst $ styC ! (Z:.k:.1)) 1 -- right child
-                                      in  return $ Yield (ElmITbl (t!ll) kk kk s) Nothing
-          -- linear grammar case. Iterate over all children
-          step (Just (Right (s,i)))
-            | i > hI || (fst $ styC ! (Z:.k:.i)) < 0 = return $ Done
-            -- TODO we skip here, because we do not want self-loops.
-            -- These will require a slightly more involved index structure
-            | (fst $ styC ! (Z:.k:.i)) == k  = return $ Skip (Just (Right (s,i+1)))
-            | otherwise                      = let ll = StateIx styC styA (fst $ styC !(Z:.k:.i)) i
-                                               in  return $ Yield (ElmITbl (t!ll) (StateIx styC styA k i) kk s) (Just (Right (s,i+1)))
-          sty  = styA ! k
-          (_,Z:._:. (!hI)) = bounds styC
-          {-# Inline [0] mk   #-}
-          {-# Inline [0] step #-}
-  mkStream (ls :!: ITbl _ _ c t _) (IVariable ()) hh kk@(StateIx styC styA k _)
-    = flatten mk step $ mkStream ls (IVariable ()) hh kk
-    where mk s | sty == B  = return $ Just s
-               | otherwise = return $ Nothing
-          step Nothing  = return $ Done
-          step (Just s) = let ll = StateIx styC styA (fst $ styC !(Z:.k:.0)) 0 -- left child
-                          in  return $ Yield (ElmITbl (t!ll) kk kk s) Nothing
-          sty  = styA ! k
-          {-# Inline [0] mk   #-}
-          {-# Inline [0] step #-}
-  {-# Inline mkStream #-}
-
--- * rule context stuff
-
--}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-{-
-
--- * Capturing transition scores
--- 
--- I'd rather return the transition scores together with the synvar, but
--- alas right now we can't.
-
--- | TODO maybe have a more interesting return? Maybe where we transitioned
--- from?
---
--- TODO not needed anymore?
-
-data Transition = Transition
-  deriving (Eq,Ord,Show)
-
-instance
-  ( Element ls i
-  ) => Element (ls :!: Transition) i where
-  data Elm (ls :!: Transition)    i = ElmTransition !Bitscore !i !i !(Elm ls i)
-  type Arg (ls :!: Transition)      = Arg ls :. Bitscore
-  type RecElm (ls :!: Transition) i = Elm ls i
-  getArg (ElmTransition b _ _ ls) = getArg ls :. b
-  getIdx (ElmTransition _ i _ _ ) = i
-  getOmx (ElmTransition _ _ o _ ) = o
-  getElm (ElmTransition _ _ _ ls) = ls
-  {-# Inline getArg #-}
-  {-# Inline getIdx #-}
-  {-# Inline getOmx #-}
-  {-# Inline getElm #-}
-
-instance
-  ( Monad m
-  , Element ls StateIx
-  , MkStream m ls StateIx
-  ) => MkStream m (ls :!: Transition) StateIx where
-  mkStream (ls :!: Transition) ctxt hh kk@(StateIx styC styA k _)
-    = map (\s -> let k = getIdx s ^. siIx
-                     c = getIdx s ^. siChild
-                 in  ElmTransition (if c>=0 then (Prelude.snd $ styC ! (Z:.k:.c)) else 0) kk kk s)
-    $ mkStream ls ctxt hh kk
-  {-# Inline mkStream #-}
-
-
-
-
-
-
-
--- * Multi-dimensional extensions
-
-
--- ** Extensions for Transition
-
--- type instance TermArg (TermSymbol a Transition) = TermArg a :. Bitscore
--- 
--- instance
---   ( Monad m
---   , TerminalStream m a is
---   ) => TerminalStream m (TermSymbol a Transition) (is:.StateIx) where
---   terminalStream (a:|Transition) (sv:.ctxt) (is:.i@(StateIx styC styA k _))
---     = map (\(S6 s (zi:.c') (zo:._) is os e) ->
---         let c = c' ^. siChild -- TODO ok?
---         in  S6 s zi zo (is:.i) (os:.i) (e :. (if c>=0 then (Prelude.snd $ styC ! (Z:.k:.c)) else 0)))
---     . iPackTerminalStream a sv (is:.i)
---   {-# Inline terminalStream #-}
-
-instance TermStaticVar Transition StateIx where
-  termStaticVar _ sv _ = sv
-  termStreamIndex _ _ i = i
-  {-# Inline termStaticVar   #-}
-  {-# Inline termStreamIndex #-}
-
-
-
--}
+  ( AddIndexDense a us is
+  , GetIndex a (is:.StateIx I)
+  , GetIx a (is:.StateIx I) ~ (StateIx I)
+  ) => AddIndexDense a (us:.StateIx I) (is:.StateIx I) where
+  addIndexDenseGo (cs:.c) (vs:.IStatic ()) (us:._) (is:.ix@(StateIx styC styA i _))
+    -- makes the assumption that there is a legal @c@hild index coming up.
+    -- This should hold (@B@ sets to the second child, for all other rules
+    -- the correct child is enumerated).
+    -- Note that after this map, no child can be legally selected due to
+    -- @(-1)@ in @kt@
+    = map (\(SvS s a b tt ii oo) ->
+              let kt  = StateIx styC styA (fst $ styC ! (Z:.i:.c)) (-1)
+                  pix = getIndex a (Proxy :: Proxy (is:.StateIx I))
+                  c   = _siChild pix
+              in  SvS s a b (tt:.kt) (ii:.kt) (oo:.kt) )
+    . addIndexDenseGo cs vs us is
+  addIndexDenseGo (cs:.c) (vs:.IVariable ()) (us:._) (is:.ix@(StateIx styC styA i _))
+    = map (\(SvS s a b tt ii oo) ->
+              let kt   = StateIx styC styA (fst $ styC ! (Z:.i:.c)) 1
+                  pix  = getIndex a (Proxy :: Proxy (is:.StateIx I))
+                  c    = _siChild pix
+              in  SvS s a b (tt:.kt) (ii:.kt) (oo:.kt) )
+    . addIndexDenseGo cs vs us is
+    . staticCheck (stya == B) -- @IVariable@ is only legal in @B@ cases
+    where stya = styA ! i
+  {-# Inline addIndexDenseGo #-}
 

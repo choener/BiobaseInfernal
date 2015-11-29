@@ -125,6 +125,7 @@ library
                     , PatternSynonyms
                     , RankNTypes
                     , RecordWildCards
+                    , ScopedTypeVariables
                     , TemplateHaskell
                     , TupleSections
                     , TypeFamilies
