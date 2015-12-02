@@ -174,9 +174,9 @@ data StateIndex
 
 data State = State
   { _sType        :: StateType
-  , _sid          :: PInt I StateIndex
-  , _sParents     :: (PInt I StateIndex, PInt I StateIndex)
-  , _sChildren    :: [PInt I StateIndex] -- , Int)               -- ^ first child and number of children (all consecutive); for 'B', it is first and second child as direct index number
+  , _sid          :: PInt () StateIndex
+  , _sParents     :: (PInt () StateIndex, PInt () StateIndex)
+  , _sChildren    :: [PInt () StateIndex] -- , Int)               -- ^ first child and number of children (all consecutive); for 'B', it is first and second child as direct index number
   , _sqdb         :: (Int,Int,Int,Int)
   , _transitions  :: Vector Bitscore
   , _emissions    :: Vector Bitscore  -- emission order is ACGU or AA,AC,AG,AU, CA,CC,CG,CU, GA,GC,GG,GU, UA,UC,UG,UU
@@ -220,9 +220,9 @@ data NodeIndex
 -- once we re-activate Stockholm file parsing.
 
 data Node = Node
-  { _nstates :: Vector (PInt I StateIndex)
+  { _nstates :: Vector (PInt () StateIndex)
   , _ntype   :: NodeType
-  , _nid     :: PInt I NodeIndex
+  , _nid     :: PInt () NodeIndex
   , _nColL   :: Int
   , _nColR   :: Int
   , _nConL   :: Char
@@ -271,10 +271,10 @@ instance ToJSON    (Node)
 -- TODO We need to modify how BiobaseXNA encodes RNA sequences (maybe ACGUN)
 
 data States = States
-  { _sTransitions     :: ! (Unboxed (Z:.PInt I StateIndex:.Int) (PInt I StateIndex,Bitscore))   -- ^ Transitions to a state, together with the transition score; unpopulated transitions are set to @-1@.
-  , _sPairEmissions   :: ! (Unboxed (Z:.PInt I StateIndex:.Letter RNA:.Letter RNA) Bitscore)  -- ^ Scores for the emission of a pair
-  , _sSingleEmissions :: ! (Unboxed (Z:.PInt I StateIndex:.Letter RNA) Bitscore)              -- ^ Scores for the emission of a single nucleotide
-  , _sStateType       :: ! (Unboxed (PInt I StateIndex) StateType)                            -- ^ Type of the state at the current index
+  { _sTransitions     :: ! (Unboxed (Z:.PInt () StateIndex:.Int) (PInt () StateIndex,Bitscore))   -- ^ Transitions to a state, together with the transition score; unpopulated transitions are set to @-1@.
+  , _sPairEmissions   :: ! (Unboxed (Z:.PInt () StateIndex:.Letter RNA:.Letter RNA) Bitscore)  -- ^ Scores for the emission of a pair
+  , _sSingleEmissions :: ! (Unboxed (Z:.PInt () StateIndex:.Letter RNA) Bitscore)              -- ^ Scores for the emission of a single nucleotide
+  , _sStateType       :: ! (Unboxed (PInt () StateIndex) StateType)                            -- ^ Type of the state at the current index
   }
   deriving (Show,Read,Generic)
 
@@ -283,7 +283,7 @@ makePrisms ''States
 
 -- | A pure getter to retrieve the last state
 
-sLastState :: Getter States (PInt I StateIndex)
+sLastState :: Getter States (PInt () StateIndex)
 sLastState = sStateType . to bounds . to snd
 {-# Inline sLastState #-}
 

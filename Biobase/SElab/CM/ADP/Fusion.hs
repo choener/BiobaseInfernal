@@ -20,6 +20,7 @@ import           ADP.Fusion
 import           ADP.Fusion.SynVar.Indices
 import           Data.PrimitiveArray hiding (map, unsafeIndex)
 import qualified Data.PrimitiveArray as PA
+import           Biobase.Types.NumericalExtremes
 
 import           Biobase.SElab.CM.Types hiding (S)
 import           Biobase.SElab.Bitscore
@@ -38,9 +39,9 @@ import           Biobase.SElab.Bitscore
 
 data StateIx t where
   StateIx ::
-    { _siChilden  :: !(Unboxed (Z:.PInt I StateIndex:.Int) (PInt I StateIndex, Bitscore))
-    , _siType     :: !(Unboxed (PInt I StateIndex)         StateType)
-    , _siIx       :: !(PInt I StateIndex)
+    { _siChilden  :: !(Unboxed (Z:.PInt () StateIndex:.Int) (PInt () StateIndex, Bitscore))
+    , _siType     :: !(Unboxed (PInt () StateIndex)         StateType)
+    , _siIx       :: !(PInt () StateIndex)
     , _siChild    :: !Int   -- ^ @-1@ or set to the child of @_siChildren@ we look at
     } -> StateIx t
   deriving (Show,Read,Generic)
@@ -48,8 +49,13 @@ data StateIx t where
 makeLenses ''StateIx
 makePrisms ''StateIx
 
-mkStateIx :: CM -> StateIx I
-mkStateIx cm = StateIx (cm^.states.sTransitions) (cm^.states.sStateType) 0 (-1)
+mkStateIx0 :: States -> StateIx I
+mkStateIx0 s = StateIx (s^.sTransitions) (s^.sStateType) 0 (-1)
+
+mkStateIxH :: States -> StateIx I
+mkStateIxH s =
+  let (_,Z:.h:._) = bounds $ s^.sTransitions
+  in  StateIx (s^.sTransitions) (s^.sStateType) h (-1)
 
 instance Eq (StateIx t) where
   (StateIx _ _ x c) == (StateIx _ _ y d) = x == y && c == d
@@ -142,7 +148,13 @@ type instance TblConstraint (StateIx t) = TableConstraint
 data CMstate where
   CMstate :: (StateType -> Bool) -> States -> CMstate
 
-type instance TermArg CMstate = States :. PInt () StateIndex :. Bitscore
+-- | Shortcut for the transition-emission scores we need. Returns all
+-- states, the @current@ index we are at, and the transition score to the
+-- next lower state we want to visit at some point.
+
+type CMte = States :. PInt () StateIndex :. Bitscore
+
+type instance TermArg CMstate = CMte
 
 instance Build CMstate
 
@@ -200,13 +212,12 @@ instance
             -- are stored consecutively.
             | c>5 || styc < 0 = return $ Done
             -- this child was given a very bad transition score, we skip.
-            | trns < (error "very negative") = return $ Skip $ Just (tstate,c+1)
+            | trns <= Bitscore verySmall = return $ Skip $ Just (tstate,c+1)
             -- normal state with many children
             | otherwise = return $ Yield (TState s a b (ii:.k) (oo:.k) (ee:.e)) (Just (tstate, c+1))
             where (styc,trns) = styC ! (Z:.i:.c)
-                  styc' = PInt $ getPInt styc
                   k = StateIx styC styA i c
-                  e = xs:.styc':.trns -- states structure, child index, transition score
+                  e = xs:.i:.trns -- states structure, child index, transition score
           {-# Inline [0] mk   #-}
           {-# Inline [0] step #-}
           stya = styA ! i
@@ -230,6 +241,8 @@ data EmitChar c where
   EmitChar :: (Vector v c) => (v c) -> EmitChar c
 
 type instance TermArg (EmitChar c) = c
+
+instance Build (EmitChar c)
 
 instance
   ( Element ls i
@@ -263,8 +276,9 @@ instance
     where mk s = return (s :. length xs - 1)
           step (tstate@(TState s a b ii oo ee) :. k)
             | k < 0     = return $ Done
-            | otherwise = return $ Yield (TState s a b (ii:.ix) (oo:.ix) (ee:.(unsafeIndex xs k)))
+            | otherwise = return $ Yield (TState s a b (ii:.j) (oo:.j) (ee:.(unsafeIndex xs k)))
                                          (tstate :. k-1)
+            where j = getIndex a (Proxy :: Proxy (is:.StateIx I))
           {-# Inline [0] mk   #-}
           {-# Inline [0] step #-}
   {-# Inline termStream #-}
@@ -299,11 +313,18 @@ instance
   ) => TermStream m (TermSymbol ts Epsilon) a (is:.StateIx I) where
   termStream (ts :| Epsilon) (cs:._) (us:._) (is:.ix@(StateIx styC styA i _))
     = map (\(TState s a b ii oo ee) ->
-              TState s a b (ii:.ix) (oo:.ix) (ee:.()) )
+              let j = getIndex a (Proxy :: Proxy (is:.StateIx I))
+              in  TState s a b (ii:.j) (oo:.j) (ee:.()) )
     . termStream ts cs us is
     . staticCheck (sty == E || sty == EL)
     where !sty = styA ! i
   {-# Inline termStream #-}
+
+instance TermStaticVar Epsilon (StateIx t) where
+  termStaticVar _ sv _ = sv
+  termStreamIndex _ _ i = i
+  {-# Inline [0] termStaticVar   #-}
+  {-# Inline [0] termStreamIndex #-}
 
 
 
@@ -344,7 +365,7 @@ instance
     -- Note that after this map, no child can be legally selected due to
     -- @(-1)@ in @kt@
     = map (\(SvS s a b tt ii oo) ->
-              let kt  = StateIx styC styA (fst $ styC ! (Z:.i:.c)) (-1)
+              let kt  = StateIx styC styA (fst $ styC ! (Z:.i:.c)) (-1)   -- the @(fst ...)@ bracket should give us the @c@s child
                   pix = getIndex a (Proxy :: Proxy (is:.StateIx I))
                   c   = _siChild pix
               in  SvS s a b (tt:.kt) (ii:.kt) (oo:.kt) )
@@ -359,4 +380,10 @@ instance
     . staticCheck (stya == B) -- @IVariable@ is only legal in @B@ cases
     where stya = styA ! i
   {-# Inline addIndexDenseGo #-}
+
+instance TableStaticVar (StateIx I) (StateIx I) where
+  tableStaticVar   _ _ (IStatic ()) _ = IVariable ()
+  tableStreamIndex _ _ _ s = s
+  {-# Inline [0] tableStaticVar   #-}
+  {-# Inline [0] tableStreamIndex #-}
 
