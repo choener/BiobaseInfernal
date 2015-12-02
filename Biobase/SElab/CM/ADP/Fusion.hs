@@ -382,7 +382,8 @@ instance
   {-# Inline addIndexDenseGo #-}
 
 instance TableStaticVar (StateIx I) (StateIx I) where
-  tableStaticVar   _ _ (IStatic ()) _ = IVariable ()
+  tableStaticVar   _ _ (IStatic   ()) _ = IVariable ()
+  tableStaticVar   _ _ (IVariable ()) _ = IVariable ()
   tableStreamIndex _ _ _ s = s
   {-# Inline [0] tableStaticVar   #-}
   {-# Inline [0] tableStreamIndex #-}
