@@ -126,16 +126,16 @@ component0 = (,,,) <$> ident <*> matches <*> inserts <*> moves <?> "COMPO/0" whe
 component :: Int -> AT.Parser Component
 component k = (,,,) <$> ident <*> (matches <?> "matches") <*> inserts <*> moves <?> "component" where
   ident   = AT.skipSpace *> (error "COMPO parsed in component" <$ "COMPO" <|> AT.decimal) <?> "ident"
-  matches = matchHMM <|> matchCM <?> "matches"
-  matchHMM = (,,,,,) <$> count k ssD <*> melMAP <*> pure ' ' <*> melRF <*> melCS <*> pure ' ' <* (AT.endOfLine <?> "eol") <?> "matchHMM"
-  matchCM  = (,,,,,) <$> count k ssD <*> melMAP <*> melCONS  <*> melRF <*> melCS <*> melStruc <* (AT.endOfLine <?> "eol") <?> "matchCM"
+  matches = matchHMM <|> matchSubHMM <?> "matchHMM-CM"
+  matchHMM    = (,,,,,) <$> count k ssD <*> melMAP <*> pure ' ' <*> melRF <*> melCS <*> pure ' ' <* (AT.endOfLine <?> "eol") <?> "matchHMM"
+  matchSubHMM = (,,,,,) <$> count k ssD <*> melMAP <*> melCONS  <*> melRF <*> melCS <*> melStruc <* (AT.endOfLine <?> "eol") <?> "matchSubHMM" -- SubHMM of a CM, not a CM!
   inserts = count k ssD <* AT.endOfLine <?> "inserts"
   moves   = count 7 ssD' <* AT.endOfLine <?> "moves"
-  melMAP   = skipHorizSpace *> AT.signed AT.decimal <|> (0 <$ "-") <?> "MAP"
-  melCONS  = skipHorizSpace *> AT.anyChar <?> "CONS"
-  melRF    = skipHorizSpace *> AT.anyChar <?> "RF"
-  melCS    = skipHorizSpace *> AT.anyChar <?> "CS"
-  melStruc = skipHorizSpace *> AT.anyChar <?> "STRUC"   -- not defined in the Userguide!
+  melMAP   = skipHorizSpace *> (AT.decimal <|> (0 <$ "-")) <?> "melMAP"
+  melCONS  = skipHorizSpace *> AT.anyChar <?> "melCONS"
+  melRF    = skipHorizSpace *> AT.anyChar <?> "melRF"
+  melCS    = skipHorizSpace *> AT.anyChar <?> "melCS"
+  melStruc = skipHorizSpace *> AT.anyChar <?> "melSTRUC"   -- not defined in the Userguide!
   skipHorizSpace = AT.skipWhile AT.isHorizontalSpace
 
 type Component0 = (Int,  [Double]                    , [Double], [Double])

@@ -87,7 +87,7 @@ parseCM = do
     $ cm
 
 acceptedVersion :: AT.Parser (T.Text,T.Text)
-acceptedVersion = (,) <$ "INFERNAL1/a [" <*> AT.takeTill (=='|') <*> eolS <?> "cmVersion"
+acceptedVersion = (,) <$ "INFERNAL1/a [" <*> (AT.takeTill (=='|') <?> "x-|") <*> (eolS <?> "|->") <?> "cmVersion"
 
 -- | Parse CM header information.
 --
@@ -97,14 +97,14 @@ cmHeader :: AT.Parser (CM -> CM)
 cmHeader = AT.choice
   [ set name          <$ "NAME"     <*> eolS <?> "name"
   , set description   <$ "DESC"     <*> eolS <?> "description"
-  , set statesInModel <$  "STATES"  <*> eolN <?> "states"
-  , set nodesInModel  <$  "NODES"   <*> eolN <?> "nodes"
+  , set statesInModel <$ "STATES"   <*> eolN <?> "states"
+  , set nodesInModel  <$ "NODES"    <*> eolN <?> "nodes"
   , set clen          <$ "CLEN"     <*> eolN <?> "clen"
   , set w             <$ "W"        <*> eolN <?> "w"
   , set alph          <$ "ALPH"     <*> eolS <?> "alph"
-  , set referenceAnno <$  "RF"      <*> eolB <?> "rf"
-  , set consensusRes  <$  "CONS"    <*> eolB <?> "cons"
-  , set alignColMap   <$  "MAP"     <*> eolB <?> "map"
+  , set referenceAnno <$ "RF"       <*> eolB <?> "rf"
+  , set consensusRes  <$ "CONS"     <*> eolB <?> "cons"
+  , set alignColMap   <$ "MAP"      <*> eolB <?> "map"
   , set date          <$ "DATE"     <*> eolS <?> "date"
   , set pbegin        <$ "PBEGIN"   <*> eolD <?> "pbegin"
   , set pend          <$ "PEND"     <*> eolD <?> "pend"
