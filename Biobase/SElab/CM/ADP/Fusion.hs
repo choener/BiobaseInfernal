@@ -339,7 +339,19 @@ instance
     = filter (const $ 0<=i && i<=h) . singleton $ ElmS (StateIx cs ty i (-1)) (StateIx cs ty (-1) (-1))
   {-# Inline mkStream #-}
 
-
+instance
+  ( Monad m
+  , MkStream m S is
+  ) => MkStream m S (is:.StateIx I) where
+  mkStream S (vs:.IStatic ()) (us:.StateIx _ _ u _) (is:.StateIx c t i _)
+    = map (\(ElmS zi zo) -> ElmS (zi:.StateIx c t i (-1)) (zo:.StateIx c t (-1) (-1)))
+    . staticCheck (i>=0 && i<=u)
+    $ mkStream S vs us is
+  mkStream S (vs:.IVariable ()) (us:.StateIx _ _ u _) (is:.StateIx c t i _)
+    = map (\(ElmS zi zo) -> ElmS (zi:.StateIx c t i (-1)) (zo:.StateIx c t (-1) (-1)))
+    . staticCheck (i>=0 && i<=u)
+    $ mkStream S vs us is
+  {-# Inline mkStream #-}
 
 -- * Syntactic variables
 --
