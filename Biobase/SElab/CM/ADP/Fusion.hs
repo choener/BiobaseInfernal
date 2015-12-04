@@ -238,7 +238,7 @@ instance TermStaticVar CMstate (StateIx t) where
 -- TODO seems useful enough to put into ADPfusion itself at some point
 
 data EmitChar c where
-  EmitChar :: (Vector v c) => (v c) -> EmitChar c
+  EmitChar :: (Vector v c) => !(v c) -> EmitChar c
 
 type instance TermArg (EmitChar c) = c
 
@@ -321,6 +321,35 @@ instance
   {-# Inline termStream #-}
 
 instance TermStaticVar Epsilon (StateIx t) where
+  termStaticVar _ sv _ = sv
+  termStreamIndex _ _ i = i
+  {-# Inline [0] termStaticVar   #-}
+  {-# Inline [0] termStreamIndex #-}
+
+
+
+-- * Deletion Terminal
+
+instance
+  ( TmkCtx1 m ls Deletion (StateIx t)
+  ) => MkStream m (ls :!: Deletion) (StateIx t) where
+  mkStream (ls :!: Deletion) sv us is
+    = map (\(ss,ee,ii,oo) -> ElmDeletion ii oo ss)
+    . addTermStream1 Deletion sv us is
+    $ mkStream ls (termStaticVar Deletion sv is) us (termStreamIndex Deletion sv is)
+  {-# Inline mkStream #-}
+
+instance
+  ( TstCtx1 m ts a is (StateIx I)
+  ) => TermStream m (TermSymbol ts Deletion) a (is:.StateIx I) where
+  termStream (ts :| Deletion) (cs:._) (us:._) (is:.ix@(StateIx styC styA i _))
+    = map (\(TState s a b ii oo ee) ->
+              let j = getIndex a (Proxy :: Proxy (is:.StateIx I))
+              in  TState s a b (ii:.j) (oo:.j) (ee:.()) )
+    . termStream ts cs us is
+  {-# Inline termStream #-}
+
+instance TermStaticVar Deletion (StateIx t) where
   termStaticVar _ sv _ = sv
   termStreamIndex _ _ i = i
   {-# Inline [0] termStaticVar   #-}
