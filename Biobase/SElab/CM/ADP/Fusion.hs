@@ -357,6 +357,79 @@ instance TermStaticVar Deletion (StateIx t) where
 
 
 
+-- * Bind a synvar terminally.
+
+-- | This terminal makes it possible to bind a synvar terminally. Useful
+-- for multidim grammars to exclude complete substates. Will return the
+-- index being ignored.
+--
+-- TODO Move into ADPfusion?
+
+data Terminally x = Terminally
+
+terminally :: x -> Terminally x
+terminally _ = Terminally
+{-# Inline terminally #-}
+
+type instance TermArg (Terminally x) = x
+
+instance Build (Terminally x)
+
+instance
+  ( Element ls i
+  ) => Element (ls :!: Terminally x) i where
+  data Elm (ls :!: Terminally x) i = ElmTerminally !x !i !i !(Elm ls i)
+  type Arg (ls :!: Terminally x)   = Arg ls :. x
+  type RecElm (ls :!: Terminally c) i = Elm ls i
+  getArg (ElmTerminally c _ _ ls) = getArg ls :. c
+  getIdx (ElmTerminally _ i _ _ ) = i
+  getOmx (ElmTerminally _ _ o _ ) = o
+  getElm (ElmTerminally _ _ _ ls) = ls
+  {-# Inline getArg #-}
+  {-# Inline getIdx #-}
+  {-# Inline getOmx #-}
+  {-# Inline getElm #-}
+
+instance
+  ( TmkCtx1 m ls (Terminally x) (StateIx t)
+  ) => MkStream m (ls :!: Terminally x) (StateIx t) where
+  mkStream (ls :!: t) sv us is
+    = map (\(ss,ee,ii,oo) -> ElmTerminally ee ii oo ss)
+    . addTermStream1 Terminally sv us is
+    $ mkStream ls (termStaticVar t sv is) us (termStreamIndex t sv is)
+  {-# Inline mkStream #-}
+
+instance
+  ( TstCtx1 m ts a is (StateIx I)
+  ) => TermStream m (TermSymbol ts (Terminally (StateIx I))) a (is:.StateIx I) where
+  termStream (ts:|Terminally) (cs:.IStatic ()) (us:._) (is:.ix@(StateIx styC styA i _))
+    = map (\(TState s a b ii oo ee) ->
+              let pix = getIndex a (Proxy :: Proxy (is:.StateIx I))
+                  c   = _siChild pix
+                  kt = StateIx styC styA (fst $ styC ! (Z:.i:.c)) (-1)
+              in  TState s a b (ii:.kt) (oo:.kt) (ee:.kt) )
+    . termStream ts cs us is
+  termStream (ts:|Terminally) (cs:.IVariable ()) (us:._) (is:.ix@(StateIx styC styA i _))
+    = map (\(TState s a b ii oo ee) ->
+              let pix = getIndex a (Proxy :: Proxy (is:.StateIx I))
+                  c   = _siChild pix
+                  kt  = StateIx styC styA (fst $ styC ! (Z:.i:.c)) 1
+              in  TState s a b (ii:.kt) (oo:.kt) (ee:.kt) )
+    . termStream ts cs us is
+  {-# Inline termStream #-}
+
+-- | We need exactly the same behaviour as with synvars!
+
+instance
+  (
+  ) => TermStaticVar (Terminally x) (StateIx I) where
+  termStaticVar _ _ _ = IVariable ()
+  termStreamIndex _ _ i = i
+  {-# Inline [0] termStaticVar   #-}
+  {-# Inline [0] termStreamIndex #-}
+
+
+
 -- * Invisible starting symbol
 
 instance
@@ -423,8 +496,7 @@ instance
   {-# Inline addIndexDenseGo #-}
 
 instance TableStaticVar (StateIx I) (StateIx I) where
-  tableStaticVar   _ _ (IStatic   ()) _ = IVariable ()
-  tableStaticVar   _ _ (IVariable ()) _ = IVariable ()
+  tableStaticVar   _ _ _ _ = IVariable ()
   tableStreamIndex _ _ _ s = s
   {-# Inline [0] tableStaticVar   #-}
   {-# Inline [0] tableStreamIndex #-}
