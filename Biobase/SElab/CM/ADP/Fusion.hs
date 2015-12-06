@@ -128,10 +128,12 @@ type instance TblConstraint (StateIx t) = TableConstraint
 -- in pair cases and we want to expose the position-specific model
 -- information. @CMstate@ allows this. We write
 -- @
--- let sMP = CMstate MP cm
+-- let sMP = CMstate ((==) MP) cm
 -- in  [| X -> sMP c X c |]
 -- @
 -- somewhat abusing notation.
+--
+-- This terminal also primes the child generation system.
 --
 -- TODO If I were to proxify @StateType@ it would become possible to hand
 -- over the correct pssm matrix in a type-safe way. Now, we hand over both
@@ -146,7 +148,7 @@ type instance TblConstraint (StateIx t) = TableConstraint
 -- have to populate the @children@ at this point as well?!
 
 data CMstate where
-  CMstate :: (StateType -> Bool) -> States -> CMstate
+  CMstate :: (StateType -> Bool) -> !States -> CMstate
 
 -- | Shortcut for the transition-emission scores we need. Returns all
 -- states, the @current@ index we are at, and the transition score to the
@@ -197,30 +199,34 @@ instance
   termStream (ts:|CMstate admit xs) (cs:._) (us:.u) (is:.ix@(StateIx styC styA i _)) -- same code for static+variable
     = flatten mk step
     . termStream ts cs us is
---    . staticCheck (admit $ styA ! i)  -- only allow going on if the type is admissable here (TODO: better here or in step?)
-    where mk s = if (admit stya) then return $ Just (s, 0) else return Nothing
+    where mk s = if (admit stya) then return $ Just (s :. 0) else return Nothing
           step Nothing = return $ Done
-          step (Just (tstate@(TState s a b ii oo ee), c))
+          step (Just (tstate@(TState s a b ii oo ee) :. c))
             -- if we @B@ranch, then the 2nd child is consumed by the static
             -- synvar!
-            -- TODO i think, the @B@ and @E@ cases can be merged
             | stya == B = return $ Yield (TState s a b (ii:.k) (oo:.k) (ee:.e)) Nothing
             -- this state has no children! It is an @E@ or @EL@ state. We
-            -- don't check on styc, because end states have none.
-            | stya == E || stya == EL  = return $ Yield (TState s a b (ii:.k) (oo:.k) (ee:.e)) Nothing
+            -- don't check on styc, because end states have none. We also
+            -- try very, very hard to show that there is not next child
+            -- here.
+            | stya == E || stya == EL  = let k0 = StateIx styC styA (-1) (-1)
+                                             e0 = xs:.i:.(-999999)
+                                         in  return $ Yield (TState s a b (ii:.k0) (oo:.k0) (ee:.e0)) Nothing
             -- no more valid children left. Assumes that all valid children
             -- are stored consecutively.
             | c>5 || styc < 0 = return $ Done
             -- this child was given a very bad transition score, we skip.
-            | trns <= Bitscore verySmall = return $ Skip $ Just (tstate,c+1)
+            -- TODO use a constant like 'verySmall', not this hardcoded
+            -- thing.
+            | trns <= -10000 = return $ Skip $ Just (tstate :. c+1)
             -- normal state with many children
-            | otherwise = return $ Yield (TState s a b (ii:.k) (oo:.k) (ee:.e)) (Just (tstate, c+1))
+            | otherwise = return $ Yield (TState s a b (ii:.k) (oo:.k) (ee:.e)) (Just (tstate :. c+1))
             where (styc,trns) = styC ! (Z:.i:.c)
-                  k = StateIx styC styA i c
-                  e = xs:.i:.trns -- states structure, child index, transition score
+                  k = StateIx styC styA styc c
+                  e = xs:.i:.trns -- states structure, our index (important when requesting emission scores), transition score to next child
           {-# Inline [0] mk   #-}
           {-# Inline [0] step #-}
-          stya = styA ! i
+          !stya = styA ! i
   {-# Inline termStream #-}
 
 instance TermStaticVar CMstate (StateIx t) where
@@ -316,7 +322,8 @@ instance
               let j = getIndex a (Proxy :: Proxy (is:.StateIx I))
               in  TState s a b (ii:.j) (oo:.j) (ee:.()) )
     . termStream ts cs us is
-    . staticCheck (sty == E || sty == EL)
+    . filter (\_ -> sty==E || sty==EL)
+--    . staticCheck (sty == E || sty == EL)
     where !sty = styA ! i
   {-# Inline termStream #-}
 
@@ -399,23 +406,59 @@ instance
     $ mkStream ls (termStaticVar t sv is) us (termStreamIndex t sv is)
   {-# Inline mkStream #-}
 
+-- 
+--
+-- TODO Requires flatten so that we can check that no weird child is
+-- requested.
+
 instance
   ( TstCtx1 m ts a is (StateIx I)
   ) => TermStream m (TermSymbol ts (Terminally (StateIx I))) a (is:.StateIx I) where
   termStream (ts:|Terminally) (cs:.IStatic ()) (us:._) (is:.ix@(StateIx styC styA i _))
+    = flatten mk step . termStream ts cs us is
+    where mk (tstate@(TState s a b ii oo ee)) =
+            let pix = getIndex a (Proxy :: Proxy (is:.StateIx I))
+                chd = _siIx pix
+                c   = _siChild pix
+            in  return (tstate :. chd :. c)
+          step (tstate@(TState s a b ii oo ee) :. chd :. c)
+            | chd < 0 = return $ Done
+            | otherwise = let kt = StateIx styC styA chd (-1)
+                          in  return $ Yield (TState s a b (ii:.kt) (oo:.kt) (ee:.kt)) (tstate:.(-1):.(-1))
+          {-# Inline [0] mk   #-}
+          {-# Inline [0] step #-}
+    {-
     = map (\(TState s a b ii oo ee) ->
               let pix = getIndex a (Proxy :: Proxy (is:.StateIx I))
                   c   = _siChild pix
                   kt = StateIx styC styA (fst $ styC ! (Z:.i:.c)) (-1)
               in  TState s a b (ii:.kt) (oo:.kt) (ee:.kt) )
     . termStream ts cs us is
+    -}
   termStream (ts:|Terminally) (cs:.IVariable ()) (us:._) (is:.ix@(StateIx styC styA i _))
+    = flatten mk step . termStream ts cs us is
+    where mk (tstate@(TState s a b ii oo ee)) =
+            let pix = getIndex a (Proxy :: Proxy (is:.StateIx I))
+                chd = _siIx pix
+                c   = _siChild pix
+            in  return (tstate :. chd :. c)
+          step (tstate@(TState s a b ii oo ee) :. chd :. c)
+            | chd < 0 = return $ Done
+            | otherwise = let (!chd',!c') = if c < 0 || c > 5
+                                            then (-1,-1)
+                                            else (fst $ styC!(Z:.i:.c), c+1)
+                              kt = StateIx styC styA chd c
+                          in  return $ Yield (TState s a b (ii:.kt) (oo:.kt) (ee:.kt)) (tstate:.chd':.c')
+          {-# Inline [0] mk   #-}
+          {-# Inline [0] step #-}
+    {-
     = map (\(TState s a b ii oo ee) ->
               let pix = getIndex a (Proxy :: Proxy (is:.StateIx I))
                   c   = _siChild pix
                   kt  = StateIx styC styA (fst $ styC ! (Z:.i:.c)) 1
               in  TState s a b (ii:.kt) (oo:.kt) (ee:.kt) )
     . termStream ts cs us is
+    -}
   {-# Inline termStream #-}
 
 -- | We need exactly the same behaviour as with synvars!
@@ -432,13 +475,22 @@ instance
 
 -- * Invisible starting symbol
 
+-- | Create the initial StateIx. The "next smaller" synvar we point to is
+-- the current index. This means that @X -> X@ does actually loop (which is
+-- good). Next child is set to @(-1)@, stating that we have not even
+-- started touching the children state.
+--
+-- TODO not using 'staticCheck' for now. Test later!
+
 instance
   ( Monad m
   ) => MkStream m S (StateIx I) where
-  mkStream S (IStatic ()) (StateIx _ _ h _) (StateIx cs ty i _)
-    = staticCheck (i>=0 && i<=h) . singleton $ ElmS (StateIx cs ty i (-1)) (StateIx cs ty (-1) (-1))
-  mkStream S (IVariable ()) (StateIx _ _ h _) (StateIx cs ty i _)
-    = filter (const $ 0<=i && i<=h) . singleton $ ElmS (StateIx cs ty i (-1)) (StateIx cs ty (-1) (-1))
+  mkStream S (IStatic ()) (StateIx _ _ u _) (StateIx cs ty i _)
+    = filter (\_ -> 0<=i && i<=u) -- staticCheck (i>=0 && i<=h)
+    . singleton $ ElmS (StateIx cs ty i (-1)) (StateIx cs ty (-1) (-1))
+  mkStream S (IVariable ()) (StateIx _ _ u _) (StateIx cs ty i _)
+    = filter (\_ -> 0<=i && i<=u)
+    . singleton $ ElmS (StateIx cs ty i (-1)) (StateIx cs ty (-1) (-1))
   {-# Inline mkStream #-}
 
 instance
@@ -446,12 +498,12 @@ instance
   , MkStream m S is
   ) => MkStream m S (is:.StateIx I) where
   mkStream S (vs:.IStatic ()) (us:.StateIx _ _ u _) (is:.StateIx c t i _)
-    = map (\(ElmS zi zo) -> ElmS (zi:.StateIx c t i (-1)) (zo:.StateIx c t (-1) (-1)))
-    . staticCheck (i>=0 && i<=u)
+    = filter (\_ -> 0<=i && i<=u) -- staticCheck (i>=0 && i<=u)
+    . map (\(ElmS zi zo) -> ElmS (zi:.StateIx c t i (-1)) (zo:.StateIx c t (-1) (-1)))
     $ mkStream S vs us is
   mkStream S (vs:.IVariable ()) (us:.StateIx _ _ u _) (is:.StateIx c t i _)
-    = map (\(ElmS zi zo) -> ElmS (zi:.StateIx c t i (-1)) (zo:.StateIx c t (-1) (-1)))
-    . staticCheck (i>=0 && i<=u)
+    = filter (\_ -> 0<=i && i<=u) -- staticCheck (i>=0 && i<=u)
+    . map (\(ElmS zi zo) -> ElmS (zi:.StateIx c t i (-1)) (zo:.StateIx c t (-1) (-1)))
     $ mkStream S vs us is
   {-# Inline mkStream #-}
 
@@ -473,11 +525,25 @@ instance
   , GetIx a (is:.StateIx I) ~ (StateIx I)
   ) => AddIndexDense a (us:.StateIx I) (is:.StateIx I) where
   addIndexDenseGo (cs:.c) (vs:.IStatic ()) (us:._) (is:.ix@(StateIx styC styA i _))
+    = flatten mk step . addIndexDenseGo cs vs us is
+    where mk (svs@(SvS s a b tt ii oo)) =
+            let pix = getIndex a (Proxy :: Proxy (is:.StateIx I))
+                chd = _siIx pix
+                c   = _siChild pix
+            in  return $ (svs :. chd :. c)
+          step (svs@(SvS s a b tt ii oo) :. chd :. c)
+            -- we have no way to go
+            | chd < 0   = return $ Done
+            | otherwise = let kt = StateIx styC styA chd (-1)
+                          in  return $ Yield (SvS s a b (tt:.kt) (ii:.kt) (oo:.kt)) (svs :. (-1) :. (-1))
+          {-# Inline [0] mk   #-}
+          {-# Inline [0] step #-}
     -- makes the assumption that there is a legal @c@hild index coming up.
     -- This should hold (@B@ sets to the second child, for all other rules
     -- the correct child is enumerated).
     -- Note that after this map, no child can be legally selected due to
     -- @(-1)@ in @kt@
+    {-
     = map (\(SvS s a b tt ii oo) ->
               let kt  = StateIx styC styA (fst $ styC ! (Z:.i:.c)) (-1)   -- the @(fst ...)@ bracket should give us the @c@s child
                   pix = getIndex a (Proxy :: Proxy (is:.StateIx I))
@@ -485,7 +551,24 @@ instance
               in  if c < 0 then SvS s a b (tt:.ix) (ii:.ix) (oo:.ix)    -- TODO hack! to be able to loop
                            else SvS s a b (tt:.kt) (ii:.kt) (oo:.kt) )
     . addIndexDenseGo cs vs us is
+    -}
   addIndexDenseGo (cs:.c) (vs:.IVariable ()) (us:._) (is:.ix@(StateIx styC styA i _))
+    = flatten mk step . addIndexDenseGo cs vs us is
+    where mk (svs@(SvS s a b tt ii oo)) =
+            let pix = getIndex a (Proxy :: Proxy (is:.StateIx I))
+                chd = _siIx pix
+                c   = _siChild pix
+            in  return $ (svs :. chd :. c)
+          step (svs@(SvS s a b tt ii oo) :. chd :. c)
+            | chd < 0 = return $ Done
+            | otherwise = let (!chd',!c') = if c < 0 || c > 5
+                                            then (-1,-1)
+                                            else (fst $ styC!(Z:.i:.c), c+1)
+                              kt = StateIx styC styA chd c
+                          in  return $ Yield (SvS s a b (tt:.kt) (ii:.kt) (oo:.kt)) (svs :. chd' :. c')
+          {-# Inline [0] mk   #-}
+          {-# Inline [0] step #-}
+    {-
     = map (\(SvS s a b tt ii oo) ->
               let kt   = StateIx styC styA (fst $ styC ! (Z:.i:.c)) 1
                   pix  = getIndex a (Proxy :: Proxy (is:.StateIx I))
@@ -495,6 +578,7 @@ instance
     . addIndexDenseGo cs vs us is
     . staticCheck (stya == B) -- @IVariable@ is only legal in @B@ cases
     where stya = styA ! i
+    -}
   {-# Inline addIndexDenseGo #-}
 
 instance TableStaticVar (StateIx I) (StateIx I) where
