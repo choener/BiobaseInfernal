@@ -482,7 +482,8 @@ instance
               let kt  = StateIx styC styA (fst $ styC ! (Z:.i:.c)) (-1)   -- the @(fst ...)@ bracket should give us the @c@s child
                   pix = getIndex a (Proxy :: Proxy (is:.StateIx I))
                   c   = _siChild pix
-              in  SvS s a b (tt:.kt) (ii:.kt) (oo:.kt) )
+              in  if c < 0 then SvS s a b (tt:.ix) (ii:.ix) (oo:.ix)    -- TODO hack! to be able to loop
+                           else SvS s a b (tt:.kt) (ii:.kt) (oo:.kt) )
     . addIndexDenseGo cs vs us is
   addIndexDenseGo (cs:.c) (vs:.IVariable ()) (us:._) (is:.ix@(StateIx styC styA i _))
     = map (\(SvS s a b tt ii oo) ->
@@ -490,6 +491,7 @@ instance
                   pix  = getIndex a (Proxy :: Proxy (is:.StateIx I))
                   c    = _siChild pix
               in  SvS s a b (tt:.kt) (ii:.kt) (oo:.kt) )
+              --in  if c < 0 then error "BUM" else SvS s a b (tt:.kt) (ii:.kt) (oo:.kt) )
     . addIndexDenseGo cs vs us is
     . staticCheck (stya == B) -- @IVariable@ is only legal in @B@ cases
     where stya = styA ! i
