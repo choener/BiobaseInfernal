@@ -60,7 +60,7 @@ parseCM :: AT.Parser CM
 parseCM = do
   v <- acceptedVersion
   let cm' = version .~ v $ def
-  ls <- manyTill cmHeader "CM"
+  ls <- manyTill cmHeader ("CM" <|> "MODEL:")
   let cm = L.foldl' (\a l -> l a) cm' ls
   ns' <- manyTill node "//"
 --  error $ take 10000 $ show $ filter (\n -> n^.sType == MP) $ ns'^..folded._2.folded
@@ -87,7 +87,9 @@ parseCM = do
     $ cm
 
 acceptedVersion :: AT.Parser (T.Text,T.Text)
-acceptedVersion = (,) <$ "INFERNAL1/a [" <*> (AT.takeTill (=='|') <?> "x-|") <*> (eolS <?> "|->") <?> "cmVersion"
+acceptedVersion = (new <?> "new") <|> (old <?> "old") <?> "version"
+  where new = (,) <$ "INFERNAL1/a [" <*> (AT.takeTill (=='|') <?> "x-|") <*> (eolS <?> "|->")
+        old = (,"") <$ "INFERNAL-1" <*> eolS
 
 -- | Parse CM header information.
 --
@@ -135,9 +137,10 @@ cmHeader = AT.choice
 -- | Parse a node together with the attached states.
 
 node :: AT.Parser (Node, [State])
-node = (,) <$> aNode <*> AT.many1 aState <?> "node" where
-  aNode  =   Node empty <$ AT.skipSpace <* ("[ " <?> "[ ") <*> anType <*> (ssN <?> "node ID") <* AT.skipSpace <* "]"
-         <*> (ssN_ <?> "mapL") <*> (ssN_ <?> "mapR") <*> (ssC <?> "consL") <*> (ssC <?> "consR") <*> (ssC <?> "rfL") <*> (eolC <?> "rfR") <?> "aNode"
+node = (,) <$> ((aNodeNew <?> "new") <|> (aNodeOld <?> "old")) <*> AT.many1 aState <?> "node" where
+  aNodeNew =   Node empty <$ AT.skipSpace <* ("[ " <?> "[ ") <*> anType <*> (ssN <?> "node ID") <* AT.skipSpace <* "]"
+           <*> (ssN_ <?> "mapL") <*> (ssN_ <?> "mapR") <*> (ssC <?> "consL") <*> (ssC <?> "consR") <*> (ssC <?> "rfL") <*> (eolC <?> "rfR") <?> "aNode"
+  aNodeOld =   (\x y -> Node empty x y 0 0 '-' '-' '-' '-') <$ AT.skipSpace <* ("[ " <?> "[ ") <*> anType <*> (ssN <?> "node ID") <* AT.skipSpace <* "]"
   anType :: AT.Parser NodeType
   anType = AT.choice [ Bif  <$ "BIF" , MatP <$ "MATP", MatL <$ "MATL", MatR <$ "MATR"
                      , BegL <$ "BEGL", BegR <$ "BEGR", Root <$ "ROOT", End  <$ "END" ] <?> "anType"
