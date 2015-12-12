@@ -201,6 +201,7 @@ instance
   ) => TermStream m (TermSymbol ts CMstate) a (is:.StateIx I) where
   termStream (ts:|CMstate admit xs) (cs:._) (us:.u) (is:.ix@(StateIx styC styA i _)) -- same code for static+variable
     = flatten mk step
+--    . map (\x -> traceShow (getPInt i) x)
     . termStream ts cs us is
     where mk s = if (admit stya) then return $ Just (s :. 0) else return Nothing
           step Nothing = return $ Done
@@ -212,7 +213,7 @@ instance
             -- don't check on styc, because end states have none. We also
             -- try very, very hard to show that there is not next child
             -- here.
-            | stya == E || stya == EL  = let e0 = xs:.i:.(-999999)
+            | stya == E || stya == EL  = let e0 = xs:.i:.0
                                          in  return $ Yield (TState s a (ii:.:RiSixI (-1) (-1)) (ee:.e0)) Nothing
             -- no more valid children left. Assumes that all valid children
             -- are stored consecutively.
@@ -225,7 +226,7 @@ instance
             | otherwise = return $ Yield (TState s a (ii:.:j) (ee:.e)) (Just (tstate :. c+1))
             where (styc,trns) = styC ! (Z:.i:.c)
                   RiSixI chd _ = getIndex a (Proxy :: PRI is (StateIx I))
-                  j = RiSixI chd c
+                  j = RiSixI styc c
                   e = xs:.i:.trns -- states structure, our index (important when requesting emission scores), transition score to next child
           {-# Inline [0] mk   #-}
           {-# Inline [0] step #-}
@@ -477,12 +478,12 @@ instance
   , MkStream m S is
   ) => MkStream m S (is:.StateIx I) where
   mkStream S (vs:.IStatic ()) (us:.StateIx _ _ u _) (is:.StateIx c t i _)
-    = filter (\_ -> 0<=i && i<=u) -- staticCheck (i>=0 && i<=u)
-    . map (\(ElmS zi) -> ElmS $ zi :.: RiSixI i (-1))
+    = map (\(ElmS zi) -> ElmS $ zi :.: RiSixI i (-1))
+    . filter (\_ -> 0<=i && i<=u) -- staticCheck (i>=0 && i<=u)
     $ mkStream S vs us is
   mkStream S (vs:.IVariable ()) (us:.StateIx _ _ u _) (is:.StateIx c t i _)
-    = filter (\_ -> 0<=i && i<=u) -- staticCheck (i>=0 && i<=u)
-    . map (\(ElmS zi) -> ElmS $ zi :.: RiSixI i (-1))
+    = map (\(ElmS zi) -> ElmS $ zi :.: RiSixI i (-1))
+    . filter (\_ -> 0<=i && i<=u) -- staticCheck (i>=0 && i<=u)
     $ mkStream S vs us is
   {-# Inline mkStream #-}
 
@@ -510,7 +511,7 @@ instance
             -- we have no way to go
             | chd < 0   = return $ Done
             | otherwise = let kt = StateIx styC styA chd (-1)
-                          in  return $ Yield (SvS s a (tt:.kt) (ii:.: RiSixI chd (-1))) (svs :. (-1) :. (-1))
+                          in  {- traceShow ('C',getPInt chd) . -} return $ Yield (SvS s a (tt:.kt) (ii:.: RiSixI chd (-1))) (svs :. (-1) :. (-1))
           {-# Inline [0] mk   #-}
           {-# Inline [0] step #-}
   addIndexDenseGo (cs:.c) (vs:.IVariable ()) (us:._) (is:.ix@(StateIx styC styA i _))
