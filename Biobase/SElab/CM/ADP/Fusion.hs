@@ -161,7 +161,7 @@ data CMstate where
 -- states, the @current@ index we are at, and the transition score to the
 -- next lower state we want to visit at some point.
 
-type CMte = States :. PInt () StateIndex :. Bitscore
+type CMte = PInt () StateIndex :. Bitscore
 
 type instance TermArg CMstate = CMte
 
@@ -170,12 +170,12 @@ instance Build CMstate
 instance
   ( Element ls i
   ) => Element (ls :!: CMstate) i where
-  data Elm    (ls :!: CMstate) i = ElmCMstate !States !(PInt () StateIndex) !Bitscore !(RunningIndex i) !(Elm ls i)
-  type Arg    (ls :!: CMstate)   = Arg ls :. (States :. PInt () StateIndex :. Bitscore)
+  data Elm    (ls :!: CMstate) i = ElmCMstate !(PInt () StateIndex) !Bitscore !(RunningIndex i) !(Elm ls i)
+  type Arg    (ls :!: CMstate)   = Arg ls :. (PInt () StateIndex :. Bitscore)
   type RecElm (ls :!: CMstate) i = Elm ls i
-  getArg (ElmCMstate s k b _ ls) = getArg ls :. (s:.k:.b)
-  getIdx (ElmCMstate _ _ _ i _ ) = i
-  getElm (ElmCMstate _ _ _ _ ls) = ls
+  getArg (ElmCMstate k b _ ls) = getArg ls :. (k:.b)
+  getIdx (ElmCMstate _ _ i _ ) = i
+  getElm (ElmCMstate _ _ _ ls) = ls
   {-# Inline getArg #-}
   {-# Inline getIdx #-}
   {-# Inline getElm #-}
@@ -184,7 +184,7 @@ instance
   ( TmkCtx1 m ls CMstate (StateIx t)
   ) => MkStream m (ls :!: CMstate) (StateIx t) where
   mkStream (ls :!: CMstate f xs) sv us is
-    = map (\(ss,(eex:.eek:.eeb),ii) -> ElmCMstate eex eek eeb ii ss)
+    = map (\(ss,(eek:.eeb),ii) -> ElmCMstate eek eeb ii ss)
     . addTermStream1 (CMstate f xs) sv us is
     $ mkStream ls (termStaticVar (CMstate f xs) sv is) us (termStreamIndex (CMstate f xs) sv is)
   {-# Inline mkStream #-}
@@ -214,12 +214,12 @@ instance
           step (Just (TState s a ii ee :. c))
             -- if we @B@ranch, then the 2nd child is consumed by the static
             -- synvar!
-            | stya == B = return $ Yield (TState s a (ii:.:RiSixI styc c) (ee:.(xs:.i:.trns))) Nothing
+            | stya == B = return $ Yield (TState s a (ii:.:RiSixI styc c) (ee:.(i:.trns))) Nothing
             -- this state has no children! It is an @E@ or @EL@ state. We
             -- don't check on styc, because end states have none. We also
             -- try very, very hard to show that there is not next child
             -- here.
-            | stya == E || stya == EL  = return $ Yield (TState s a (ii:.:RiSixI (-1) (-1)) (ee:.(xs:.i:.0))) Nothing
+            | stya == E || stya == EL  = return $ Yield (TState s a (ii:.:RiSixI (-1) (-1)) (ee:.(i:.0))) Nothing
             -- no more valid children left. Assumes that all valid children
             -- are stored consecutively.
             | c>5 || styc < 0 = return $ Done
@@ -228,8 +228,8 @@ instance
             -- thing.
             | trns <= -10000 = return $ Skip $ Just (TState s a ii ee :. c+1)
             -- normal state with many children
-            | otherwise = return $ Yield (TState s a (ii:.:RiSixI styc c) (ee:.(xs:.i:.trns))) (Just (TState s a ii ee :. c+1))
-            where !(!styc,!trns) = styC ! (Z:.i:.c)
+            | otherwise = return $ Yield (TState s a (ii:.:RiSixI styc c) (ee:.(i:.trns))) (Just (TState s a ii ee :. c+1))
+            where (styc,trns) = styC ! (Z:.i:.c)
           !stya = styA ! i
           !adm  = inline admit stya
           {-# Inline [0] mk   #-}
@@ -290,7 +290,7 @@ instance
           step (tstate@(TState s a ii ee) :. k)
             | k < 0     = return $ Done
             | otherwise = let !e = VU.unsafeIndex xs k
-                              !j = getIndex a (Proxy :: PRI is (StateIx I))
+                              j = getIndex a (Proxy :: PRI is (StateIx I))
                           in  return $ Yield (TState s a (ii:.:j) (ee:.e))
                                              (tstate :. k-1)
           {-# Inline [0] mk   #-}
@@ -327,7 +327,7 @@ instance
   ) => TermStream m (TermSymbol ts Epsilon) a (is:.StateIx I) where
   termStream (ts :| Epsilon) (cs:._) (us:._) (is:.ix@(StateIx styC styA i _))
     = map (\(TState s a ii ee) ->
-              let !j = getIndex a (Proxy :: PRI is (StateIx I))
+              let j = getIndex a (Proxy :: PRI is (StateIx I))
               in  TState s a (ii:.:j) (ee:.()) )
     . termStream ts cs us is
     . filter (const $ sty==E || sty==EL)
@@ -359,7 +359,7 @@ instance
   ) => TermStream m (TermSymbol ts Deletion) a (is:.StateIx I) where
   termStream (ts :| Deletion) (cs:._) (us:._) (is:.ix@(StateIx styC styA i _))
     = map (\(TState s a ii ee) ->
-              let !j = getIndex a (Proxy :: PRI is (StateIx I))
+              let j = getIndex a (Proxy :: PRI is (StateIx I))
               in  TState s a (ii:.:j) (ee:.()) )
     . termStream ts cs us is
   {-# Inline termStream #-}
@@ -423,7 +423,7 @@ instance
   termStream (ts:|Terminally) (cs:.IStatic ()) (us:._) (is:.ix@(StateIx styC styA i _))
     = flatten mk step . termStream ts cs us is
     where mk (TState s a ii ee) =
-            let !(RiSixI chd c) = getIndex a (Proxy :: PRI is (StateIx I))
+            let RiSixI chd c = getIndex a (Proxy :: PRI is (StateIx I))
             in  return (TState s a ii ee :. chd :. c)
           step (TState s a ii ee :. chd :. c)
             | chd < 0 = return $ Done
@@ -433,7 +433,7 @@ instance
   termStream (ts:|Terminally) (cs:.IVariable ()) (us:._) (is:.ix@(StateIx styC styA i _))
     = flatten mk step . termStream ts cs us is
     where mk (TState s a ii ee) =
-            let !(RiSixI chd c) = getIndex a (Proxy :: PRI is (StateIx I))
+            let RiSixI chd c = getIndex a (Proxy :: PRI is (StateIx I))
             in  return (TState s a ii ee :. chd :. c)
           step (TState s a ii ee :. chd :. c)
             | chd < 0        = return $ Done
@@ -508,7 +508,7 @@ instance
   addIndexDenseGo (cs:.c) (vs:.IStatic ()) (us:._) (is:.ix@(StateIx styC styA i _))
     = flatten mk step . addIndexDenseGo cs vs us is
     where mk (SvS s a tt ii) =
-            let !(RiSixI chd _) = getIndex a (Proxy :: PRI is (StateIx I))
+            let RiSixI chd _ = getIndex a (Proxy :: PRI is (StateIx I))
             in  return $ (SvS s a tt ii :. chd)
           step (SvS s a tt ii :. chd)
             -- we have no way to go
@@ -519,7 +519,7 @@ instance
   addIndexDenseGo (cs:.c) (vs:.IVariable ()) (us:._) (is:.ix@(StateIx styC styA i _))
     = flatten mk step . addIndexDenseGo cs vs us is
     where mk (SvS s a tt ii) =
-            let !(RiSixI chd c) = getIndex a (Proxy :: PRI is (StateIx I))
+            let RiSixI chd c = getIndex a (Proxy :: PRI is (StateIx I))
             in  return $ (SvS s a tt ii :. chd :. c)
           step (SvS s a tt ii :. chd :. c)
             | chd < 0        = return $ Done
