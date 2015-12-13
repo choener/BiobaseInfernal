@@ -229,7 +229,7 @@ instance
             | trns <= -10000 = return $ Skip $ Just (TState s a ii ee :. c+1)
             -- normal state with many children
             | otherwise = return $ Yield (TState s a (ii:.:RiSixI styc c) (ee:.(xs:.i:.trns))) (Just (TState s a ii ee :. c+1))
-            where (!styc,!trns) = styC ! (Z:.i:.c)
+            where !(!styc,!trns) = styC ! (Z:.i:.c)
           !stya = styA ! i
           !adm  = inline admit stya
           {-# Inline [0] mk   #-}
@@ -290,9 +290,9 @@ instance
           step (tstate@(TState s a ii ee) :. k)
             | k < 0     = return $ Done
             | otherwise = let !e = VU.unsafeIndex xs k
+                              !j = getIndex a (Proxy :: PRI is (StateIx I))
                           in  return $ Yield (TState s a (ii:.:j) (ee:.e))
                                              (tstate :. k-1)
-            where !j = getIndex a (Proxy :: PRI is (StateIx I))
           {-# Inline [0] mk   #-}
           {-# Inline [0] step #-}
   {-# Inline termStream #-}
@@ -423,7 +423,7 @@ instance
   termStream (ts:|Terminally) (cs:.IStatic ()) (us:._) (is:.ix@(StateIx styC styA i _))
     = flatten mk step . termStream ts cs us is
     where mk (TState s a ii ee) =
-            let RiSixI chd c = getIndex a (Proxy :: PRI is (StateIx I))
+            let !(RiSixI chd c) = getIndex a (Proxy :: PRI is (StateIx I))
             in  return (TState s a ii ee :. chd :. c)
           step (TState s a ii ee :. chd :. c)
             | chd < 0 = return $ Done
@@ -433,7 +433,7 @@ instance
   termStream (ts:|Terminally) (cs:.IVariable ()) (us:._) (is:.ix@(StateIx styC styA i _))
     = flatten mk step . termStream ts cs us is
     where mk (TState s a ii ee) =
-            let RiSixI chd c = getIndex a (Proxy :: PRI is (StateIx I))
+            let !(RiSixI chd c) = getIndex a (Proxy :: PRI is (StateIx I))
             in  return (TState s a ii ee :. chd :. c)
           step (TState s a ii ee :. chd :. c)
             | chd < 0        = return $ Done
@@ -508,7 +508,7 @@ instance
   addIndexDenseGo (cs:.c) (vs:.IStatic ()) (us:._) (is:.ix@(StateIx styC styA i _))
     = flatten mk step . addIndexDenseGo cs vs us is
     where mk (SvS s a tt ii) =
-            let RiSixI chd _ = getIndex a (Proxy :: PRI is (StateIx I))
+            let !(RiSixI chd _) = getIndex a (Proxy :: PRI is (StateIx I))
             in  return $ (SvS s a tt ii :. chd)
           step (SvS s a tt ii :. chd)
             -- we have no way to go
@@ -519,7 +519,7 @@ instance
   addIndexDenseGo (cs:.c) (vs:.IVariable ()) (us:._) (is:.ix@(StateIx styC styA i _))
     = flatten mk step . addIndexDenseGo cs vs us is
     where mk (SvS s a tt ii) =
-            let RiSixI chd c = getIndex a (Proxy :: PRI is (StateIx I))
+            let !(RiSixI chd c) = getIndex a (Proxy :: PRI is (StateIx I))
             in  return $ (SvS s a tt ii :. chd :. c)
           step (SvS s a tt ii :. chd :. c)
             | chd < 0        = return $ Done
