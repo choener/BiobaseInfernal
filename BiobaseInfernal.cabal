@@ -171,6 +171,24 @@ benchmark BenchmarkBiobaseInfernal
 
 
 
+benchmark StreamBenchmark
+  type:
+    exitcode-stdio-1.0
+  build-depends:  base
+               ,  BiobaseInfernal
+  hs-source-dirs:
+    tests
+  main-is:
+    StreamBenchmark.hs
+  default-language:
+    Haskell2010
+  default-extensions: BangPatterns
+                    , ScopedTypeVariables
+  ghc-options:
+    -O2
+
+
+
 test-suite properties
   type:
     exitcode-stdio-1.0
