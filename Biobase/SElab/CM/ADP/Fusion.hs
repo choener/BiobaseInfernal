@@ -14,9 +14,11 @@ import           Data.Vector.Fusion.Stream.Monadic hiding (length,flatten)
 import           Data.Vector.Generic (Vector, length, unsafeIndex)
 import           Debug.Trace
 import           GHC.Exts (inline)
+import           GHC.TypeLits
 import           GHC.Generics (Generic)
 import           Prelude hiding (map,length,filter)
 import qualified Data.Vector.Unboxed as VU
+import           Data.Proxy
 
 import           ADP.Fusion
 import           ADP.Fusion.SynVar.Indices
@@ -25,6 +27,7 @@ import qualified Data.PrimitiveArray as PA
 import           Biobase.Types.NumericalExtremes
 
 import           Biobase.SElab.CM.Types hiding (S)
+import qualified Biobase.SElab.CM.Types as T
 import           Biobase.SElab.Bitscore
 
 
@@ -52,12 +55,18 @@ makeLenses ''StateIx
 makePrisms ''StateIx
 
 mkStateIx0 :: States -> StateIx I
-mkStateIx0 s = StateIx (s^.sTransitions) (s^.sStateType) 0 (-1)
+mkStateIx0 s = mkStateIxAt s 0
+{-# Inline mkStateIx0 #-}
 
 mkStateIxH :: States -> StateIx I
 mkStateIxH s =
   let (_,Z:.h:._) = bounds $ s^.sTransitions
-  in  StateIx (s^.sTransitions) (s^.sStateType) h (-1)
+  in  mkStateIxAt s (getPInt h)
+{-# Inline mkStateIxH #-}
+
+mkStateIxAt :: States -> Int -> StateIx I
+mkStateIxAt s k = StateIx (s^.sTransitions) (s^.sStateType) (PInt k) (-1)
+{-# Inline mkStateIxAt #-}
 
 -- | The running index for a 'StateIx' is the index we currently point to
 -- as @PInt () StateIndex@ and the child number as @Int@.
@@ -153,9 +162,61 @@ instance RuleContext (StateIx I) where
 --
 -- TODO we might want to give TRANSITION scores with this thing? We would
 -- have to populate the @children@ at this point as well?!
+--
+-- Using a (complicated) Proxy allows us to generate more efficient code.
 
-data CMstate where
-  CMstate :: (StateType -> Bool) -> !States -> CMstate
+data CMstate (x :: [Symbol]) where
+  CMstate :: AdmitState x => Proxy x -> CMstate x
+
+stateE = CMstate (Proxy :: Proxy '["E"])
+
+class AdmitState (x :: [Symbol]) where
+  admitState :: Proxy x -> StateType -> Bool
+
+instance AdmitState ('[]) where
+  admitState _ _ = False
+  {-# Inline admitState #-}
+
+instance (AdmitState xs) => AdmitState ("D" ': xs) where
+  admitState _ x = x==D || admitState (Proxy :: Proxy xs) x
+  {-# Inline admitState #-}
+
+instance (AdmitState xs) => AdmitState ("MP" ': xs) where
+  admitState _ x = x==MP || admitState (Proxy :: Proxy xs) x
+  {-# Inline admitState #-}
+
+instance (AdmitState xs) => AdmitState ("ML" ': xs) where
+  admitState _ x = x==ML || admitState (Proxy :: Proxy xs) x
+  {-# Inline admitState #-}
+
+instance (AdmitState xs) => AdmitState ("MR" ': xs) where
+  admitState _ x = x==MR || admitState (Proxy :: Proxy xs) x
+  {-# Inline admitState #-}
+
+instance (AdmitState xs) => AdmitState ("IL" ': xs) where
+  admitState _ x = x==IL || admitState (Proxy :: Proxy xs) x
+  {-# Inline admitState #-}
+
+instance (AdmitState xs) => AdmitState ("IR" ': xs) where
+  admitState _ x = x==IR || admitState (Proxy :: Proxy xs) x
+  {-# Inline admitState #-}
+
+instance (AdmitState xs) => AdmitState ("S" ': xs) where
+  admitState _ x = x==T.S || admitState (Proxy :: Proxy xs) x
+  {-# Inline admitState #-}
+
+instance (AdmitState xs) => AdmitState ("E" ': xs) where
+  admitState _ x = x==E || admitState (Proxy :: Proxy xs) x
+  {-# Inline admitState #-}
+
+instance (AdmitState xs) => AdmitState ("B" ': xs) where
+  admitState _ x = x==B || admitState (Proxy :: Proxy xs) x
+  {-# Inline admitState #-}
+
+instance (AdmitState xs) => AdmitState ("EL" ': xs) where
+  admitState _ x = x==EL || admitState (Proxy :: Proxy xs) x
+  {-# Inline admitState #-}
+
 
 -- | Shortcut for the transition-emission scores we need. Returns all
 -- states, the @current@ index we are at, and the transition score to the
@@ -163,16 +224,16 @@ data CMstate where
 
 type CMte = PInt () StateIndex :. Bitscore
 
-type instance TermArg CMstate = CMte
+type instance TermArg (CMstate p) = CMte
 
-instance Build CMstate
+instance Build (CMstate p)
 
 instance
   ( Element ls i
-  ) => Element (ls :!: CMstate) i where
-  data Elm    (ls :!: CMstate) i = ElmCMstate !(PInt () StateIndex) !Bitscore !(RunningIndex i) !(Elm ls i)
-  type Arg    (ls :!: CMstate)   = Arg ls :. (PInt () StateIndex :. Bitscore)
-  type RecElm (ls :!: CMstate) i = Elm ls i
+  ) => Element (ls :!: (CMstate p)) i where
+  data Elm    (ls :!: (CMstate p)) i = ElmCMstate !(PInt () StateIndex) !Bitscore !(RunningIndex i) !(Elm ls i)
+  type Arg    (ls :!: (CMstate p))   = Arg ls :. (PInt () StateIndex :. Bitscore)
+  type RecElm (ls :!: (CMstate p)) i = Elm ls i
   getArg (ElmCMstate k b _ ls) = getArg ls :. (k:.b)
   getIdx (ElmCMstate _ _ i _ ) = i
   getElm (ElmCMstate _ _ _ ls) = ls
@@ -181,12 +242,12 @@ instance
   {-# Inline getElm #-}
 
 instance
-  ( TmkCtx1 m ls CMstate (StateIx t)
-  ) => MkStream m (ls :!: CMstate) (StateIx t) where
-  mkStream (ls :!: CMstate f xs) sv us is
+  ( TmkCtx1 m ls (CMstate p) (StateIx t)
+  ) => MkStream m (ls :!: CMstate p) (StateIx t) where
+  mkStream (ls :!: CMstate p) sv us is
     = map (\(ss,(eek:.eeb),ii) -> ElmCMstate eek eeb ii ss)
-    . addTermStream1 (CMstate f xs) sv us is
-    $ mkStream ls (termStaticVar (CMstate f xs) sv is) us (termStreamIndex (CMstate f xs) sv is)
+    . addTermStream1 (CMstate p) sv us is
+    $ mkStream ls (termStaticVar (CMstate p) sv is) us (termStreamIndex (CMstate p) sv is)
   {-# Inline mkStream #-}
 
 -- | Will populate the index with the first child! Depending on the current
@@ -203,40 +264,45 @@ instance
 
 instance
   ( TstCtx1 m ts a is (StateIx I)
-  ) => TermStream m (TermSymbol ts CMstate) a (is:.StateIx I) where
-  termStream (ts:|CMstate admit xs) (cs:._) (us:.u) (is:.ix@(StateIx styC styA i _)) -- same code for static+variable
+  ) => TermStream m (TermSymbol ts (CMstate p)) a (is:.StateIx I) where
+  termStream (ts:|CMstate admit) (cs:._) (us:._) (is:.ix@(StateIx !styC !styA !i _)) -- same code for static+variable
     = flatten mk step
     . termStream ts cs us is
-    . filter (const adm)
---    . staticCheck adm
-    where mk s = return $ Just (s :. 0)
-          step Nothing = return $ Done
-          step (Just (TState s a ii ee :. c))
+--    . filter (const adm)
+--    . staticCheck (admitState admit (styA!i))
+    where mk s = return $ (admitState admit (styA!i) :. s :. 0)
+          step (False :. _ :. _) = return $ Done
+          step (True  :. TState s a ii ee :. c)
             -- if we @B@ranch, then the 2nd child is consumed by the static
             -- synvar!
-            | stya == B = return $ Yield (TState s a (ii:.:RiSixI styc c) (ee:.(i:.trns))) Nothing
+            | admitState admit B {- && stya == B -}
+            = return $ Yield (TState s a (ii:.:RiSixI styc c) (ee:.(i:.trns))) (False :. TState s a ii ee :. (-1))
             -- this state has no children! It is an @E@ or @EL@ state. We
             -- don't check on styc, because end states have none. We also
             -- try very, very hard to show that there is not next child
             -- here.
-            | stya == E || stya == EL  = return $ Yield (TState s a (ii:.:RiSixI (-1) (-1)) (ee:.(i:.0))) Nothing
+            | admitState admit E || admitState admit EL {- stya == E || stya == EL -}
+            = return $ Yield (TState s a (ii:.:RiSixI (-1) (-1)) (ee:.(i:.0))) (False :. TState s a ii ee :. (-1))
             -- no more valid children left. Assumes that all valid children
             -- are stored consecutively.
-            | c>5 || styc < 0 = return $ Done
+            | (c>5 || styc < 0) = return $ Done
             -- this child was given a very bad transition score, we skip.
             -- TODO use a constant like 'verySmall', not this hardcoded
             -- thing.
-            | trns <= -10000 = return $ Skip $ Just (TState s a ii ee :. c+1)
+--            | trns <= -10000 = return $ Skip $ (True :. TState s a ii ee :. c+1)
             -- normal state with many children
-            | otherwise = return $ Yield (TState s a (ii:.:RiSixI styc c) (ee:.(i:.trns))) (Just (TState s a ii ee :. c+1))
+--            | admitState admit MP
+--            = return $ Yield (TState s a (ii:.:RiSixI styc c) (ee:.(i:.trns))) (True :. TState s a ii ee :. c+1)
+            | otherwise = return $ Yield (TState s a (ii:.:RiSixI styc c) (ee:.(i:.trns))) (True :. TState s a ii ee :. c+1)
+--            | otherwise = return $ Done
             where (styc,trns) = styC ! (Z:.i:.c)
-          !stya = styA ! i
-          !adm  = inline admit stya
+--          !stya = styA ! i
+--          !adm  = admitState admit stya -- inline admit stya
           {-# Inline [0] mk   #-}
           {-# Inline [0] step #-}
   {-# Inline termStream #-}
 
-instance TermStaticVar CMstate (StateIx t) where
+instance TermStaticVar (CMstate p) (StateIx t) where
   termStaticVar _ sv _ = sv
   termStreamIndex _ _ i = i
   {-# Inline [0] termStaticVar   #-}

@@ -112,6 +112,7 @@ library
   default-language:
     Haskell2010
   default-extensions: BangPatterns
+                    , DataKinds
                     , DeriveGeneric
                     , FlexibleContexts
                     , FlexibleInstances
@@ -140,9 +141,9 @@ library
 -- provides advanced cmsearch hit filtering functionality.
 
 executable cmsearchFilter
-  build-depends:  base
-               ,  BiobaseInfernal
-               ,  cmdargs           == 0.10.*
+  build-depends: base
+               , BiobaseInfernal
+               , cmdargs          == 0.10.*
   hs-source-dirs:
     src
   main-is:
@@ -157,9 +158,9 @@ executable cmsearchFilter
 benchmark BenchmarkBiobaseInfernal
   type:
     exitcode-stdio-1.0
-  build-depends:  base
-               ,  BiobaseInfernal
-               ,  criterion         >= 1.1.0.0    && < 1.2
+  build-depends: base
+               , BiobaseInfernal
+               , criterion        >= 1.1.0.0    && < 1.2
   hs-source-dirs:
     tests
   main-is:
@@ -174,8 +175,11 @@ benchmark BenchmarkBiobaseInfernal
 benchmark StreamBenchmark
   type:
     exitcode-stdio-1.0
-  build-depends:  base
-               ,  BiobaseInfernal
+  build-depends: base
+               , ADPfusion
+               , BiobaseInfernal
+               , PrimitiveArray
+               , vector
   hs-source-dirs:
     tests
   main-is:
@@ -183,9 +187,14 @@ benchmark StreamBenchmark
   default-language:
     Haskell2010
   default-extensions: BangPatterns
+                    , DataKinds
                     , ScopedTypeVariables
   ghc-options:
     -O2
+    -ddump-to-file
+    -ddump-simpl
+    -dsuppress-all
+    -flate-dmd-anal
 
 
 
