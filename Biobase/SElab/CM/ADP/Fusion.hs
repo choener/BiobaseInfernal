@@ -206,51 +206,85 @@ cmstateEL = CMstate (Proxy :: Proxy '["EL"])
 
 class AdmitState (x :: [Symbol]) where
   admitState :: Proxy x -> StateType -> Bool
+  admitPassThrough :: Proxy x -> Bool
 
 instance AdmitState ('[]) where
   admitState _ _ = False
-  {-# Inline admitState #-}
+  admitPassThrough _ = False
+  {-# Inline admitState  #-}
+  {-# Inline admitPassThrough #-}
 
 instance (AdmitState xs) => AdmitState ("D" ': xs) where
   admitState _ x = x==D || admitState (Proxy :: Proxy xs) x
+  admitPassThrough _ = admitPassThrough (Proxy :: Proxy xs)
   {-# Inline admitState #-}
+  {-# Inline admitPassThrough #-}
 
 instance (AdmitState xs) => AdmitState ("MP" ': xs) where
   admitState _ x = x==MP || admitState (Proxy :: Proxy xs) x
+  admitPassThrough _ = admitPassThrough (Proxy :: Proxy xs)
   {-# Inline admitState #-}
+  {-# Inline admitPassThrough #-}
 
 instance (AdmitState xs) => AdmitState ("ML" ': xs) where
   admitState _ x = x==ML || admitState (Proxy :: Proxy xs) x
+  admitPassThrough _ = admitPassThrough (Proxy :: Proxy xs)
   {-# Inline admitState #-}
+  {-# Inline admitPassThrough #-}
 
 instance (AdmitState xs) => AdmitState ("MR" ': xs) where
   admitState _ x = x==MR || admitState (Proxy :: Proxy xs) x
+  admitPassThrough _ = admitPassThrough (Proxy :: Proxy xs)
   {-# Inline admitState #-}
+  {-# Inline admitPassThrough #-}
 
 instance (AdmitState xs) => AdmitState ("IL" ': xs) where
   admitState _ x = x==IL || admitState (Proxy :: Proxy xs) x
+  admitPassThrough _ = admitPassThrough (Proxy :: Proxy xs)
   {-# Inline admitState #-}
+  {-# Inline admitPassThrough #-}
 
 instance (AdmitState xs) => AdmitState ("IR" ': xs) where
   admitState _ x = x==IR || admitState (Proxy :: Proxy xs) x
+  admitPassThrough _ = admitPassThrough (Proxy :: Proxy xs)
   {-# Inline admitState #-}
+  {-# Inline admitPassThrough #-}
 
 instance (AdmitState xs) => AdmitState ("S" ': xs) where
   admitState _ x = x==T.S || admitState (Proxy :: Proxy xs) x
+  admitPassThrough _ = admitPassThrough (Proxy :: Proxy xs)
   {-# Inline admitState #-}
+  {-# Inline admitPassThrough #-}
 
 instance (AdmitState xs) => AdmitState ("E" ': xs) where
   admitState _ x = x==E || admitState (Proxy :: Proxy xs) x
+  admitPassThrough _ = admitPassThrough (Proxy :: Proxy xs)
   {-# Inline admitState #-}
+  {-# Inline admitPassThrough #-}
 
 instance (AdmitState xs) => AdmitState ("B" ': xs) where
   admitState _ x = x==B || admitState (Proxy :: Proxy xs) x
+  admitPassThrough _ = admitPassThrough (Proxy :: Proxy xs)
   {-# Inline admitState #-}
+  {-# Inline admitPassThrough #-}
 
 instance (AdmitState xs) => AdmitState ("EL" ': xs) where
   admitState _ x = x==EL || admitState (Proxy :: Proxy xs) x
+  admitPassThrough _ = admitPassThrough (Proxy :: Proxy xs)
   {-# Inline admitState #-}
+  {-# Inline admitPassThrough #-}
 
+instance (AdmitState xs) => AdmitState ("ANY" ': xs) where
+  admitState _ _ = True
+  admitPassThrough _ = admitPassThrough (Proxy :: Proxy xs)
+  {-# Inline admitState #-}
+  {-# Inline admitPassThrough #-}
+
+instance (AdmitState xs) => AdmitState ("->" ': xs) where
+  admitState _ x = admitState (Proxy :: Proxy xs) x
+  admitPassThrough _ = True  -- x==MP || admitState (Proxy :: Proxy xs) x
+  {-# Inline admitState #-}
+  {-# Inline admitPassThrough #-}
 
 -- | Shortcut for the transition-emission scores we need. Returns all
 -- states, the @current@ index we are at, and the transition score to the
@@ -307,6 +341,9 @@ instance
     where mk s = return $ (admitState admit (styA!i) :. s :. 0)
           step (False :. _ :. _) = return $ Done
           step (True  :. TState s a ii ee :. c)
+            -- because this comes first, it will automatically remove all
+            -- other branches!
+            | admitPassThrough admit = return $ Yield (TState s a (ii:.:RiSixI i (-1)) (ee:.(i:.trns))) (False :. TState s a ii ee :. (-1))
             -- if we @B@ranch, then the 2nd child is consumed by the static
             -- synvar!
             | admitState admit B {- && stya == B -}

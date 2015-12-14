@@ -30,6 +30,13 @@ stream_MP_Epsilon m k l = (f <<< (M:|cme:|cme) % (M:|Epsilon:|Epsilon) ... h) (Z
         cme = CMstate (Proxy :: Proxy '["MP"])    -- MP==1
 {-# NoInline stream_MP_Epsilon #-}
 
+stream_Pass_Epsilon :: States -> Int -> Int -> IO Int
+stream_Pass_Epsilon m k l = (f <<< (M:|cme:|cme) % (M:|Epsilon:|Epsilon) ... h) (Z:.mkStateIx0 m:.mkStateIx0 m) (Z:.mkStateIxAt m k:.mkStateIxAt m l)
+  where f _ _ = 424242
+        h = S.foldl' max 232323
+        cme = CMstate (Proxy :: Proxy '["MP","->"])    -- MP==1
+{-# NoInline stream_Pass_Epsilon #-}
+
 
 
 main :: IO ()
