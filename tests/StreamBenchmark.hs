@@ -7,12 +7,17 @@
 module Main where
 
 import Data.Vector.Fusion.Stream.Monadic as S
+import Data.Vector.Unboxed as VU
+import Data.Vector.Fusion.Util
 
 import ADP.Fusion
 import Data.PrimitiveArray hiding (map, unsafeIndex)
+import Biobase.Primary.Letter
+import Biobase.Primary.Nuc.RNA
 
 import Biobase.SElab.CM.ADP.Fusion
 import Biobase.SElab.CM.Types hiding (S)
+import Biobase.SElab.Bitscore
 
 
 
@@ -36,6 +41,18 @@ stream_Pass_Epsilon m k l = (f <<< (M:|cme:|cme) % (M:|Epsilon:|Epsilon) ... h) 
         h = S.foldl' max 232323
         cme = CMstate (Proxy :: Proxy '["MP","->"])    -- MP==1
 {-# NoInline stream_Pass_Epsilon #-}
+
+stream_MP_MatP :: States -> Int -> Int -> Id Int
+stream_MP_MatP m k l = (f <<< (M:|cmp:|cmp) % (M:|ec:|ec) % tbl % (M:|ec:|ec) ... h) (Z:.mkStateIx0 m:.mkStateIx0 m) (Z:.mkStateIxAt m k:.mkStateIxAt m l)
+  where f _ _ _ _ = 424242
+        h = S.foldl' max 232323
+        cmp = CMstate (Proxy :: Proxy '["MP"])    -- MP==1
+        ec = EmitChar $ VU.fromList acgu
+        tbl :: ITbl Id Unboxed (Z:.EmptyOk:.EmptyOk) (Z:.StateIx I :.StateIx I) Bitscore
+        tbl = ITbl 0 0 (Z:.EmptyOk:.EmptyOk) (fromAssocs (Z:.low:.low) (Z:.high:.high) (-555555) []) (\_ _ -> return 0 :: Id Bitscore)
+        low = mkStateIx0 m
+        high = mkStateIxH m
+{-# NoInline stream_MP_MatP #-}
 
 
 
