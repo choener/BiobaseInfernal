@@ -168,7 +168,41 @@ instance RuleContext (StateIx I) where
 data CMstate (x :: [Symbol]) where
   CMstate :: AdmitState x => Proxy x -> CMstate x
 
-stateE = CMstate (Proxy :: Proxy '["E"])
+cmstateD = CMstate (Proxy :: Proxy '["D"])
+{-# Inline cmstateD #-}
+
+cmstateMP = CMstate (Proxy :: Proxy '["MP"])
+{-# Inline cmstateMP #-}
+
+cmstateML = CMstate (Proxy :: Proxy '["ML"])
+{-# Inline cmstateML #-}
+
+cmstateMR = CMstate (Proxy :: Proxy '["MR"])
+{-# Inline cmstateMR #-}
+
+cmstateIL = CMstate (Proxy :: Proxy '["IL"])
+{-# Inline cmstateIL #-}
+
+cmstateIR = CMstate (Proxy :: Proxy '["IR"])
+{-# Inline cmstateIR #-}
+
+cmstateXL = CMstate (Proxy :: Proxy '["ML", "IL"])
+{-# Inline cmstateXL #-}
+
+cmstateXR = CMstate (Proxy :: Proxy '["MR", "IR"])
+{-# Inline cmstateXR #-}
+
+cmstateS = CMstate (Proxy :: Proxy '["S"])
+{-# Inline cmstateS #-}
+
+cmstateE = CMstate (Proxy :: Proxy '["E"])
+{-# Inline cmstateE #-}
+
+cmstateB = CMstate (Proxy :: Proxy '["B"])
+{-# Inline cmstateB #-}
+
+cmstateEL = CMstate (Proxy :: Proxy '["EL"])
+{-# Inline cmstateEL #-}
 
 class AdmitState (x :: [Symbol]) where
   admitState :: Proxy x -> StateType -> Bool
