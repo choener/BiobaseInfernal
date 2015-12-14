@@ -427,8 +427,8 @@ instance
           step (tstate@(TState s a ii ee) :. k)
             | k < 0     = return $ Done
             | otherwise = let !e = VU.unsafeIndex xs k
-                              j = getIndex a (Proxy :: PRI is (StateIx I))
-                          in  return $ Yield (TState s a (ii:.:j) (ee:.e))
+                              RiSixI chd c = getIndex a (Proxy :: PRI is (StateIx I))
+                          in  return $ Yield (TState s a (ii:.:RiSixI chd c) (ee:.e))
                                              (tstate :. k-1)
           {-# Inline [0] mk   #-}
           {-# Inline [0] step #-}
@@ -464,8 +464,8 @@ instance
   ) => TermStream m (TermSymbol ts Epsilon) a (is:.StateIx I) where
   termStream (ts :| Epsilon) (cs:._) (us:._) (is:.ix@(StateIx styC styA i _))
     = map (\(TState s a ii ee) ->
-              let j = getIndex a (Proxy :: PRI is (StateIx I))
-              in  TState s a (ii:.:j) (ee:.()) )
+              let RiSixI chd c = getIndex a (Proxy :: PRI is (StateIx I))
+              in  TState s a (ii:.:RiSixI chd c) (ee:.()) )
     . termStream ts cs us is
     . filter (const $ sty==E || sty==EL)
 --    . staticCheck (sty == E || sty == EL)
@@ -496,8 +496,8 @@ instance
   ) => TermStream m (TermSymbol ts Deletion) a (is:.StateIx I) where
   termStream (ts :| Deletion) (cs:._) (us:._) (is:.ix@(StateIx styC styA i _))
     = map (\(TState s a ii ee) ->
-              let j = getIndex a (Proxy :: PRI is (StateIx I))
-              in  TState s a (ii:.:j) (ee:.()) )
+              let RiSixI chd c = getIndex a (Proxy :: PRI is (StateIx I))
+              in  TState s a (ii:.:RiSixI chd c) (ee:.()) )
     . termStream ts cs us is
   {-# Inline termStream #-}
 
@@ -560,11 +560,11 @@ instance
   termStream (ts:|Terminally) (cs:.IStatic ()) (us:._) (is:.ix@(StateIx styC styA i _))
     = flatten mk step . termStream ts cs us is
     where mk (TState s a ii ee) =
-            let RiSixI chd c = getIndex a (Proxy :: PRI is (StateIx I))
-            in  return (TState s a ii ee :. chd :. c)
-          step (TState s a ii ee :. chd :. c)
+            let RiSixI chd _ = getIndex a (Proxy :: PRI is (StateIx I))
+            in  return (TState s a ii ee :. chd)
+          step (TState s a ii ee :. chd)
             | chd < 0 = return $ Done
-            | otherwise = return $ Yield (TState s a (ii:.:RiSixI chd (-1)) (ee:.StateIx styC styA chd (-1))) (TState s a ii ee:.(-1):.(-1))
+            | otherwise = return $ Yield (TState s a (ii:.:RiSixI chd (-1)) (ee:.StateIx styC styA chd (-1))) (TState s a ii ee:.(-1))
           {-# Inline [0] mk   #-}
           {-# Inline [0] step #-}
   termStream (ts:|Terminally) (cs:.IVariable ()) (us:._) (is:.ix@(StateIx styC styA i _))
