@@ -180,6 +180,7 @@ benchmark StreamBenchmark
                , BiobaseInfernal
                , PrimitiveArray
                , vector
+               , BiobaseXNA
   hs-source-dirs:
     tests
   main-is:
@@ -189,6 +190,7 @@ benchmark StreamBenchmark
   default-extensions: BangPatterns
                     , DataKinds
                     , ScopedTypeVariables
+                    , TypeOperators
   ghc-options:
     -O2
     -ddump-to-file
