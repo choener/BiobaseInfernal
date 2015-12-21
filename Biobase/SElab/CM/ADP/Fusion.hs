@@ -8,27 +8,28 @@ import           Control.Lens ( (^.), makeLenses, makePrisms )
 import           Data.Aeson
 import           Data.Binary
 import           Data.Hashable (Hashable(..))
+import           Data.Proxy
 import           Data.Serialize (Serialize)
+import           Data.Strict.Maybe
 import           Data.Strict.Tuple hiding (fst,snd)
 import           Data.Vector.Fusion.Stream.Monadic hiding (length,flatten)
 import           Data.Vector.Generic (Vector, length, unsafeIndex)
 import           Debug.Trace
 import           GHC.Exts (inline,lazy)
-import           GHC.TypeLits
 import           GHC.Generics (Generic)
-import           Prelude hiding (map,length,filter)
+import           GHC.TypeLits
+import           Prelude hiding (map,length,filter,Maybe(..))
 import qualified Data.Vector.Unboxed as VU
-import           Data.Proxy
 
 import           ADP.Fusion
 import           ADP.Fusion.SynVar.Indices
+import           Biobase.Types.NumericalExtremes
 import           Data.PrimitiveArray hiding (map, unsafeIndex)
 import qualified Data.PrimitiveArray as PA
-import           Biobase.Types.NumericalExtremes
 
+import           Biobase.SElab.Bitscore
 import           Biobase.SElab.CM.Types hiding (S)
 import qualified Biobase.SElab.CM.Types as T
-import           Biobase.SElab.Bitscore
 
 
 
@@ -158,9 +159,6 @@ instance RuleContext (StateIx I) where
 -- TODO how about running time if I were to use a Proxy?
 --
 -- TODO use a function for membership, not a @StateType@ constant
---
--- TODO we might want to give TRANSITION scores with this thing? We would
--- have to populate the @children@ at this point as well?!
 --
 -- Using a (complicated) Proxy allows us to generate more efficient code.
 
@@ -342,7 +340,8 @@ instance
           step (True  :. TState s a ii ee :. c)
             -- because this comes first, it will automatically remove all
             -- other branches!
-            | admitPassThrough admit = return $ Yield (TState s a (ii:.:RiSixI i (-1)) (ee:.(i:.trns))) (False :. TState s a ii ee :. (-1))
+            | admitPassThrough admit
+            = return $ Yield (TState s a (ii:.:RiSixI i (-1)) (ee:.(i:.trns))) (False :. TState s a ii ee :. (-1))
             -- if we @B@ranch, then the 2nd child is consumed by the static
             -- synvar!
             | admitState admit B {- && stya == B -}
@@ -355,7 +354,10 @@ instance
             = return $ Yield (TState s a (ii:.:RiSixI (-1) (-1)) (ee:.(i:.0))) (False :. TState s a ii ee :. (-1))
             -- no more valid children left. Assumes that all valid children
             -- are stored consecutively.
-            | (c>5 || styc < 0) = return $ Done
+            -- TODO replace @c>5@ by @c> snd $ bounds styC@, making it
+            -- possible to have a variable number of children.
+            | (c>5 || styc < 0)
+            = return $ Done
             -- this child was given a very bad transition score, we skip.
             -- TODO use a constant like 'verySmall', not this hardcoded
             -- thing.
@@ -363,7 +365,8 @@ instance
             -- normal state with many children
 --            | admitState admit MP
 --            = return $ Yield (TState s a (ii:.:RiSixI styc c) (ee:.(i:.trns))) (True :. TState s a ii ee :. c+1)
-            | otherwise = return $ Yield (TState s a (ii:.:RiSixI styc c) (ee:.(i:.trns))) (True :. TState s a ii ee :. c+1)
+            | otherwise
+            = return $ Yield (TState s a (ii:.:RiSixI styc c) (ee:.(i:.trns))) (True :. TState s a ii ee :. c+1)
 --            | otherwise = return $ Done
             where (!styc,!trns) = styC ! (Z:.i:.c)
 --          !stya = styA ! i
@@ -421,17 +424,18 @@ instance
   , xs ~ VU.Vector c
   ) => TermStream m (TermSymbol ts (EmitChar c)) a (is:.StateIx I) where
   termStream (ts:|EmitChar xs) (cs:._) (us:.u) (is:.ix)
-    = seq xs . flatten mk step . termStream ts cs us is
-    where mk s = let RiSixI chd c = getIndex (tIx s) (Proxy :: PRI is (StateIx I))
+    = flatten mk step . termStream ts cs us is
+    where mk s = let -- RiSixI chd c = getIndex (tIx s) (Proxy :: PRI is (StateIx I))
                      -- we need this here, not in step. Otherwise it will
                      -- be floated out and we get an explicit @RiSixI@
                      -- constructor.
-                 in return (s :. chd :. c :. length xs - 1)
-          step (tstate@(TState s a ii ee) :. chd :. c :. k)
-            | k < 0     = return $ Done
-            | otherwise = let !e = VU.unsafeIndex xs k
-                          in  return $ Yield (TState s a (ii:.:RiSixI chd c) (ee:.e))
-                                             (tstate :. chd :. c :. k-1)
+                 in return (s :. length xs - 1)
+          step (TState s a ii ee :. k)
+            | k >= 0    = let e = VU.unsafeIndex xs k
+                              chdc = getIndex a (Proxy :: PRI is (StateIx I))
+                          in  return $ Yield (TState s a (ii:.:chdc) (ee:.e))
+                                             (TState s a ii ee :. k-1)
+            | otherwise = return Done
           {-# Inline [0] mk   #-}
           {-# Inline [0] step #-}
   {-# Inline termStream #-}
@@ -647,7 +651,7 @@ instance
   addIndexDenseGo (cs:.c) (vs:.IStatic ()) (us:._) (is:.ix@(StateIx styC styA i))
     = flatten mk step . addIndexDenseGo cs vs us is
     where mk (SvS s a tt ii) =
-            let RiSixI !chd _ = getIndex a (Proxy :: PRI is (StateIx I))
+            let RiSixI chd _ = getIndex a (Proxy :: PRI is (StateIx I))
             in  return $ (chd>=0 :. SvS s a tt ii :. chd)
           step (False :. _ :. _) = return Done
           step (True  :. SvS s a tt ii :. chd)

@@ -59,7 +59,7 @@ stream_MP_MatP_1 m k l = unId $ (f <<< (M:|cmp:|cmp) ... h) (Z:.mkStateIx0 m:.mk
 
 stream_MP_MatP_2 :: States -> Int -> Int -> Int
 stream_MP_MatP_2 m k l = unId $ (f <<< (M:|cmp:|cmp) % (M:|ec:|ec) ... h) (Z:.mkStateIx0 m:.mkStateIx0 m) (Z:.mkStateIxAt m k:.mkStateIxAt m l)
-  where f _ _ = 424242
+  where f !_ !_ = 424242
         h = S.foldl' max 232323
         cmp = CMstate (Proxy :: Proxy '["MP"])    -- MP==1
         ec = EmitChar $ VU.fromList acgu
@@ -77,6 +77,7 @@ stream_MP_MatP_2 m k l = unId $ (f <<< (M:|cmp:|cmp) % (M:|ec:|ec) ... h) (Z:.mk
 {-# NoInline stream_MP_MatP_2 #-}
 -}
 
+{-
 stream_MP_MatP_3 :: States -> Int -> Int -> Int
 stream_MP_MatP_3 m k l = unId $ (f <<< (M:|cmp:|cmp) % (M:|ec:|ec) % tbl ... h) (Z:.mkStateIx0 m:.mkStateIx0 m) (Z:.mkStateIxAt m k:.mkStateIxAt m l)
   where f _ _ _ = 424242
@@ -96,7 +97,6 @@ stream_MP_MatP_3 m k l = unId $ (f <<< (M:|cmp:|cmp) % (M:|ec:|ec) % tbl ... h) 
         {-# Inline high #-}
 {-# NoInline stream_MP_MatP_3 #-}
 
-{-
 stream_MP_MatP_4 :: States -> Int -> Int -> Int
 stream_MP_MatP_4 m k l = unId $ (f <<< (M:|cmp:|cmp) % tbl ... h) (Z:.mkStateIx0 m:.mkStateIx0 m) (Z:.mkStateIxAt m k:.mkStateIxAt m l)
   where f _ _ = 424242
@@ -115,9 +115,43 @@ stream_MP_MatP_4 m k l = unId $ (f <<< (M:|cmp:|cmp) % tbl ... h) (Z:.mkStateIx0
         {-# Inline low #-}
         {-# Inline high #-}
 {-# NoInline stream_MP_MatP_4 #-}
+
+stream_MP_MatP_5 :: States -> Int -> Int -> Int
+stream_MP_MatP_5 m k l = unId $ (f <<< (M:|cmp:|cmp) % (M:|ec:|ec) % (M:|ec:|ec) ... h) (Z:.mkStateIx0 m:.mkStateIx0 m) (Z:.mkStateIxAt m k:.mkStateIxAt m l)
+  where f _ _ _ = 424242
+        h = S.foldl' max 232323
+        cmp = CMstate (Proxy :: Proxy '["MP"])    -- MP==1
+        ec = EmitChar $ VU.fromList acgu
+        tbl :: ITbl Id Unboxed (Z:.EmptyOk:.EmptyOk) (Z:.StateIx I :.StateIx I) Bitscore
+        tbl = ITbl 0 0 (Z:.EmptyOk:.EmptyOk) (fromAssocs (Z:.low:.low) (Z:.high:.high) (-555555) []) (\_ _ -> return 0 :: Id Bitscore)
+        low = mkStateIx0 m
+        high = mkStateIxH m
+        {-# Inline f #-}
+        {-# Inline h #-}
+        {-# Inline cmp #-}
+        {-# Inline ec #-}
+        {-# Inline tbl #-}
+        {-# Inline low #-}
+        {-# Inline high #-}
+{-# NoInline stream_MP_MatP_5 #-}
+
+stream_MP_MatP_6 :: States -> Int -> Int
+stream_MP_MatP_6 m k = unId $ (f <<< (M:|cmp) % (M:|ec) ... h) (Z:.mkStateIx0 m) (Z:.mkStateIxAt m k)
+  where f !_ !_ = 424242
+        h = S.foldl' max 232323
+        cmp = CMstate (Proxy :: Proxy '["MP"])    -- MP==1
+        ec = EmitChar $! VU.fromList acgu
+        low = mkStateIx0 m
+        high = mkStateIxH m
+        {-# Inline f #-}
+        {-# Inline h #-}
+        {-# Inline cmp #-}
+        {-# Inline ec #-}
+        {-# Inline low #-}
+        {-# Inline high #-}
+{-# NoInline stream_MP_MatP_6 #-}
 -}
 
-{-
 stream_MP_MatP :: States -> Int -> Int -> Int
 stream_MP_MatP m k l = unId $ (f <<< (M:|cmp:|cmp) % (M:|ec:|ec) % tbl % (M:|ec:|ec) ... h) (Z:.mkStateIx0 m:.mkStateIx0 m) (Z:.mkStateIxAt m k:.mkStateIxAt m l)
   where f _ _ _ _ = 424242
@@ -136,7 +170,6 @@ stream_MP_MatP m k l = unId $ (f <<< (M:|cmp:|cmp) % (M:|ec:|ec) % tbl % (M:|ec:
         {-# Inline low #-}
         {-# Inline high #-}
 {-# NoInline stream_MP_MatP #-}
--}
 
 
 

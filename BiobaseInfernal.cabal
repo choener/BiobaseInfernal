@@ -197,6 +197,7 @@ benchmark StreamBenchmark
     -ddump-simpl
     -dsuppress-all
     -flate-dmd-anal
+    -funbox-strict-fields
 
 
 
