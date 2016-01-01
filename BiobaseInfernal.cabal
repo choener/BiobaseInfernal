@@ -11,7 +11,7 @@ license-file:   LICENSE
 build-type:     Simple
 stability:      experimental
 cabal-version:  >= 1.10.0
-tested-with:    GHC == 7.8.4, GHC == 7.10.1
+tested-with:    GHC == 7.8.4, GHC == 7.10.2
 synopsis:       Infernal data structures and tools
 description:
                 Provides import and export facilities for Infernal/Rfam data
@@ -62,6 +62,7 @@ library
                , tuple                >= 0.3      && < 0.4
                , vector               >= 0.10     && < 0.12
                , vector-th-unbox      >= 0.2      && < 0.3
+               , criterion
 --               , biocore              >= 0.3      && < 0.4
 --    ansi-wl-pprint      == 0.6.*    ,
 --    attoparsec-conduit  >= 1      ,
@@ -178,9 +179,10 @@ benchmark StreamBenchmark
   build-depends: base
                , ADPfusion
                , BiobaseInfernal
+               , BiobaseXNA
+               , criterion
                , PrimitiveArray
                , vector
-               , BiobaseXNA
   hs-source-dirs:
     tests
   main-is:
@@ -195,7 +197,13 @@ benchmark StreamBenchmark
     -O2
     -ddump-to-file
     -ddump-simpl
-    -dsuppress-all
+--    -dsuppress-all
+    -dsuppress-uniques
+    -dsuppress-idinfo
+    -dsuppress-module-prefixes
+    -dsuppress-type-signatures
+    -dsuppress-type-applications
+    -dsuppress-coercions
     -flate-dmd-anal
     -funbox-strict-fields
 
