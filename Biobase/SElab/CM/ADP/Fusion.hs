@@ -369,7 +369,7 @@ instance
 --            | admitState admit MP
 --            = return $ Yield (TState s a (ii:.:RiSixI styc c) (ee:.(i:.trns))) (True :. TState s a ii ee :. c+1)
             | otherwise
-            = let (!styc,!trns) = styC!(Z:.i:.c)
+            = let !(!styc,!trns) = styC!(Z:.i:.c)
               in  return $ Yield (TState s (ii:.:RiSixI styc c) (ee:.(i:.trns)))
                                  (True :. tstate :. c+1)
             where (_,_:._:.(!cmax)) = bounds styC
@@ -431,11 +431,11 @@ instance
   ) => TermStream m (TermSymbol ts (EmitChar c)) s (is:.StateIx I) where
   termStream (ts:|EmitChar xs) (cs:._) (us:.u) (is:.ix)
     = flatten mk step . termStream ts cs us is
-    where mk (TState s ii ee)
-            = return (TState s (ii:.:getIndex (getIdx s) (Proxy :: PRI is (StateIx I))) ee :. length xs -1)
+    where mk tstate
+            = return (tstate :. length xs -1)
           step (tstate@(TState s ii ee) :. k)
             | k < 0     = return $ Done
-            | otherwise = return $ Yield (TState s ii (ee:.VU.unsafeIndex xs k))
+            | otherwise = return $ Yield (TState s (ii:.:getIndex (getIdx s) (Proxy :: PRI is (StateIx I))) (ee:.VU.unsafeIndex xs k))
                                          (tstate :. k-1)
           {-# Inline [0] mk   #-}
           {-# Inline [0] step #-}
@@ -647,30 +647,45 @@ instance
 -- cases.
 
 instance
-  ( IndexHdr a us (StateIx I) cs c is (StateIx I)
-  ) => AddIndexDense a (us:.StateIx I) (cs:.c) (is:.StateIx I) where
+  ( IndexHdr s x0 i0 us (StateIx I) cs c is (StateIx I)
+  ) => AddIndexDense s (us:.StateIx I) (cs:.c) (is:.StateIx I) where
   addIndexDenseGo (cs:.c) (vs:.IStatic ()) (us:._) (is:.ix@(StateIx styC styA i))
+    = map go . addIndexDenseGo cs vs us is
+    where go (SvS s tt ii) =
+            let RiSixI chd _ = getIndex (getIdx s) (Proxy :: PRI is (StateIx I))
+            in  SvS s (tt:.StateIx styC styA chd) (ii:.:RiSixI chd (-1))
+          {-# Inline [0] go #-}
+  addIndexDenseGo (cs:.c) (vs:.IVariable ()) (us:._) (is:.ix@(StateIx styC styA i))
+    = map go . addIndexDenseGo cs vs us is
+    where go (SvS s tt ii) =
+            let RiSixI chd c = getIndex (getIdx s) (Proxy :: PRI is (StateIx I))
+                (!chd',_)    = styC!(Z:.i:.c)
+            in  SvS s (tt:.StateIx styC styA chd) (ii:.:RiSixI chd' (c+1))
+          {-# Inline [0] go #-}
+  {-
     = flatten mk step . addIndexDenseGo cs vs us is
-    where mk (SvS s a tt ii) =
-            let RiSixI chd _ = getIndex a (Proxy :: PRI is (StateIx I))
-            in  return $ (chd>=0 :. SvS s a tt ii :. chd)
+    where mk s =
+            let RiSixI chd _ = getIndex (getIdx $ sS s) (Proxy :: PRI is (StateIx I))
+            in  return $ (chd>=0 :. s :. chd)
           step (False :. _ :. _) = return Done
-          step (True  :. SvS s a tt ii :. chd)
-            = return $ Yield (SvS s a (tt:.StateIx styC styA chd) (ii:.: RiSixI chd (-1))) (False :. SvS s a tt ii :. (-1))
+          step (True  :. svs@(SvS s tt ii) :. chd)
+            = return $ Yield (SvS s (tt:.StateIx styC styA chd) (ii:.: RiSixI chd (-1)))
+                             (False :. svs :. (-1))
           {-# Inline [0] mk   #-}
           {-# Inline [0] step #-}
   addIndexDenseGo (cs:.c) (vs:.IVariable ()) (us:._) (is:.ix@(StateIx styC styA i))
     = flatten mk step . addIndexDenseGo cs vs us is
-    where mk (SvS s a tt ii) =
-            let RiSixI chd c = getIndex a (Proxy :: PRI is (StateIx I))
-            in  return $ (chd>=0 :. SvS s a tt ii :. chd :. c)
+    where mk (SvS s tt ii) =
+            let RiSixI chd c = getIndex (getIdx s) (Proxy :: PRI is (StateIx I))
+            in  return $ (chd>=0 :. SvS s tt ii :. chd :. c)
           step (False :. _ :. _ :. _) = return Done
-          step (True :. SvS s a tt ii :. chd :. c)
-            | c < 0 || c > 5 = return $ Yield (SvS s a (tt:.StateIx styC styA chd) (ii:.:RiSixI chd c)) (False :. SvS s a tt ii:.(-1):.(-1))
+          step (True :. SvS s tt ii :. chd :. c)
+            | c < 0 || c > 5 = return $ Yield (SvS s (tt:.StateIx styC styA chd) (ii:.:RiSixI chd c)) (False :. SvS s tt ii:.(-1):.(-1))
             | otherwise      = let !chd' = fst $ styC!(Z:.i:.c)
-                               in  return $ Yield (SvS s a (tt:.StateIx styC styA chd) (ii:.:RiSixI chd c)) (True :. SvS s a tt ii:.chd':.c+1)
+                               in  return $ Yield (SvS s (tt:.StateIx styC styA chd) (ii:.:RiSixI chd c)) (True :. SvS s tt ii:.chd':.c+1)
           {-# Inline [0] mk   #-}
           {-# Inline [0] step #-}
+          -}
   {-# Inline addIndexDenseGo #-}
 
 instance TableStaticVar (StateIx I) c (StateIx I) where

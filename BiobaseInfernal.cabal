@@ -62,7 +62,7 @@ library
                , tuple                >= 0.3      && < 0.4
                , vector               >= 0.10     && < 0.12
                , vector-th-unbox      >= 0.2      && < 0.3
-               , criterion
+--               , criterion
 --               , biocore              >= 0.3      && < 0.4
 --    ansi-wl-pprint      == 0.6.*    ,
 --    attoparsec-conduit  >= 1      ,
