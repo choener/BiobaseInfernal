@@ -369,9 +369,9 @@ instance
 --            | admitState admit MP
 --            = return $ Yield (TState s a (ii:.:RiSixI styc c) (ee:.(i:.trns))) (True :. TState s a ii ee :. c+1)
             | otherwise
-            = let !(!styc,!trns) = styC!(Z:.i:.c)
-              in  return $ Yield (TState s (ii:.:RiSixI styc c) (ee:.(i:.trns)))
-                                 (True :. tstate :. c+1)
+            = do let !(!styc,!trns) = styC!(Z:.i:.c)
+                 return $ Yield (TState s (ii:.:RiSixI styc c) (ee:.(i:.trns)))
+                                (True :. tstate :. c+1)
             where (_,_:._:.(!cmax)) = bounds styC
 --            | otherwise = return $ Done
 --            where (!styc,!trns) = styC ! (Z:.i:.c)
@@ -431,12 +431,13 @@ instance
   ) => TermStream m (TermSymbol ts (EmitChar c)) s (is:.StateIx I) where
   termStream (ts:|EmitChar xs) (cs:._) (us:.u) (is:.ix)
     = flatten mk step . termStream ts cs us is
-    where mk tstate
-            = return (tstate :. length xs -1)
+    where mk tstate = return (tstate :. length xs -1)
           step (tstate@(TState s ii ee) :. k)
-            | k < 0     = return $ Done
-            | otherwise = return $ Yield (TState s (ii:.:getIndex (getIdx s) (Proxy :: PRI is (StateIx I))) (ee:.VU.unsafeIndex xs k))
-                                         (tstate :. k-1)
+            | k >= 0
+            = return $ Yield (TState s (ii:.:getIndex (getIdx s) (Proxy :: PRI is (StateIx I))) (ee:.VU.unsafeIndex xs k))
+                             (tstate :. k-1)
+            | otherwise
+            = return $! Done
           {-# Inline [0] mk   #-}
           {-# Inline [0] step #-}
   {-# Inline termStream #-}
@@ -606,18 +607,16 @@ instance
 -- the current index. This means that @X -> X@ does actually loop (which is
 -- good). Next child is set to @(-1)@, stating that we have not even
 -- started touching the children state.
---
--- TODO not using 'staticCheck' for now. Test later!
 
 instance
   ( Monad m
   ) => MkStream m S (StateIx I) where
   mkStream S (IStatic ()) (StateIx _ _ u) (StateIx cs ty i)
-    = filter (const $ 0<=i && i<=u) -- staticCheck (i>=0 && i<=h)
-    . singleton $ ElmS $ RiSixI i (-1)
+    = staticCheck (i >= 0 && i <= u)
+    . singleton . ElmS $! RiSixI i (-1)
   mkStream S (IVariable ()) (StateIx _ _ u) (StateIx cs ty i)
-    = filter (const $ 0<=i && i<=u)
-    . singleton $ ElmS $ RiSixI i (-1)
+    = staticCheck (i >= 0 && i <= u)
+    . singleton . ElmS $! RiSixI i (-1)
   {-# Inline mkStream #-}
 
 instance
@@ -625,12 +624,12 @@ instance
   , MkStream m S is
   ) => MkStream m S (is:.StateIx I) where
   mkStream S (vs:.IStatic ()) (us:.StateIx _ _ u) (is:.StateIx c t i)
-    = map (\(ElmS zi) -> ElmS $ zi :.: RiSixI i (-1))
-    . filter (const $ 0<=i && i<=u) -- staticCheck (i>=0 && i<=u)
+    = map (\(ElmS !zi) -> ElmS $! zi :.: RiSixI i (-1))
+    . staticCheck (i >= 0 && i <= u)
     $ mkStream S vs us is
   mkStream S (vs:.IVariable ()) (us:.StateIx _ _ u) (is:.StateIx c t i)
-    = map (\(ElmS zi) -> ElmS $ zi :.: RiSixI i (-1))
-    . filter (const $ 0<=i && i<=u) -- staticCheck (i>=0 && i<=u)
+    = map (\(ElmS !zi) -> ElmS $! zi :.: RiSixI i (-1))
+    . staticCheck (i >= 0 && i <= u)
     $ mkStream S vs us is
   {-# Inline mkStream #-}
 

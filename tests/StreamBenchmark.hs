@@ -119,19 +119,17 @@ stream_MP_MatP_4 m k l = unId $ (f <<< (M:|cmp:|cmp) % tbl ... h) (Z:.mkStateIx0
 {-# NoInline stream_MP_MatP_4 #-}
 -}
 
-{-
 stream_MP_MatP_5 :: States -> Int -> Int -> Int
 stream_MP_MatP_5 m k l = unId $ (f <<< (M:|cmp:|cmp) % (M:|ec:|ec) % (M:|ec:|ec) ... h) (Z:.mkStateIxH m:.mkStateIxH m) (Z:.mkStateIxAt m k:.mkStateIxAt m l)
   where f c e1 e2 = seq c . seq e1 . seq e2 $ 424242
         h = S.foldl' max (-232323)
-        cmp = CMstate (Proxy :: Proxy '["MP"])    -- MP==1
+        cmp = cmstateMP
         ec = EmitChar $ VU.fromList acgu
         {-# Inline f #-}
         {-# Inline h #-}
         {-# Inline cmp #-}
         {-# Inline ec #-}
 {-# NoInline stream_MP_MatP_5 #-}
--}
 
 {-
 stream_MP_MatP_6 :: States -> Int -> Int
@@ -172,6 +170,7 @@ stream_MP_MatP_7 m k l = unId $ (f <<< (M:|cmp:|cmp) % (M:|del:|del) ... h) (Z:.
 {-# NoInline stream_MP_MatP_7 #-}
 -}
 
+{-
 stream_MP_MatP :: States -> Unboxed (Z:.StateIx I :.StateIx I) Bitscore -> Int -> Int -> Int
 stream_MP_MatP m tbldata k l = unId $ (f <<< (M:|cmp:|cmp) % (M:|ec:|ec) % tbl % (M:|ec:|ec) ... h) (Z:.mkStateIxH m:.mkStateIxH m) (Z:.mkStateIxAt m k:.mkStateIxAt m l)
   where f !_ !_ !_ !_ = 424242
@@ -190,6 +189,7 @@ stream_MP_MatP m tbldata k l = unId $ (f <<< (M:|cmp:|cmp) % (M:|ec:|ec) % tbl %
         {-# Inline low #-}
         {-# Inline high #-}
 {-# NoInline stream_MP_MatP #-}
+-}
 
 
 
@@ -197,12 +197,12 @@ main :: IO ()
 main = do
   [!cm] <- fromFile "tests/test11.cm"
   let !sts  = _states cm
-      !tbl  = (fromAssocs (Z:.low:.low) (Z:.high:.high) (-555555) [])
+      !tbl  = (fromAssocs (Z:.low:.low) (Z:.high:.high) (-555555) []) :: Unboxed (Z:.StateIx I :.StateIx I) Bitscore
       !low  = mkStateIx0 sts
       !high = mkStateIxH sts
   seq cm . seq sts . seq tbl . seq low . seq high $ defaultMain
     -- [ bench "MP/cmp/ec"        $ whnf (\k -> stream_MP_MatP_2 (_states cm) k k) 6   --   3 us
---    [ bench "MP/cmp/ec/ec"     $ whnf (\k -> stream_MP_MatP_5 (_states cm) k k) 6   --  32 us
-    [ bench "MP/cmp/ec/tbl/ec" $ whnf (\k -> stream_MP_MatP sts tbl k k) 6     -- 211 us
+    [ bench "MP/cmp/ec/ec"     $ whnf (\k -> stream_MP_MatP_5 (_states cm) k k) 6   --  32 us
+--    [ bench "MP/cmp/ec/tbl/ec" $ whnf (\k -> stream_MP_MatP sts tbl k k) 6     -- 211 us
     ]
 
