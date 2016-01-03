@@ -246,8 +246,8 @@ main = do
       !low  = mkStateIx0 sts
       !high = mkStateIxH sts
   seq cm . seq sts . seq tbl . seq low . seq high $ defaultMain
-    [ bench "E/eps"            $ whnf (\k -> stream_E_Epsilon sts k k) 6   --   3 us
-    , bench "MP/cmp/ec/tbl/ec" $ whnf (\k -> stream_MP_MatP sts tbl k k) 6     -- 211 us
-    , bench "MP + E"           $ whnf (\k -> stream_MP_E sts tbl k k) 6
+    [ bench "E/eps"            $ whnf (\k -> stream_E_Epsilon sts k k) 6      --      21 ns
+    , bench "MP/cmp/ec/tbl/ec" $ whnf (\k -> stream_MP_MatP sts tbl k k) 6    --  36 920 ns
+    , bench "MP + E"           $ whnf (\k -> stream_MP_E sts tbl k k) 6       --  36 160 ns
     ]
 
