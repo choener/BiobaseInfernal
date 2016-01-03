@@ -24,14 +24,17 @@ import Biobase.SElab.CM
 
 
 
-{-
 stream_E_Epsilon :: States -> Int -> Int -> IO Int
 stream_E_Epsilon m k l = (f <<< (M:|cme:|cme) % (M:|Epsilon:|Epsilon) ... h) (Z:.mkStateIx0 m:.mkStateIx0 m) (Z:.mkStateIxAt m k:.mkStateIxAt m l)
   where f _ _ = 424242
         h = S.foldl' max 232323
         cme = CMstate (Proxy :: Proxy '["E","EL"])    -- E==7, EL==9
+        {-# Inline f #-}
+        {-# Inline h #-}
+        {-# Inline cme #-}
 {-# NoInline stream_E_Epsilon #-}
 
+{-
 stream_MP_Epsilon :: States -> Int -> Int -> IO Int
 stream_MP_Epsilon m k l = (f <<< (M:|cme:|cme) % (M:|Epsilon:|Epsilon) ... h) (Z:.mkStateIx0 m:.mkStateIx0 m) (Z:.mkStateIxAt m k:.mkStateIxAt m l)
   where f _ _ = 424242
@@ -119,6 +122,7 @@ stream_MP_MatP_4 m k l = unId $ (f <<< (M:|cmp:|cmp) % tbl ... h) (Z:.mkStateIx0
 {-# NoInline stream_MP_MatP_4 #-}
 -}
 
+{-
 stream_MP_MatP_5 :: States -> Int -> Int -> Int
 stream_MP_MatP_5 m k l = unId $ (f <<< (M:|cmp:|cmp) % (M:|ec:|ec) % (M:|ec:|ec) ... h) (Z:.mkStateIxH m:.mkStateIxH m) (Z:.mkStateIxAt m k:.mkStateIxAt m l)
   where f c e1 e2 = seq c . seq e1 . seq e2 $ 424242
@@ -130,6 +134,7 @@ stream_MP_MatP_5 m k l = unId $ (f <<< (M:|cmp:|cmp) % (M:|ec:|ec) % (M:|ec:|ec)
         {-# Inline cmp #-}
         {-# Inline ec #-}
 {-# NoInline stream_MP_MatP_5 #-}
+-}
 
 {-
 stream_MP_MatP_6 :: States -> Int -> Int
@@ -171,6 +176,21 @@ stream_MP_MatP_7 m k l = unId $ (f <<< (M:|cmp:|cmp) % (M:|del:|del) ... h) (Z:.
 -}
 
 {-
+stream_MP_MatP_8 :: States -> Int -> Int -> Int
+stream_MP_MatP_8 m k l = unId $ (f <<< (M:|cmp:|cmp) % (M:|ec:|ec) % (M:|ec:|ec) % (M:|ec:|ec) ... h)
+                                (Z:.mkStateIxH m:.mkStateIxH m)
+                                (Z:.mkStateIxAt m k:.mkStateIxAt m l)
+  where f c (Z:.e11:.e12) (Z:.e21:.e22) (Z:.e31:.e32) = 424242
+        h = S.foldl' max (-232323)
+        cmp = cmstateMP
+        ec = EmitChar $ VU.fromList acgu
+        {-# Inline f #-}
+        {-# Inline h #-}
+        {-# Inline cmp #-}
+        {-# Inline ec #-}
+{-# NoInline stream_MP_MatP_8 #-}
+-}
+
 stream_MP_MatP :: States -> Unboxed (Z:.StateIx I :.StateIx I) Bitscore -> Int -> Int -> Int
 stream_MP_MatP m tbldata k l = unId $ (f <<< (M:|cmp:|cmp) % (M:|ec:|ec) % tbl % (M:|ec:|ec) ... h) (Z:.mkStateIxH m:.mkStateIxH m) (Z:.mkStateIxAt m k:.mkStateIxAt m l)
   where f !_ !_ !_ !_ = 424242
@@ -189,7 +209,32 @@ stream_MP_MatP m tbldata k l = unId $ (f <<< (M:|cmp:|cmp) % (M:|ec:|ec) % tbl %
         {-# Inline low #-}
         {-# Inline high #-}
 {-# NoInline stream_MP_MatP #-}
--}
+
+stream_MP_E :: States -> Unboxed (Z:.StateIx I :.StateIx I) Bitscore -> Int -> Int -> Int
+stream_MP_E m tbldata k l = unId $ (f_MP <<< (M:|cmp:|cmp) % (M:|ec:|ec) % tbl % (M:|ec:|ec) |||
+                                       f_E  <<< (M:|cme:|cme) % (M:|Epsilon:|Epsilon)           ... h
+                                      )
+                                      (Z:.mkStateIxH m:.mkStateIxH m)
+                                      (Z:.mkStateIxAt m k:.mkStateIxAt m l)
+  where f_MP !_ !_ !_ !_ = 424242
+        f_E  !_ !_ = 434343
+        h = S.foldl' max 232323
+        cmp = CMstate (Proxy :: Proxy '["MP"])    -- MP==1
+        cme = CMstate (Proxy :: Proxy '["E","EL"])    -- E==7, EL==9
+        ec = EmitChar $ VU.fromList acgu
+        tbl :: ITbl Id Unboxed (Z:.EmptyOk:.EmptyOk) (Z:.StateIx I :.StateIx I) Bitscore
+        tbl = ITbl 0 0 (Z:.EmptyOk:.EmptyOk) tbldata (\_ _ -> return 0 :: Id Bitscore)
+        low = mkStateIx0 m
+        high = mkStateIxH m
+        {-# Inline f_MP #-}
+        {-# Inline f_E #-}
+        {-# Inline cme #-}
+        {-# Inline cmp #-}
+        {-# Inline ec #-}
+        {-# Inline tbl #-}
+        {-# Inline low #-}
+        {-# Inline high #-}
+{-# NoInline stream_MP_E #-}
 
 
 
@@ -201,8 +246,8 @@ main = do
       !low  = mkStateIx0 sts
       !high = mkStateIxH sts
   seq cm . seq sts . seq tbl . seq low . seq high $ defaultMain
-    -- [ bench "MP/cmp/ec"        $ whnf (\k -> stream_MP_MatP_2 (_states cm) k k) 6   --   3 us
-    [ bench "MP/cmp/ec/ec"     $ whnf (\k -> stream_MP_MatP_5 (_states cm) k k) 6   --  32 us
---    [ bench "MP/cmp/ec/tbl/ec" $ whnf (\k -> stream_MP_MatP sts tbl k k) 6     -- 211 us
+    [ bench "E/eps"            $ whnf (\k -> stream_E_Epsilon sts k k) 6   --   3 us
+    , bench "MP/cmp/ec/tbl/ec" $ whnf (\k -> stream_MP_MatP sts tbl k k) 6     -- 211 us
+    , bench "MP + E"           $ whnf (\k -> stream_MP_E sts tbl k k) 6
     ]
 

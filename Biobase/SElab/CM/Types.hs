@@ -58,8 +58,8 @@ instance Default EValueParams where
 
 instance Binary    (EValueParams)
 instance Serialize (EValueParams)
-instance FromJSON  (EValueParams)
-instance ToJSON    (EValueParams)
+--instance FromJSON  (EValueParams)
+--instance ToJSON    (EValueParams)
 
 
 
@@ -78,10 +78,10 @@ pattern Root = NodeType 6
 pattern End  = NodeType 7
 
 instance Binary    NodeType
-instance FromJSON  NodeType
+--instance FromJSON  NodeType
 instance Hashable  NodeType
 instance Serialize NodeType
-instance ToJSON    NodeType
+--instance ToJSON    NodeType
 
 instance Show NodeType where
   show = \case
@@ -128,10 +128,10 @@ pattern B  = StateType 8
 pattern EL = StateType 9
 
 instance Binary    StateType
-instance FromJSON  StateType
+--instance FromJSON  StateType
 instance Hashable  StateType
 instance Serialize StateType
-instance ToJSON    StateType
+--instance ToJSON    StateType
 
 instance Show StateType where
   show = \case
@@ -199,8 +199,8 @@ instance Default State where
 
 instance Binary    (State)
 instance Serialize (State)
-instance FromJSON  (State)
-instance ToJSON    (State)
+--instance FromJSON  (State)
+--instance ToJSON    (State)
 
 emitsSingle :: StateType -> Bool
 emitsSingle s | s `elem` [ML,MR,IL,IR] = True
@@ -251,8 +251,8 @@ instance Default Node where
 
 instance Binary    (Node)
 instance Serialize (Node)
-instance FromJSON  (Node)
-instance ToJSON    (Node)
+--instance FromJSON  (Node)
+--instance ToJSON    (Node)
 
 
 
@@ -297,8 +297,8 @@ instance Default States where
 
 instance Binary    (States)
 instance Serialize (States)
-instance FromJSON  (States)
-instance ToJSON    (States)
+--instance FromJSON  (States)
+--instance ToJSON    (States)
 
 
 
@@ -391,6 +391,6 @@ instance Default CM where
 
 instance Binary    (CM)
 instance Serialize (CM)
-instance FromJSON  (CM)
-instance ToJSON    (CM)
+--instance FromJSON  (CM)
+--instance ToJSON    (CM)
 
