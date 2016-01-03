@@ -73,6 +73,10 @@ mkStateIxAt s k = StateIx (s^.sTransitions) (s^.sStateType) (PInt k)
 
 data instance RunningIndex (StateIx I) = RiSixI !(PInt () StateIndex) !Int
 
+instance NFData (RunningIndex (StateIx I)) where
+  rnf (RiSixI k c) = seq k $ seq c ()
+  {-# Inline rnf #-}
+
 instance Eq (StateIx t) where
   (StateIx _ _ x) == (StateIx _ _ y) = x == y
   {-# Inline (==) #-}
@@ -335,32 +339,32 @@ instance
     . termStream ts cs us is
 --    . filter (const adm)
     . staticCheck (admitState admit (styA!i))
-    where mk s = return $ (admitState admit (styA!i) :. s :. 0)
-          step (False :. _ :. _) = return $ Done
-          step (True  :. tstate@(TState s ii ee) :. c)
+    where mk s = return $ Just (s :. 0)
+          step Nothing = return $ Done
+          step (Just (tstate@(TState s ii ee) :. c))
             -- because this comes first, it will automatically remove all
             -- other branches!
             | admitPassThrough admit
             = let (_,trns) = styC!(Z:.i:.c)
               in  return $ Yield (TState s (ii:.:RiSixI i (-1)) (ee:.(i:.trns)))
-                                 (False :. tstate :. (-1))
+                                 Nothing
             -- if we @B@ranch, then the 2nd child is consumed by the static
             -- synvar!
             | admitState admit B {- && stya == B -}
             = let (styc,trns) = styC!(Z:.i:.c)
               in  return $ Yield (TState s (ii:.:RiSixI styc c) (ee:.(i:.trns)))
-                                 (False :. tstate :. (-1))
+                                 Nothing
             -- this state has no children! It is an @E@ or @EL@ state. We
             -- don't check on styc, because end states have none. We also
             -- try very, very hard to show that there is not next child
             -- here.
             | admitState admit E || admitState admit EL {- stya == E || stya == EL -}
             = return $ Yield (TState s (ii:.:RiSixI (-1) (-1)) (ee:.(i:.0)))
-                             (False :. tstate :. (-1))
+                             Nothing
             -- no more valid children left. Assumes that all valid children
             -- are stored consecutively.
             | (c>cmax || fst (styC!(Z:.i:.c)) < 0)
-            = return $ Done
+            = return Done
             -- this child was given a very bad transition score, we skip.
             -- TODO use a constant like 'verySmall', not this hardcoded
             -- thing.
@@ -371,7 +375,7 @@ instance
             | otherwise
             = do let !(!styc,!trns) = styC!(Z:.i:.c)
                  return $ Yield (TState s (ii:.:RiSixI styc c) (ee:.(i:.trns)))
-                                (True :. tstate :. c+1)
+                                (Just (tstate :. c+1))
             where (_,_:._:.(!cmax)) = bounds styC
 --            | otherwise = return $ Done
 --            where (!styc,!trns) = styC ! (Z:.i:.c)
@@ -437,7 +441,7 @@ instance
             = return $ Yield (TState s (ii:.:getIndex (getIdx s) (Proxy :: PRI is (StateIx I))) (ee:.VU.unsafeIndex xs k))
                              (tstate :. k-1)
             | otherwise
-            = return $! Done
+            = return $ Done
           {-# Inline [0] mk   #-}
           {-# Inline [0] step #-}
   {-# Inline termStream #-}
@@ -611,24 +615,17 @@ instance
 instance
   ( Monad m
   ) => MkStream m S (StateIx I) where
-  mkStream S (IStatic ()) (StateIx _ _ u) (StateIx cs ty i)
+  mkStream S _ (StateIx _ _ u) (StateIx cs ty i)
     = staticCheck (i >= 0 && i <= u)
-    . singleton . ElmS $! RiSixI i (-1)
-  mkStream S (IVariable ()) (StateIx _ _ u) (StateIx cs ty i)
-    = staticCheck (i >= 0 && i <= u)
-    . singleton . ElmS $! RiSixI i (-1)
+    . singleton . ElmS $ RiSixI i (-1)
   {-# Inline mkStream #-}
 
 instance
   ( Monad m
   , MkStream m S is
   ) => MkStream m S (is:.StateIx I) where
-  mkStream S (vs:.IStatic ()) (us:.StateIx _ _ u) (is:.StateIx c t i)
-    = map (\(ElmS !zi) -> ElmS $! zi :.: RiSixI i (-1))
-    . staticCheck (i >= 0 && i <= u)
-    $ mkStream S vs us is
-  mkStream S (vs:.IVariable ()) (us:.StateIx _ _ u) (is:.StateIx c t i)
-    = map (\(ElmS !zi) -> ElmS $! zi :.: RiSixI i (-1))
+  mkStream S (vs:._) (us:.StateIx _ _ u) (is:.StateIx c t i)
+    = map (\(ElmS zi) -> ElmS $ zi :.: RiSixI i (-1))
     . staticCheck (i >= 0 && i <= u)
     $ mkStream S vs us is
   {-# Inline mkStream #-}
