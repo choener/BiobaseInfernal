@@ -9,6 +9,7 @@ module Biobase.SElab.Types where
 
 import           Control.Applicative
 import           Control.Arrow ()
+import           Control.DeepSeq
 import           Data.Aeson
 import           Data.Binary
 import           Data.Hashable (Hashable)
@@ -34,6 +35,7 @@ instance FromJSON  (Identification t)
 instance Hashable  (Identification t)
 instance Serialize (Identification t)
 instance ToJSON    (Identification t)
+instance NFData    (Identification t)
 
 instance IsString (Identification t) where
   fromString = Identification . T.pack
@@ -50,6 +52,7 @@ instance FromJSON  Classification
 instance Hashable  Classification
 instance Serialize Classification
 instance ToJSON    Classification
+instance NFData    Classification
 
 instance IsString Classification where
   fromString = Classification . T.pack
