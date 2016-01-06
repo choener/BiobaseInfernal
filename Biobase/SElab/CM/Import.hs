@@ -14,19 +14,24 @@ import           Data.ByteString.Char8 (ByteString)
 import           Data.Conduit
 import           Data.Conduit.Attoparsec (conduitParserEither)
 import           Data.Conduit.Binary (sourceFile)
+import           Data.Conduit.Binary (sourceHandle)
 import           Data.Conduit.List (consume)
 import           Data.Conduit.Text (decodeUtf8)
+import           Data.Conduit.Zlib
 import           Data.Default
 import           Data.Text (unpack)
 import           Data.Vector.Generic (fromList,empty,toList)
+import           Data.Vector (Vector)
 import           Debug.Trace
 import qualified Data.Attoparsec.Text as AT
 import qualified Data.List as L
 import qualified Data.Text as T
+import           System.FilePath (takeExtension)
+import           System.IO (stdin)
 
 import           Biobase.Primary.Letter
 import           Biobase.Primary.Nuc.RNA
-import           Biobase.Types.Accession (Accession(Accession))
+import           Biobase.Types.Accession (Accession(Accession),Rfam)
 import           Data.PrimitiveArray hiding (fromList,map,toList)
 
 import           Biobase.SElab.Bitscore
@@ -54,7 +59,8 @@ import qualified Biobase.SElab.HMM.Types as HMM
 conduitCM :: (Monad m, MonadIO m, MonadThrow m) => Conduit ByteString m CM
 conduitCM = decodeUtf8 =$= conduitParserEither (parseCM <?> "CM parser") =$= awaitForever (either (error . show) (yield . snd))
 
--- | Parser for covariance models (CMs).
+-- | Parser for covariance models (CMs). Will switch to specialized parsing
+-- depending on the model version.
 
 parseCM :: AT.Parser CM
 parseCM = do
@@ -62,12 +68,23 @@ parseCM = do
   let cm' = version .~ v $ def
   ls <- manyTill cmHeader ("CM" <|> "MODEL:")
   let cm = L.foldl' (\a l -> l a) cm' ls
-  ns' <- manyTill node "//"
---  error $ take 10000 $ show $ filter (\n -> n^.sType == MP) $ ns'^..folded._2.folded
-  let maxState = maximum $ ns' ^.. folded . _2 . folded . sid
-  let ns = fromList [ n & nstates .~ (fromList $ map (view sid) ss) | (n,ss) <- ns' ]
+  nss <- case v of
+          -- parsing of 1.x versions
+          (vv,_) | "1."  `T.isPrefixOf` vv -> manyTill node1x "//"
+          (vv,_) | "0.7" `T.isPrefixOf` vv -> manyTill node07 "//"
+          err -> error $ show err
   AT.try AT.endOfLine
   cmhmm <- parseHMM <|> pure def  -- if there is no HMM, then return an empty one
+  buildCM nss cm cmhmm
+
+-- | We have all the parts, just need to fill up the optimized 'States'
+-- data structure.
+
+buildCM :: [(Node,[State])] -> CM -> HMM Rfam -> AT.Parser CM
+buildCM nss cm cmhmm = do
+  let maxState = maximum $ nss ^.. folded . _2 . folded . sid
+  let ss = nss^..folded._2.folded
+  let ns = fromList [ n & nstates .~ (fromList $ map (view sid) ss) | (n,ss) <- nss ]
   return
     $ set states States
         { _sTransitions     = fromAssocs (Z:.0:.0) (Z:.maxState:.5) (-1,def)
@@ -75,12 +92,12 @@ parseCM = do
                                                                        | (i,e) <- if s^.sType == B then map (,0) (s^.sChildren)
                                                                                                    else zip (s^.sChildren) (toList $ s^.transitions)
                                                 ])
-                            $ ns'^..folded._2.folded
+                            $ ss
         , _sPairEmissions   = fromAssocs (Z:.0:.A:.A) (Z:.maxState:.U:.U) def
-                            . concatMap (\s -> [((Z:.s^.sid:.n1:.n2),e) | emitsPair (s^.sType), ((n1,n2),e) <- zip ((,) <$> acgu <*> acgu) (toList $ s^.emissions)]) $ ns'^..folded._2.folded
+                            . concatMap (\s -> [((Z:.s^.sid:.n1:.n2),e) | emitsPair (s^.sType), ((n1,n2),e) <- zip ((,) <$> acgu <*> acgu) (toList $ s^.emissions)]) $ ss
         , _sSingleEmissions = fromAssocs (Z:.0:.A) (Z:.maxState:.U) def
-                            . concatMap (\s -> [((Z:.s^.sid:.nt),e) | emitsSingle (s^.sType), (nt,e) <- zip acgu (toList $ s^.emissions)] ) $ ns' ^.. folded . _2 . folded
-        , _sStateType       = fromAssocs 0 maxState (StateType $ -1) . map ((,) <$> view sid <*> view sType) $ ns' ^.. folded . _2 . folded
+                            . concatMap (\s -> [((Z:.s^.sid:.nt),e) | emitsSingle (s^.sType), (nt,e) <- zip acgu (toList $ s^.emissions)] ) $ ss
+        , _sStateType       = fromAssocs 0 maxState (StateType $ -1) . map ((,) <$> view sid <*> view sType) $ ss
         }
     $ set hmm cmhmm
     $ set nodes ns
@@ -89,7 +106,7 @@ parseCM = do
 acceptedVersion :: AT.Parser (T.Text,T.Text)
 acceptedVersion = (new <?> "new") <|> (old <?> "old") <?> "version"
   where new = (,) <$ "INFERNAL1/a [" <*> (AT.takeTill (=='|') <?> "x-|") <*> (eolS <?> "|->")
-        old = (,"") <$ "INFERNAL-1" <*> eolS
+        old = (,"") <$ "INFERNAL-1 [" <*> (AT.takeTill (==']')) <* eolS
 
 -- | Parse CM header information.
 --
@@ -136,39 +153,64 @@ cmHeader = AT.choice
 
 -- | Parse a node together with the attached states.
 
-node :: AT.Parser (Node, [State])
-node = (,) <$> ((aNodeNew <?> "new") <|> (aNodeOld <?> "old")) <*> AT.many1 aState <?> "node" where
-  aNodeNew =   Node empty <$ AT.skipSpace <* ("[ " <?> "[ ") <*> anType <*> (ssN <?> "node ID") <* AT.skipSpace <* "]"
-           <*> (ssN_ <?> "mapL") <*> (ssN_ <?> "mapR") <*> (ssC <?> "consL") <*> (ssC <?> "consR") <*> (ssC <?> "rfL") <*> (eolC <?> "rfR") <?> "aNode"
-  aNodeOld =   (\x y -> Node empty x y 0 0 '-' '-' '-' '-') <$ AT.skipSpace <* ("[ " <?> "[ ") <*> anType <*> (ssN <?> "node ID") <* AT.skipSpace <* "]"
-  anType :: AT.Parser NodeType
-  anType = AT.choice [ Bif  <$ "BIF" , MatP <$ "MATP", MatL <$ "MATL", MatR <$ "MATR"
-                     , BegL <$ "BEGL", BegR <$ "BEGR", Root <$ "ROOT", End  <$ "END" ] <?> "anType"
-  aState = do AT.skipSpace
-              _sType     <- asType <?> "asType"
-              _sid       <- ssN
-              _sParents  <- (,) <$> ssZ <*> ssN
-              (c1,c2)    <- (,) <$> ssZ <*> ssN
-              let _sChildren = if _sType==B then [ PInt c1 , PInt c2 ]
-                                            else take c2 [ PInt c1 .. ]
-              _sqdb      <- (,,,) <$> ssN <*> ssN <*> ssN <*> ssN
-              _transitions <- if | _sType==B  -> pure empty
-                                 | otherwise  -> fromList <$> AT.count c2 (Bitscore <$> ssD')
-              _emissions   <- if | _sType==MP -> fromList <$> AT.count 16 (Bitscore <$> ssD)
-                                 | _sType `elem` [ML,MR,IL,IR] -> fromList <$> AT.count 4 (Bitscore <$> ssD)
-                                 | otherwise -> pure empty
-              eolS
-              return State{..}
-  asType :: AT.Parser StateType
-  asType = AT.choice [ D  <$ "D" , MP <$ "MP", ML <$ "ML", MR <$ "MR"
-                     , IL <$ "IL", IR <$ "IR", S  <$ "S" , E  <$ "E" , B <$ "B" ]
+node1x :: AT.Parser (Node, [State])
+node1x = (,) <$> aNode <*> AT.many1 (aState True) <?> "node1x" where
+  aNode =   Node empty <$ AT.skipSpace <* ("[ " <?> "[ ") <*> anType <*> (ssN <?> "node ID") <* AT.skipSpace <* "]"
+        <*> (ssN_ <?> "mapL") <*> (ssN_ <?> "mapR") <*> (ssC <?> "consL") <*> (ssC <?> "consR") <*> (ssC <?> "rfL") <*> (eolC <?> "rfR") <?> "aNode"
 
--- | Read a list of CMs from a given filename.
+node07 :: AT.Parser (Node, [State])
+node07 = (,) <$> aNode <*> AT.many1 (aState False) <?> "node07" where
+  aNode = (\x y -> Node empty x y 0 0 '-' '-' '-' '-') <$ AT.skipSpace <* ("[ " <?> "[ ") <*> anType <*> (ssN <?> "node ID") <* AT.skipSpace <* "]"
+
+-- | Parse the node type
+
+anType :: AT.Parser NodeType
+anType = AT.choice [ Bif  <$ "BIF" , MatP <$ "MATP", MatL <$ "MATL", MatR <$ "MATR"
+                   , BegL <$ "BEGL", BegR <$ "BEGR", Root <$ "ROOT", End  <$ "END" ] <?> "anType"
+
+-- | Parsing of states.
+
+aState
+  :: Bool             -- ^ Control if the four QDB parameters are present. Currently 'node1x' will parse those, 'node07' won't.
+  -> AT.Parser State
+aState parseQDB = do
+  AT.skipSpace
+  _sType     <- asType <?> "asType"
+  _sid       <- ssN
+  _sParents  <- (,) <$> ssZ <*> ssN
+  (c1,c2)    <- (,) <$> ssZ <*> ssN
+  let _sChildren = if _sType==B then [ PInt c1 , PInt c2 ]
+                                else take c2 [ PInt c1 .. ]
+  _sqdb      <- if parseQDB
+                then (,,,) <$> ssN <*> ssN <*> ssN <*> ssN
+                else pure (-1,-1,-1,-1)
+  _transitions <- if | _sType==B  -> pure empty
+                     | otherwise  -> fromList <$> AT.count c2 (Bitscore <$> ssD')
+  _emissions   <- if | _sType==MP -> fromList <$> AT.count 16 (Bitscore <$> ssD)
+                     | _sType `elem` [ML,MR,IL,IR] -> fromList <$> AT.count 4 (Bitscore <$> ssD)
+                     | otherwise -> pure empty
+  eolS
+  return State{..}
+
+-- | Type of the state
+
+asType :: AT.Parser StateType
+asType = AT.choice [ D  <$ "D" , MP <$ "MP", ML <$ "ML", MR <$ "MR"
+                   , IL <$ "IL", IR <$ "IR", S  <$ "S" , E  <$ "E" , B <$ "B" ]
+
+-- | Read a list of CMs from a given filename. The special filename @-@
+-- reads from @stdin@, while a suffix ending in @.gz@ will pipe through
+-- @ungzip@ before parsing the contents.
 
 fromFile :: FilePath -> IO [CM]
-fromFile fp = runResourceT $ sourceFile fp $= conduitCM $$ consume
+fromFile fp
+  | fp == "-"                 = runResourceT $ sourceHandle stdin $=           conduitCM $$ consume
+  | takeExtension fp == ".gz" = runResourceT $ sourceFile fp      $= ungzip $= conduitCM $$ consume
+  | otherwise                 = runResourceT $ sourceFile fp      $=           conduitCM $$ consume
 
 test = do
-  cms <- fromFile "tests/test11.cm"
-  forM_ cms $ \cm -> do
+  cms11 <- fromFile "tests/test11.cm"
+  cms07 <- fromFile "rebecca-kirsch/split_split_chr3L_289_0.maf.gz.fa.cm.h1.3.h2.5"
+  forM_ cms11 $ \cm -> do
     print $ cm ^. unknownLines
+

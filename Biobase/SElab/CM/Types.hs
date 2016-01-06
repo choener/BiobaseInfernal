@@ -3,6 +3,7 @@
 
 module Biobase.SElab.CM.Types where
 
+import           Control.DeepSeq
 import           Control.Lens
 import           Data.Aeson (FromJSON,ToJSON)
 import           Data.Binary (Binary)
@@ -56,10 +57,12 @@ instance Default EValueParams where
     , _tailFit = 0
     }
 
-instance Binary    (EValueParams)
-instance Serialize (EValueParams)
---instance FromJSON  (EValueParams)
---instance ToJSON    (EValueParams)
+instance Binary    EValueParams
+instance Serialize EValueParams
+instance FromJSON  EValueParams
+instance ToJSON    EValueParams
+instance NFData    EValueParams
+instance Hashable  EValueParams
 
 
 
@@ -78,10 +81,11 @@ pattern Root = NodeType 6
 pattern End  = NodeType 7
 
 instance Binary    NodeType
---instance FromJSON  NodeType
+instance FromJSON  NodeType
 instance Hashable  NodeType
 instance Serialize NodeType
---instance ToJSON    NodeType
+instance ToJSON    NodeType
+instance NFData    NodeType
 
 instance Show NodeType where
   show = \case
@@ -128,10 +132,11 @@ pattern B  = StateType 8
 pattern EL = StateType 9
 
 instance Binary    StateType
---instance FromJSON  StateType
+instance FromJSON  StateType
 instance Hashable  StateType
 instance Serialize StateType
---instance ToJSON    StateType
+instance ToJSON    StateType
+instance NFData    StateType
 
 instance Show StateType where
   show = \case
@@ -166,6 +171,14 @@ instance Read StateType where
 derivingUnbox "StateType"
   [t| StateType -> Int |] [| \(StateType s) -> s |] [| StateType |]
 
+emitsSingle :: StateType -> Bool
+emitsSingle s | s `elem` [ML,MR,IL,IR] = True
+              | otherwise              = False
+{-# Inline emitsSingle #-}
+
+emitsPair = (==) MP
+{-# Inline emitsPair #-}
+
 
 
 data StateIndex
@@ -197,16 +210,11 @@ instance Default State where
     , _emissions    = empty
     }
 
-instance Binary    (State)
-instance Serialize (State)
---instance FromJSON  (State)
---instance ToJSON    (State)
-
-emitsSingle :: StateType -> Bool
-emitsSingle s | s `elem` [ML,MR,IL,IR] = True
-              | otherwise              = False
-
-emitsPair = (==) MP
+instance Binary    State
+instance Serialize State
+instance FromJSON  State
+instance ToJSON    State
+instance NFData    State
 
 
 
@@ -249,10 +257,11 @@ instance Default Node where
     }
   {-# Inline def #-}
 
-instance Binary    (Node)
-instance Serialize (Node)
---instance FromJSON  (Node)
---instance ToJSON    (Node)
+instance Binary    Node
+instance Serialize Node
+instance FromJSON  Node
+instance ToJSON    Node
+instance NFData    Node
 
 
 
@@ -295,10 +304,11 @@ instance Default States where
     , _sStateType       = fromAssocs 0            0            (StateType $ -1)  []
     }
 
-instance Binary    (States)
-instance Serialize (States)
---instance FromJSON  (States)
---instance ToJSON    (States)
+instance Binary    States
+instance Serialize States
+instance FromJSON  States
+instance ToJSON    States
+instance NFData    States
 
 
 
@@ -389,8 +399,9 @@ instance Default CM where
     , _unknownLines   = def
     }
 
-instance Binary    (CM)
-instance Serialize (CM)
---instance FromJSON  (CM)
---instance ToJSON    (CM)
+instance Binary    CM
+instance Serialize CM
+instance FromJSON  CM
+instance ToJSON    CM
+instance NFData    CM
 

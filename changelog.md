@@ -1,4 +1,10 @@
+0.8.1.0
+-------
+
+- parse CM files with version 0.7 as well
+
 0.8.0.0
+-------
 
 - updated travis file to use stack
 

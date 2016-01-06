@@ -4,6 +4,7 @@
 
 module Biobase.SElab.HMM.Types where
 
+import Control.DeepSeq
 import Control.Lens
 import Data.Aeson (FromJSON,ToJSON)
 import Data.Binary (Binary)
@@ -107,4 +108,5 @@ instance Binary    (HMM xfam)
 instance Serialize (HMM xfam)
 instance FromJSON  (HMM xfam)
 instance ToJSON    (HMM xfam)
+instance NFData    (HMM xfam)
 

@@ -1,18 +1,19 @@
 
 module Biobase.SElab.Bitscore where
 
+import           Control.DeepSeq
+import           Data.Aeson
+import           Data.Binary
 import           Data.Default
+import           Data.Hashable (Hashable)
 import           Data.Primitive.Types
+import           Data.Serialize
+import           Data.Vector.Unboxed.Base
+import           Data.Vector.Unboxed.Deriving
+import           GHC.Generics (Generic)
 import qualified Data.Vector.Generic as VG
 import qualified Data.Vector.Generic.Mutable as VGM
 import qualified Data.Vector.Unboxed as VU
-import           Data.Vector.Unboxed.Base
-import           Data.Vector.Unboxed.Deriving
-import           Data.Aeson
-import           Data.Binary
-import           Data.Hashable (Hashable)
-import           Data.Serialize
-import           GHC.Generics (Generic)
 
 import           Biobase.Types.NumericalExtremes
 
@@ -37,6 +38,7 @@ instance FromJSON  Bitscore
 instance Hashable  Bitscore
 instance Serialize Bitscore
 instance ToJSON    Bitscore
+instance NFData    Bitscore
 
 derivingUnbox "Bitscore"
   [t| Bitscore -> Double |] [| getBitscore |] [| Bitscore |]

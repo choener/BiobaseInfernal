@@ -3,7 +3,10 @@
 # BiobaseInfernal
 
 Low-level handling of Infernal file formats. Appropriate efficient Haskell data
-structures.
+structures for high-performance computations with Infernal covariance models.
+
+In particular, the *_states* structure provides a numerics-friendly interface
+to the actual model.
 
 
 
