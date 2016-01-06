@@ -427,7 +427,7 @@ instance
   ) => TermStream m (TermSymbol ts (EmitChar c)) s (is:.StateIx I) where
   termStream (ts:|EmitChar xs) (cs:._) (us:.u) (is:.ix)
     = flatten mk step . termStream ts cs us is
-    where mk tstate = return (tstate :. length xs -1)
+    where mk tstate = return (tstate :. VG.length xs -1)
           step (tstate@(TState s ii ee) :. k)
             | k >= 0
             = return $ Yield (TState s (ii:.:getIndex (getIdx s) (Proxy :: PRI is (StateIx I))) (ee:.VU.unsafeIndex xs k))
