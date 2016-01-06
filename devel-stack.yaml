@@ -21,7 +21,7 @@ extra-deps:
 - aeson-0.10.0.0
 - attoparsec-0.13.0.1
 - bimaps-0.0.0.4
-- BiobaseTypes-0.1.1.1
+- BiobaseTypes-0.1.2.0
 - BiobaseXNA-0.9.2.1
 - cereal-text-0.1.0.1
 - OrderedBits-0.0.1.0
