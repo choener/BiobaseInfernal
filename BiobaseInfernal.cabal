@@ -11,7 +11,7 @@ license-file:   LICENSE
 build-type:     Simple
 stability:      experimental
 cabal-version:  >= 1.10.0
-tested-with:    GHC == 7.8.4, GHC == 7.10.2
+tested-with:    GHC == 7.8.4, GHC == 7.10.3
 synopsis:       Infernal data structures and tools
 description:
                 Provides import and export facilities for Infernal/Rfam data
@@ -51,7 +51,7 @@ library
                , deepseq              >= 1.4      && < 1.5
                , filepath             >= 1.3      && < 1.5
                , hashable             >= 1.2      && < 1.3
-               , lens                 >= 4.0      && < 4.13
+               , lens                 >= 4.0      && < 5.0
                , primitive            >= 0.5      && < 0.7
                , PrimitiveArray       >= 0.6.1.1  && < 0.7.1
                , resourcet            >= 1.1      && < 1.2
@@ -64,7 +64,6 @@ library
                , vector-th-unbox      >= 0.2      && < 0.3
 
   exposed-modules:
-    Biobase.SElab.Bitscore
     Biobase.SElab.CM
     Biobase.SElab.CM.ADP.Fusion
     Biobase.SElab.CM.Import
@@ -73,7 +72,7 @@ library
     Biobase.SElab.HMM
     Biobase.SElab.HMM.Import
     Biobase.SElab.HMM.Types
-    Biobase.SElab.Types
+--    Biobase.SElab.Types
 -- -- --    Biobase.Infernal.Align
 -- -- --    Biobase.Infernal.Align.Import
 -- -- --    Biobase.Infernal.Clan

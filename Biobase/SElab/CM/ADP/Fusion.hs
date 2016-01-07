@@ -23,11 +23,11 @@ import qualified Data.Vector.Unboxed as VU
 
 import           ADP.Fusion
 import           ADP.Fusion.SynVar.Indices
+import           Biobase.Types.Bitscore
 import           Biobase.Types.NumericalExtremes
 import           Data.PrimitiveArray hiding (map, unsafeIndex)
 import qualified Data.PrimitiveArray as PA
 
-import           Biobase.SElab.Bitscore
 import           Biobase.SElab.CM.Types hiding (S)
 import qualified Biobase.SElab.CM.Types as T
 

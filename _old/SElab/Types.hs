@@ -2,8 +2,6 @@
 -- | Infernal Stockholm files and covariance models, and other related files
 -- use a bunch of different identifiers. We provide newtypes for more type
 -- safety.
---
--- TODO Use (Bio.Core.Sequence.Offset) instead of Int for sequence info
 
 module Biobase.SElab.Types where
 
@@ -56,6 +54,4 @@ instance NFData    Classification
 
 instance IsString Classification where
   fromString = Classification . T.pack
-
-
 

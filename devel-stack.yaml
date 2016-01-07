@@ -24,11 +24,13 @@ extra-deps:
 - BiobaseTypes-0.1.2.0
 - BiobaseXNA-0.9.2.1
 - cereal-text-0.1.0.1
+- OneTuple-0.2.1
 - OrderedBits-0.0.1.0
 - PrimitiveArray-0.7.0.0
 - safecopy-0.8.6
 - storable-record-0.0.3
 - storable-tuple-0.0.2
+- tuple-0.3.0.2
 - utility-ht-0.0.11
 - vector-0.11.0.0
 

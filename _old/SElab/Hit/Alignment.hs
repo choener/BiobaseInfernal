@@ -21,12 +21,12 @@ import qualified Data.Vector.Unboxed as VU
 
 
 data Column = Column
-            { _notCanBP  ::                !Bool
-            , _structure :: {-# UNPACK #-} !Char
-            , _queryCons :: {-# UNPACK #-} !Char
-            , _fit       :: {-# UNPACK #-} !Char
-            , _target    :: {-# UNPACK #-} !Char
-            , _posterior :: {-# UNPACK #-} !Char
+            { _notCanBP  :: !Bool
+            , _structure :: !Char
+            , _queryCons :: !Char
+            , _fit       :: !Char
+            , _target    :: !Char
+            , _posterior :: !Char
             }
             deriving (Eq,Show,Generic)
 

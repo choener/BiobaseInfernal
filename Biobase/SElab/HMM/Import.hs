@@ -35,14 +35,13 @@ import qualified Data.Vector.Unboxed as VU
 import           System.FilePath (takeExtension)
 import           Data.Sequence ((|>))
 
-import           Biobase.Types.Accession (Accession(..))
-import           Data.PrimitiveArray as PA hiding (map)
 import           Biobase.Primary
+import           Biobase.Types.Accession (Accession(..))
+import           Biobase.Types.Bitscore
+import           Data.PrimitiveArray as PA hiding (map)
 
-import           Biobase.SElab.Bitscore
 import           Biobase.SElab.Common.Parser
 import           Biobase.SElab.HMM.Types
-import           Biobase.SElab.Types
 
 
 

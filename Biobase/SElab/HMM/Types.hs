@@ -19,9 +19,8 @@ import GHC.Generics (Generic)
 
 import Biobase.Primary
 import Biobase.Types.Accession
+import Biobase.Types.Bitscore
 import Data.PrimitiveArray
-
-import Biobase.SElab.Bitscore
 
 
 

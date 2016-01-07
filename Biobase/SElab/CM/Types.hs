@@ -24,23 +24,22 @@ import           Text.Read
 import           Biobase.Primary.Letter
 import           Biobase.Primary.Nuc.RNA
 import           Biobase.Types.Accession
+import           Biobase.Types.Bitscore
 import           Data.PrimitiveArray
 
-import           Biobase.SElab.Bitscore
 import           Biobase.SElab.HMM.Types (HMM)
-import           Biobase.SElab.Types
 
 
 
 -- | Extended CM information to calculate e-values
 
 data EValueParams = EValueParams
-  { _lambda  :: Double  -- ^ λ>0 (lambda, slope) for exponential tails for local scores
-  , _tau     :: Double  -- ^ τ (tau, location) for exponential tails for local scores
-  , _tau2    :: Double  -- ^ τ2 (tau, location again) for full histogram of all hits
-  , _dbSize  :: Int     -- ^ database size in residues
-  , _numHits :: Int     -- ^ total number of non-overlapping hits
-  , _tailFit :: Double  -- ^ high-scoring tail fit
+  { _lambda  :: !Double  -- ^ λ>0 (lambda, slope) for exponential tails for local scores
+  , _tau     :: !Double  -- ^ τ (tau, location) for exponential tails for local scores
+  , _tau2    :: !Double  -- ^ τ2 (tau, location again) for full histogram of all hits
+  , _dbSize  :: !Int     -- ^ database size in residues
+  , _numHits :: !Int     -- ^ total number of non-overlapping hits
+  , _tailFit :: !Double  -- ^ high-scoring tail fit
   }
   deriving (Eq,Show,Read,Generic)
 

@@ -32,14 +32,13 @@ import           System.IO (stdin)
 import           Biobase.Primary.Letter
 import           Biobase.Primary.Nuc.RNA
 import           Biobase.Types.Accession (Accession(Accession),Rfam)
+import           Biobase.Types.Bitscore
 import           Data.PrimitiveArray hiding (fromList,map,toList)
 
-import           Biobase.SElab.Bitscore
 import           Biobase.SElab.CM.Types
 import           Biobase.SElab.Common.Parser
 import           Biobase.SElab.HMM.Import (parseHMM)
 import           Biobase.SElab.HMM.Types (HMM)
-import           Biobase.SElab.Types
 import qualified Biobase.SElab.CM.Types as CM
 import qualified Biobase.SElab.HMM.Types as HMM
 
