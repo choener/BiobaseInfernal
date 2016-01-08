@@ -13,6 +13,7 @@ import           Data.Attoparsec.Text.Lazy as AT
 import           Data.Char (isDigit)
 import           Data.HashMap.Strict (HashMap)
 import           Data.List (foldl')
+import           Data.Stringable (fromText)
 import           Data.Text.Lazy.Encoding (decodeUtf8)
 import           Data.Text.Lazy.IO as TL
 import           Data.Text (Text)
@@ -24,6 +25,7 @@ import qualified Data.Text.Lazy as TL
 import           System.FilePath (takeExtension)
 
 import Biobase.Types.Accession (Accession(..),Species)
+import Biobase.Types.Names
 import Biobase.Types.Taxonomy
 
 
@@ -36,9 +38,9 @@ parseTaxon :: Parser Taxon
 parseTaxon = do
   accession <- Accession <$> takeWhile1 isDigit <?> "accession"
   skipSpace <?> "1st space"
-  species <- takeWhile1 (/='\t') <?> "species"
+  species <- speciesName <$> takeWhile1 (/='\t') <?> "species"
   skipSpace <?> "2nd space"
-  classification <- (fromList . map (,Unknown)) <$> takeWhile1 (\z -> z/=';' && z/='.') `sepBy` "; " <?> "classification"
+  classification <- (fromList . map (,Unknown) . map fromText) <$> takeWhile1 (\z -> z/=';' && z/='.') `sepBy` "; " <?> "classification"
   unknowns <- manyTill anyChar (endOfInput <|> endOfLine)
   return $ Taxon {..}
 
@@ -46,7 +48,7 @@ parseTaxon = do
 -- from @Accession@ to @Taxon@, the second from species name to @Taxon@.
 
 type Taxonomy = ( HashMap (Accession Species) Taxon   -- ^ find @Taxon@ via accession number
-                , HashMap Text                Taxon   -- ^ find @Taxon@ via species name
+                , HashMap SpeciesName         Taxon   -- ^ find @Taxon@ via species name
                 )
 
 -- | Parses the taxonomy.txt file.
