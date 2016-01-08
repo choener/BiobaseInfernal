@@ -76,34 +76,6 @@ library
     Biobase.SElab.HMM.Types
     Biobase.SElab.Taxonomy
     Biobase.SElab.Taxonomy.Import
---    Biobase.SElab.Types
--- -- --    Biobase.Infernal.Align
--- -- --    Biobase.Infernal.Align.Import
--- -- --    Biobase.Infernal.Clan
--- -- --    Biobase.Infernal.Clan.Import
--- -- --    Biobase.Infernal.Hit
--- -- --    Biobase.Infernal.RfamFasta
--- -- --    Biobase.Infernal.RfamFasta.Import
--- -- --    Biobase.Infernal.TabularHit
--- -- --    Biobase.Infernal.TabularHit.Import
--- -- --    Biobase.Infernal.VerboseHit
--- -- --    Biobase.Infernal.VerboseHit.Export
--- -- --    Biobase.Infernal.VerboseHit.Import
--- -- --    Biobase.Infernal.VerboseHit.Internal
---     Biobase.SElab
---     Biobase.SElab.ADPfusion
---     Biobase.SElab.CM
--- --    Biobase.SElab.CM.Export
---     Biobase.SElab.CM.Import
---     Biobase.SElab.Hit
---     Biobase.SElab.Hit.Alignment
---     Biobase.SElab.Hit.Hit
---     Biobase.SElab.Hit.ScanIO
---     Biobase.SElab.Hit.SearchIO
---     Biobase.SElab.HMM.Export
---     Biobase.SElab.RfamNames
--- --     Biobase.SElab.RfamNames.Import
--- --    Biobase.SElab.UnsafeNumeric
   default-language:
     Haskell2010
   default-extensions: BangPatterns

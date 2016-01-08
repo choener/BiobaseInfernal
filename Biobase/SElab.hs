@@ -17,7 +17,9 @@ module Biobase.SElab
 
 import Biobase.SElab.Bitscore
 import Biobase.SElab.CM
+import Biobase.SElab.CM.ADP.Fusion
 import Biobase.SElab.CM.Import
 import Biobase.SElab.Hit
 import Biobase.SElab.HMM
 import Biobase.SElab.HMM.Import
+import Biobase.SElab.Taxonomy
