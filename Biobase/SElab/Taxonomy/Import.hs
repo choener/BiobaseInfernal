@@ -1,63 +1,68 @@
-{-# LANGUAGE FlexibleContexts #-}
-{-# LANGUAGE NoMonomorphismRestriction #-}
-{-# LANGUAGE BangPatterns #-}
 
--- | Iteratee-based importer. Provides a simple "fromFile" function that
--- produces both maps in one pass.
+-- | Import an Rfam @taxonomy.txt@ file. Provides a simple "fromFile"
+-- function that produces both maps in one pass. @fromFile@ will check the
+-- file suffix and on @.gz@ suffixes decompress the input on-the-fly.
 
 module Biobase.SElab.Taxonomy.Import where
 
-import Control.Applicative
-import Control.Lens
-import Data.Attoparsec as A hiding (parse)
-import Data.Attoparsec.Char8 (char,decimal)
-import Data.ByteString.Char8 as BS
-import Data.Conduit as C
-import Data.Conduit.Attoparsec
-import Data.Conduit.Binary as CB
-import Data.Conduit.List as CL
-import Data.Conduit.Util as C
-import Data.Either.Unwrap as E
-import Data.List as L
-import Data.Map as M
-import qualified Data.Attoparsec.ByteString as AB hiding (parse)
-import qualified Data.Attoparsec.Char8 as A8
+import           Codec.Compression.GZip (decompress)
+import           Control.Applicative ((<|>))
+import           Control.Arrow (second)
+import           Control.Monad
+import           Data.Attoparsec.Text.Lazy as AT
+import           Data.Char (isDigit)
+import           Data.HashMap.Strict (HashMap)
+import           Data.List (foldl')
+import           Data.Text.Lazy.Encoding (decodeUtf8)
+import           Data.Text.Lazy.IO as TL
+import           Data.Text (Text)
+import           Data.Vector (fromList)
+import qualified Data.ByteString.Lazy as BL
+import qualified Data.HashMap.Strict as HM
+import qualified Data.Text as T
+import qualified Data.Text.Lazy as TL
+import           System.FilePath (takeExtension)
 
-import Biobase.SElab.Taxonomy
-import Biobase.SElab.Types
+import Biobase.Types.Accession (Accession(..),Species)
+import Biobase.Types.Taxonomy
 
 
 
-parse =  CB.lines
-      =$ CL.map (parseOnly mkTaxonomy)
-      =$ CL.filter isRight
-      =$ CL.map fromRight
-      =$ C.zipSinks mapIdTaxonomy mapAcTaxonomy
-{-# INLINE parse #-}
+-- | Parse a single Taxon line.
+--
+-- TODO there are unknown words at the end of each line. make those known
 
-mkTaxonomy :: Parser Taxonomy
-mkTaxonomy = f <$> ptaxid <* tab <*> pname <* tab <*> takeByteString where
-  f k n xs = let
-               cs = L.map (Classification . copy . BS.dropWhile (==' ')) . BS.split ';' . BS.init $ xs
-             in Taxonomy (ACC k) (IDD $ copy n) cs
-  ptaxid   = decimal
-  pname    = A8.takeWhile (/='\t')
-  tab      = char '\t'
-{-# INLINE mkTaxonomy #-}
+parseTaxon :: Parser Taxon
+parseTaxon = do
+  accession <- Accession <$> takeWhile1 isDigit <?> "accession"
+  skipSpace <?> "1st space"
+  species <- takeWhile1 (/='\t') <?> "species"
+  skipSpace <?> "2nd space"
+  classification <- (fromList . map (,Unknown)) <$> takeWhile1 (\z -> z/=';' && z/='.') `sepBy` "; " <?> "classification"
+  unknowns <- manyTill anyChar (endOfInput <|> endOfLine)
+  return $ Taxon {..}
 
-mapIdTaxonomy :: Monad m => GSink Taxonomy m (M.Map (Identification Species) Taxonomy)
-mapIdTaxonomy = CL.fold f M.empty where
-  f !mp x = M.insert (x ^. name) x mp
-{-# INLINE mapIdTaxonomy #-}
+-- | Taxonomy according to @Infernal@ stored in two hashmaps. The first
+-- from @Accession@ to @Taxon@, the second from species name to @Taxon@.
 
-mapAcTaxonomy :: Monad m => GSink Taxonomy m (M.Map (Accession Species) Taxonomy)
-mapAcTaxonomy = CL.fold f M.empty where
-  f !mp x = M.insert (x ^. accession) x mp
-{-# INLINE mapAcTaxonomy #-}
+type Taxonomy = ( HashMap (Accession Species) Taxon   -- ^ find @Taxon@ via accession number
+                , HashMap Text                Taxon   -- ^ find @Taxon@ via species name
+                )
 
-fromFile :: String -> IO ( Map (Identification Species) Taxonomy
-                         , Map (Accession Species) Taxonomy
-                         )
-fromFile fname = do
-  runResourceT $ CB.sourceFile fname $$ parse
-{-# NOINLINE fromFile #-}
+-- | Parses the taxonomy.txt file.
+
+parseTaxonomy :: Parser Taxonomy
+parseTaxonomy = foldl' go (HM.empty , HM.empty) <$> manyTill parseTaxon endOfInput
+  where go (!a, !s) x = (HM.insert (accession x) x a, HM.insert (species x) x s)
+
+-- | Read @taxonomy.txt.gz@ / @taxonomy.txt@ file into structure.
+
+fromFile :: FilePath -> IO Taxonomy
+fromFile f = case takeExtension f of
+  ".gz" -> (go . decodeUtf8 . decompress) <$> BL.readFile f
+  _     -> go <$> TL.readFile f
+  where go txt = case AT.parse parseTaxonomy txt of
+          Done ""   r       -> r
+          Done ncon r       -> error $ "unconsumed input " ++ f ++ ": " ++ (TL.unpack $ TL.take 1000 ncon)
+          Fail ncon ctx err -> error $ "error parsing " ++ f ++ ": " ++ show (ctx,err)
+

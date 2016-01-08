@@ -3,8 +3,13 @@
 
 -- | Infernal contains a taxonomy database. This is a simple module reflecting
 -- said database.
+--
+-- See Task # 1effbfec-7f3b-4530-a8a7-b82fef1a0c12
 
-module Biobase.SElab.Taxonomy where
+module Biobase.SElab.Taxonomy
+  ( module Biobase.Types.Taxonomy
+  , module Biobase.SElab.Taxonomy.Import
+  ) where
 
 import Biobase.Types.Taxonomy
 
@@ -13,19 +18,6 @@ import Biobase.SElab.Taxonomy.Import
 
 
 {-
-
--- | For each species, we store the name and a classification list from most
--- general (head) to most specific (last). The database comes with the NCBI
--- taxon identifier (taxid).
-
-data Taxonomy = Taxonomy
-  { _accession      :: !(Accession Species)
-  , _name           :: !(Identification Species)
-  , _classification :: [Classification]
-  } deriving (Show)
-
-makeLenses ''Taxonomy
-
 -- | Given a name such as "Drosophila Melanogaster", returns "d.melanogaster".
 
 shortenName :: Identification Species -> Identification Species
