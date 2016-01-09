@@ -18,7 +18,7 @@ import           Data.Vector.Unboxed.Deriving
 import           Data.Vector.Unboxed (Vector)
 import           Data.Word (Word32)
 import           GHC.Generics (Generic)
-import qualified Data.Vector as V (Vector)
+import qualified Data.Vector as V
 import           Text.Read
 
 import           Biobase.Primary.Letter
@@ -267,24 +267,26 @@ instance NFData    Node
 -- | Encode all the information necessary to have *efficient* covariance
 -- models.
 --
--- TODO state types
--- TODO transitions and associated costs
+-- Transitions are encoded as a boxed vector of unboxed vectors. The outer
+-- boxed vector is indexed by the current state. The inner unboxed vector
+-- is indexed by the child number. For each child number we record the
+-- target state and transition cost.
+--
 -- TODO emissions pair/single
 -- TODO local / global mode
 -- TODO add QDB information here?
 --
--- TODO maybe add @_sNumTransitions@ so that we don't have to check for @-1@.
--- TODO maybe check for @0@ instead of @-1@, there is an ASM op for that
---
 -- TODO We need to modify how BiobaseXNA encodes RNA sequences (maybe ACGUN)
 
 data States = States
-  { _sTransitions     :: ! (Unboxed (Z:.PInt () StateIndex:.Int) (PInt () StateIndex,Bitscore))   -- ^ Transitions to a state, together with the transition score; unpopulated transitions are set to @-1@.
-  , _sPairEmissions   :: ! (Unboxed (Z:.PInt () StateIndex:.Letter RNA:.Letter RNA) Bitscore)  -- ^ Scores for the emission of a pair
-  , _sSingleEmissions :: ! (Unboxed (Z:.PInt () StateIndex:.Letter RNA) Bitscore)              -- ^ Scores for the emission of a single nucleotide
-  , _sStateType       :: ! (Unboxed (PInt () StateIndex) StateType)                            -- ^ Type of the state at the current index
+  { _sTransitions     :: ! (TransitionsType Bitscore)                                           -- ^ Transitions to a state, together with the transition score; unpopulated transitions are set to @-1@.
+  , _sPairEmissions   :: ! (Unboxed (Z:.PInt () StateIndex:.Letter RNA:.Letter RNA) Bitscore)   -- ^ Scores for the emission of a pair
+  , _sSingleEmissions :: ! (Unboxed (Z:.PInt () StateIndex:.Letter RNA) Bitscore)               -- ^ Scores for the emission of a single nucleotide
+  , _sStateType       :: ! (Unboxed (PInt () StateIndex) StateType)                             -- ^ Type of the state at the current index
   }
   deriving (Show,Read,Generic)
+
+type TransitionsType b = V.Vector (Vector (PInt () StateIndex,b))
 
 makeLenses ''States
 makePrisms ''States
@@ -297,7 +299,7 @@ sLastState = sStateType . to bounds . to snd
 
 instance Default States where
   def = States
-    { _sTransitions     = fromAssocs (Z:.0:.0)    (Z:.0:.0)    (0,0)             []
+    { _sTransitions     = empty
     , _sPairEmissions   = fromAssocs (Z:.0:.A:.A) (Z:.0:.A:.A) 0                 []
     , _sSingleEmissions = fromAssocs (Z:.0:.A)    (Z:.0:.A)    0                 []
     , _sStateType       = fromAssocs 0            0            (StateType $ -1)  []

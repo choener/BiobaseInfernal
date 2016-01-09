@@ -19,6 +19,7 @@ import           GHC.Exts (inline,lazy)
 import           GHC.Generics (Generic)
 import           GHC.TypeLits
 import           Prelude hiding (map,length,filter,Maybe(..))
+import qualified Data.Vector.Generic as VG
 import qualified Data.Vector.Unboxed as VU
 
 import           ADP.Fusion
@@ -45,7 +46,7 @@ import qualified Biobase.SElab.CM.Types as T
 
 data StateIx t where
   StateIx ::
-    { _siChilden  :: !(Unboxed (Z:.PInt () StateIndex:.Int) (PInt () StateIndex, Bitscore))
+    { _siChilden  :: !(TransitionsType Bitscore)
     , _siType     :: !(Unboxed (PInt () StateIndex)         StateType)
     , _siIx       :: !(PInt () StateIndex)
     } -> StateIx t
@@ -60,7 +61,7 @@ mkStateIx0 s = mkStateIxAt s 0
 
 mkStateIxH :: States -> StateIx I
 mkStateIxH s =
-  let (_,Z:.h:._) = bounds $ s^.sTransitions
+  let (_,h) = bounds $ s^.sStateType
   in  mkStateIxAt s (getPInt h)
 {-# Inline mkStateIxH #-}
 
@@ -338,20 +339,20 @@ instance
     = flatten mk step
     . termStream ts cs us is
     . staticCheck (admitState admit (styA!i))
-    where mk s = return $ Just (s :. 0)
+    where mk s = return $ Just (s :. VG.length (styC `unsafeIndex` getPInt i) -1)
           step Nothing = return $ Done
           step (Just (tstate@(TState s ii ee) :. c))
             -- because this comes first, it will automatically remove all
             -- other branches!
             | admitPassThrough admit
-            = let (_,trns) = styC!(Z:.i:.c)
+            = let (_,trns) = styC `unsafeIndex` getPInt i `unsafeIndex` c
               in  return $ Yield (TState s (ii:.:RiSixI i (-1)) (ee:.(i:.trns)))
                                  Nothing
             -- if we @B@ranch, then the 2nd child is consumed by the static
-            -- synvar!
+            -- synvar! Everything else counts down, @B@ counts up with @c@.
             | admitState admit B
-            = let (styc,trns) = styC!(Z:.i:.c)
-              in  return $ Yield (TState s (ii:.:RiSixI styc c) (ee:.(i:.trns)))
+            = let (styc,trns) = styC `unsafeIndex` getPInt i `unsafeIndex` 0
+              in  return $ Yield (TState s (ii:.:RiSixI styc 0) (ee:.(i:.trns)))
                                  Nothing
             -- this state has no children! It is an @E@ or @EL@ state. We
             -- don't check on styc, because end states have none. We also
@@ -363,16 +364,15 @@ instance
             -- no more valid children left. Assumes that all valid children
             -- are stored consecutively.
             | (not $ admitPassThrough admit || admitState admit B || admitState admit E || admitState admit EL)
-            && c > cmax
+            && c < 0
             = return Done
             | (not $ admitPassThrough admit || admitState admit B || admitState admit E || admitState admit EL)
             && styc < 0
-            = return $ Skip $ Just (tstate :. c+1)
+            = return $ Skip $ Just (tstate :. c-1)
             | (not $ admitPassThrough admit || admitState admit B || admitState admit E || admitState admit EL)
             = return $ Yield (TState s (ii:.:RiSixI styc c) (ee:.(i:.trns)))
-                             (Just (tstate :. c+1))
-            where (styc,trns) = styC!(Z:.i:.c)
-          (_,_:._:.(!cmax)) = bounds styC
+                             (Just (tstate :. c-1))
+            where (styc,trns) = styC `unsafeIndex` getPInt i `unsafeIndex` c
           {-# Inline [0] mk   #-}
           {-# Inline [0] step #-}
   {-# Inline termStream #-}
@@ -555,7 +555,8 @@ instance
 -- |
 --
 -- NOTE we perform *no check* on @chd@. This means that wrong combinations
--- of symbols *will* lead to runtime errors.
+-- of symbols *will* lead to runtime errors. States are counted in the
+-- variable case, because we are dealing with @B@ranches.
 
 instance
   ( TstCtx m ts s x0 i0 is (StateIx I)
@@ -570,7 +571,7 @@ instance
     = map go . termStream ts cs us is
     where go (TState s ii ee) =
             let RiSixI chd c = getIndex (getIdx s) (Proxy :: PRI is (StateIx I))
-                (chd',_)    = styC!(Z:.i:.c)
+                (chd',_)    = styC `unsafeIndex` getPInt i `unsafeIndex` c
             in  TState  s (ii:.:RiSixI chd' (c+1)) (ee:.StateIx styC styA chd)
           {-# Inline [0] go #-}
   {-# Inline termStream #-}
@@ -623,6 +624,9 @@ instance
 --
 -- Depending on the state (branch or not) have to handle two different
 -- cases.
+--
+-- Children are counted up, because in @Variable@ we are dealing with
+-- @B@ranches.
 
 instance
   ( IndexHdr s x0 i0 us (StateIx I) cs c is (StateIx I)
@@ -637,7 +641,7 @@ instance
     = map go . addIndexDenseGo cs vs us is
     where go (SvS s tt ii) =
             let RiSixI chd c = getIndex (getIdx s) (Proxy :: PRI is (StateIx I))
-                (!chd',_)    = styC!(Z:.i:.c)
+                (!chd',_)    = styC `unsafeIndex` getPInt i `unsafeIndex` c
             in  SvS s (tt:.StateIx styC styA chd) (ii:.:RiSixI chd' (c+1))
           {-# Inline [0] go #-}
   {-# Inline addIndexDenseGo #-}

@@ -17,7 +17,7 @@ import Biobase.Primary.Letter
 import Biobase.Primary.Nuc.RNA
 import Data.PrimitiveArray hiding (map, unsafeIndex)
 
-import Biobase.SElab.Bitscore
+import Biobase.Types.Bitscore
 import Biobase.SElab.CM.ADP.Fusion
 import Biobase.SElab.CM.Types hiding (S)
 import Biobase.SElab.CM

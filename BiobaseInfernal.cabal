@@ -146,6 +146,7 @@ benchmark StreamBenchmark
   build-depends: base
                , ADPfusion
                , BiobaseInfernal
+               , BiobaseTypes
                , BiobaseXNA
                , criterion
                , PrimitiveArray

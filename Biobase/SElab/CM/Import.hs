@@ -78,6 +78,9 @@ parseCM = do
 
 -- | We have all the parts, just need to fill up the optimized 'States'
 -- data structure.
+--
+-- TODO make sure that @ss@ is ordered by @sid@ and that there are no
+-- missing states!
 
 buildCM :: [(Node,[State])] -> CM -> HMM Rfam -> AT.Parser CM
 buildCM nss cm cmhmm = do
@@ -86,12 +89,8 @@ buildCM nss cm cmhmm = do
   let ns = fromList [ n & nstates .~ (fromList $ map (view sid) ss) | (n,ss) <- nss ]
   return
     $ set states States
-        { _sTransitions     = fromAssocs (Z:.0:.0) (Z:.maxState:.5) (-1,def)
-                            . concatMap (\s -> [((Z:.s^.sid:.k),(i,e)) | k <- [0..5]
-                                                                       | (i,e) <- if s^.sType == B then map (,0) (s^.sChildren)
-                                                                                                   else zip (s^.sChildren) (toList $ s^.transitions)
-                                                ])
-                            $ ss
+        { _sTransitions     = fromList [ fromList $ if s^.sType == B then map (,0) (s^.sChildren) else zip (s^.sChildren) (toList $ s^.transitions) -- all transitions for a state
+                                       | s <- ss ]
         , _sPairEmissions   = fromAssocs (Z:.0:.A:.A) (Z:.maxState:.U:.U) def
                             . concatMap (\s -> [((Z:.s^.sid:.n1:.n2),e) | emitsPair (s^.sType), ((n1,n2),e) <- zip ((,) <$> acgu <*> acgu) (toList $ s^.emissions)]) $ ss
         , _sSingleEmissions = fromAssocs (Z:.0:.A) (Z:.maxState:.U) def

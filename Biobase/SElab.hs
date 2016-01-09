@@ -6,20 +6,7 @@
 -- only some functionality.
 
 module Biobase.SElab
-{-
-( module Biobase.SElab.CM as CM
-, module Biobase.SElab.CM.Import
-, module Biobase.SElab.HMM
-, module Biobase.SElab.HMM.Import
--}
-(
-) where
+  (
+  ) where
 
-import Biobase.SElab.Bitscore
-import Biobase.SElab.CM
-import Biobase.SElab.CM.ADP.Fusion
-import Biobase.SElab.CM.Import
-import Biobase.SElab.Hit
-import Biobase.SElab.HMM
-import Biobase.SElab.HMM.Import
-import Biobase.SElab.Taxonomy
+
