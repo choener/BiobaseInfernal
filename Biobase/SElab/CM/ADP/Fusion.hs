@@ -19,6 +19,7 @@ import           GHC.Exts (inline,lazy)
 import           GHC.Generics (Generic)
 import           GHC.TypeLits
 import           Prelude hiding (map,length,filter,Maybe(..))
+import qualified Data.Vector as V
 import qualified Data.Vector.Generic as VG
 import qualified Data.Vector.Unboxed as VU
 
@@ -46,7 +47,7 @@ import qualified Biobase.SElab.CM.Types as T
 
 data StateIx t where
   StateIx ::
-    { _siChilden  :: !(TransitionsType Bitscore)
+    { _siChilden  :: !(V.Vector (Transitions Bitscore))
     , _siType     :: !(Unboxed (PInt () StateIndex)         StateType)
     , _siIx       :: !(PInt () StateIndex)
     } -> StateIx t
