@@ -206,6 +206,9 @@ cmstateB = CMstate (Proxy :: Proxy '["B"])
 cmstateEL = CMstate (Proxy :: Proxy '["EL"])
 {-# Inline cmstateEL #-}
 
+cmstateEEL = CMstate (Proxy :: Proxy '["E","EL"])
+{-# Inline cmstateEEL #-}
+
 class AdmitState (x :: [Symbol]) where
   admitState :: Proxy x -> StateType -> Bool
   admitPassThrough :: Proxy x -> Bool
