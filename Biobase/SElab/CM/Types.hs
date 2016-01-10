@@ -252,16 +252,21 @@ data EntryExit = EntryState | ExitState
 --
 -- TODO If this were lens-like we could actually set the parent!
 
-nodeMainState :: EntryExit -> Node -> Maybe State
-nodeMainState ee n = case n^.ntype of
-  MatP -> n^? which MP
-  MatL -> n^? which ML
-  MatR -> n^? which MR
-  Bif  | ee == EntryState -> n^? which B
-  BegL | ee == ExitState  -> n^? which S
-  BegR | ee == ExitState  -> n^? which S
-  _    -> Nothing
-  where which w = nstates . folded . filtered ((==w) . view sType)
+--nodeMainState :: EntryExit -> Node -> Maybe State
+nodeMainState ee = prism' fst go . _2
+  where go n = (n,) <$> case n^.ntype of
+          MatP -> n^? which MP
+          MatL -> n^? which ML
+          MatR -> n^? which MR
+          Bif  | ee == EntryState -> n^? which B
+          BegL | ee == ExitState  -> n^? which S
+          BegR | ee == ExitState  -> n^? which S
+          _    -> Nothing
+        which w = nstates . folded . filtered ((==w) . view sType)
+
+--mumu ee n = (n,) <$> nodeMainState ee n
+
+--ohoh ee = prism' fst (mumu ee) . _2
 
 instance Default Node where
   def = Node
@@ -466,17 +471,18 @@ hasEndNext cm s = any (`elem` ss) kids
 -- number of such states to move to.
 
 makeLocal :: CM -> CM
-makeLocal cm = error $ show $ VG.last $ lendcm ^. nodes
-  where lbegs = drop 1 $ cm^..nodes.folded.to (nodeMainState EntryState).folded.sid -- first one dropped, it is the default transition from root 0
+makeLocal cm = lendcm
+  where lbegs = drop 1 $ cm^..nodes.folded.(nodeMainState EntryState).sid -- first one dropped, it is the default transition from root 0
         lbp = prob2Score 1 $ cm^.pbegin / genericLength lbegs
         addbegs :: Transitions Bitscore -> Transitions Bitscore
         addbegs ts = ts VG.++ (VG.map (,lbp) $ fromList lbegs)
         lbegcm = cm & nodes . vectorIx 0 . nstates . traverse . transitions %~ addbegs
         -- upstairs, local beginnings
         -- downstairs, local ends
+        elsid = maximum (cm^..nodes.folded.nstates.folded.sid) + 1
         el = State    -- the new local end state to be inserted.
               { _sType = EL
-              , _sid   = maximum (cm^..nodes.folded.nstates.folded.sid) + 1
+              , _sid   = elsid
               , _sParents = (-1,-1) -- TODO ???
               , _sqdb = (0,0,0,0) -- TODO ???
               , _transitions = empty
@@ -493,9 +499,11 @@ makeLocal cm = error $ show $ VG.last $ lendcm ^. nodes
               , _nRefL = '-'
               , _nRefR = '-'
               }
-        --lends = lbegcm^..nodes.folded.to (nodeMainState ExitState).folded.filtered (not . hasEndNext lbegcm)
+        lep = prob2Score 1 $ cm^.pend / (genericLength $ lbegcm^..nodes.folded.(nodeMainState ExitState).filtered (not . hasEndNext lbegcm))
+        addEnds :: Transitions Bitscore -> Transitions Bitscore
+        addEnds ts = ts `VG.snoc` (elsid,lep)
         lendcm = (lbegcm & nodes %~ (`VG.snoc` ell))
---               & nodes.traverse.to (nodeMainState ExitState).traverse.filtered (not . hasEndNext lbegcm) %~ undefined
+               & nodes.traverse.(nodeMainState ExitState).filtered (not . hasEndNext lbegcm).transitions %~ addEnds
 
 makeGlobal :: CM -> CM
 makeGlobal = undefined

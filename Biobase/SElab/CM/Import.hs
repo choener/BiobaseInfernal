@@ -89,7 +89,7 @@ buildCM nss cm cmhmm = do
   let cm' = set hmm cmhmm
           $ set nodes ns
           $ cm
-  let sts = buildStatesFromCM cm
+  let sts = buildStatesFromCM cm'
   return $ set states sts cm'
 
 acceptedVersion :: AT.Parser (T.Text,T.Text)
