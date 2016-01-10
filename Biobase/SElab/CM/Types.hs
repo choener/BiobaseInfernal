@@ -10,22 +10,25 @@ import           Data.Binary (Binary)
 import           Data.Default
 import           Data.Hashable (Hashable)
 import           Data.Ix (Ix)
+import           Data.List (genericLength)
 import           Data.Sequence (Seq)
 import           Data.Serialize (Serialize)
 import           Data.Text (Text)
-import           Data.Vector.Generic (empty)
+import           Data.Vector.Generic (empty,fromList,toList)
+import           Data.Vector.Generic.Lens
 import           Data.Vector.Unboxed.Deriving
 import           Data.Vector.Unboxed (Vector)
 import           Data.Word (Word32)
 import           GHC.Generics (Generic)
 import qualified Data.Vector as V
+import qualified Data.Vector.Generic as VG
 import           Text.Read
 
 import           Biobase.Primary.Letter
 import           Biobase.Primary.Nuc.RNA
 import           Biobase.Types.Accession
 import           Biobase.Types.Bitscore
-import           Data.PrimitiveArray
+import           Data.PrimitiveArray hiding (fromList,toList)
 
 import           Biobase.SElab.HMM.Types (HMM)
 
@@ -182,15 +185,16 @@ emitsPair = (==) MP
 
 data StateIndex
 
+type Transitions b = Vector (PInt () StateIndex, b)
+
 -- |
 
 data State = State
   { _sType        :: StateType
   , _sid          :: PInt () StateIndex
   , _sParents     :: (PInt () StateIndex, PInt () StateIndex)
-  , _sChildren    :: [PInt () StateIndex] -- , Int)               -- ^ first child and number of children (all consecutive); for 'B', it is first and second child as direct index number
   , _sqdb         :: (Int,Int,Int,Int)
-  , _transitions  :: Vector Bitscore
+  , _transitions  :: Transitions Bitscore
   , _emissions    :: Vector Bitscore  -- emission order is ACGU or AA,AC,AG,AU, CA,CC,CG,CU, GA,GC,GG,GU, UA,UC,UG,UU
   }
   deriving (Show,Read,Generic)
@@ -203,7 +207,6 @@ instance Default State where
     { _sType        = StateType (-1)
     , _sid          = -1
     , _sParents     = (-1,-1)
-    , _sChildren    = []
     , _sqdb         = (-1,-1,-1,-1)
     , _transitions  = empty
     , _emissions    = empty
@@ -227,7 +230,7 @@ data NodeIndex
 -- once we re-activate Stockholm file parsing.
 
 data Node = Node
-  { _nstates :: Vector (PInt () StateIndex)
+  { _nstates :: V.Vector State
   , _ntype   :: NodeType
   , _nid     :: PInt () NodeIndex
   , _nColL   :: Int
@@ -241,6 +244,24 @@ data Node = Node
 
 makeLenses ''Node
 makePrisms ''Node
+
+data EntryExit = EntryState | ExitState
+  deriving (Eq,Ord,Read,Show,Generic)
+
+-- | Return the main state for a given node.
+--
+-- TODO If this were lens-like we could actually set the parent!
+
+nodeMainState :: EntryExit -> Node -> Maybe State
+nodeMainState ee n = case n^.ntype of
+  MatP -> n^? which MP
+  MatL -> n^? which ML
+  MatR -> n^? which MR
+  Bif  | ee == EntryState -> n^? which B
+  BegL | ee == ExitState  -> n^? which S
+  BegR | ee == ExitState  -> n^? which S
+  _    -> Nothing
+  where which w = nstates . folded . filtered ((==w) . view sType)
 
 instance Default Node where
   def = Node
@@ -279,14 +300,12 @@ instance NFData    Node
 -- TODO We need to modify how BiobaseXNA encodes RNA sequences (maybe ACGUN)
 
 data States = States
-  { _sTransitions     :: ! (TransitionsType Bitscore)                                           -- ^ Transitions to a state, together with the transition score; unpopulated transitions are set to @-1@.
+  { _sTransitions     :: ! (V.Vector (Transitions Bitscore))                                    -- ^ Transitions to a state, together with the transition score; unpopulated transitions are set to @-1@.
   , _sPairEmissions   :: ! (Unboxed (Z:.PInt () StateIndex:.Letter RNA:.Letter RNA) Bitscore)   -- ^ Scores for the emission of a pair
   , _sSingleEmissions :: ! (Unboxed (Z:.PInt () StateIndex:.Letter RNA) Bitscore)               -- ^ Scores for the emission of a single nucleotide
   , _sStateType       :: ! (Unboxed (PInt () StateIndex) StateType)                             -- ^ Type of the state at the current index
   }
   deriving (Show,Read,Generic)
-
-type TransitionsType b = V.Vector (Vector (PInt () StateIndex,b))
 
 makeLenses ''States
 makePrisms ''States
@@ -405,4 +424,79 @@ instance Serialize CM
 instance FromJSON  CM
 instance ToJSON    CM
 instance NFData    CM
+
+
+
+-- * Operations on CMs
+
+-- | Given an otherwise valid 'CM', build the efficient 'States' system.
+--
+-- Normally, we will do @CM@ manipulations with the @CM@ itself, which is
+-- much more highlevel, but slower due to the data structures used.
+-- Building the actual 'States' structure provides a low-level
+-- high-performance structure for computations.
+--
+-- TODO check that @ss@ actually is sorted and dense.
+
+buildStatesFromCM :: CM -> States
+buildStatesFromCM cm = States
+  { _sTransitions     = fromList [ s^.transitions | s <- ss ]
+  , _sPairEmissions   = fromAssocs (Z:.0:.A:.A) (Z:.maxState:.U:.U) def
+                      . concatMap (\s -> [((Z:.s^.sid:.n1:.n2),e) | emitsPair (s^.sType), ((n1,n2),e) <- zip ((,) <$> acgu <*> acgu) (toList $ s^.emissions)]) $ ss
+  , _sSingleEmissions = fromAssocs (Z:.0:.A) (Z:.maxState:.U) def
+                      . concatMap (\s -> [((Z:.s^.sid:.nt),e) | emitsSingle (s^.sType), (nt,e) <- zip acgu (toList $ s^.emissions)] ) $ ss
+  , _sStateType       = fromAssocs 0 maxState (StateType $ -1) . Prelude.map ((,) <$> view sid <*> view sType) $ ss
+  }
+  where maxState = maximum $ ss^..folded.sid
+        ss = cm^..nodes.folded.nstates.folded
+
+-- | Determine if any of the children for a state is and @E@ state.
+
+hasEndNext :: CM -> State -> Bool
+hasEndNext cm s = any (`elem` ss) kids
+  where kids = VG.toList . VG.map fst $ s^.transitions
+        ss = cm^..nodes.folded.nstates.folded.filtered ((==E) . view sType).sid
+
+-- | Create a local @CM@.
+--
+-- A local @CM@ has transitions from the @Root 0@ states to all other @MATP
+-- / MP@, @MATL / ML@, @MATR / MR@, @BIF / B@ states, except for the state
+-- in @Node 1@, which already is connected. The probabilities are set to
+-- @PBEGIN@ or @0.05@ in case @PBEGIN@ is not set, and divided by the
+-- number of such states to move to.
+
+makeLocal :: CM -> CM
+makeLocal cm = error $ show $ VG.last $ lendcm ^. nodes
+  where lbegs = drop 1 $ cm^..nodes.folded.to (nodeMainState EntryState).folded.sid -- first one dropped, it is the default transition from root 0
+        lbp = prob2Score 1 $ cm^.pbegin / genericLength lbegs
+        addbegs :: Transitions Bitscore -> Transitions Bitscore
+        addbegs ts = ts VG.++ (VG.map (,lbp) $ fromList lbegs)
+        lbegcm = cm & nodes . vectorIx 0 . nstates . traverse . transitions %~ addbegs
+        -- upstairs, local beginnings
+        -- downstairs, local ends
+        el = State    -- the new local end state to be inserted.
+              { _sType = EL
+              , _sid   = maximum (cm^..nodes.folded.nstates.folded.sid) + 1
+              , _sParents = (-1,-1) -- TODO ???
+              , _sqdb = (0,0,0,0) -- TODO ???
+              , _transitions = empty
+              , _emissions = empty
+              }
+        ell = Node
+              { _nstates = VG.singleton el
+              , _ntype = End
+              , _nid = maximum (cm^..nodes.folded.nid) + 1
+              , _nColL = -1   -- TODO all below
+              , _nColR = -1
+              , _nConL = '-'
+              , _nConR = '-'
+              , _nRefL = '-'
+              , _nRefR = '-'
+              }
+        --lends = lbegcm^..nodes.folded.to (nodeMainState ExitState).folded.filtered (not . hasEndNext lbegcm)
+        lendcm = (lbegcm & nodes %~ (`VG.snoc` ell))
+--               & nodes.traverse.to (nodeMainState ExitState).traverse.filtered (not . hasEndNext lbegcm) %~ undefined
+
+makeGlobal :: CM -> CM
+makeGlobal = undefined
 

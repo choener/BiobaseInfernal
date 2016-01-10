@@ -85,21 +85,12 @@ parseCM = do
 buildCM :: [(Node,[State])] -> CM -> HMM Rfam -> AT.Parser CM
 buildCM nss cm cmhmm = do
   let maxState = maximum $ nss ^.. folded . _2 . folded . sid
-  let ss = nss^..folded._2.folded
-  let ns = fromList [ n & nstates .~ (fromList $ map (view sid) ss) | (n,ss) <- nss ]
-  return
-    $ set states States
-        { _sTransitions     = fromList [ fromList $ if s^.sType == B then map (,0) (s^.sChildren) else zip (s^.sChildren) (toList $ s^.transitions) -- all transitions for a state
-                                       | s <- ss ]
-        , _sPairEmissions   = fromAssocs (Z:.0:.A:.A) (Z:.maxState:.U:.U) def
-                            . concatMap (\s -> [((Z:.s^.sid:.n1:.n2),e) | emitsPair (s^.sType), ((n1,n2),e) <- zip ((,) <$> acgu <*> acgu) (toList $ s^.emissions)]) $ ss
-        , _sSingleEmissions = fromAssocs (Z:.0:.A) (Z:.maxState:.U) def
-                            . concatMap (\s -> [((Z:.s^.sid:.nt),e) | emitsSingle (s^.sType), (nt,e) <- zip acgu (toList $ s^.emissions)] ) $ ss
-        , _sStateType       = fromAssocs 0 maxState (StateType $ -1) . map ((,) <$> view sid <*> view sType) $ ss
-        }
-    $ set hmm cmhmm
-    $ set nodes ns
-    $ cm
+  let ns = fromList [ n & nstates .~ fromList ss | (n,ss) <- nss ]
+  let cm' = set hmm cmhmm
+          $ set nodes ns
+          $ cm
+  let sts = buildStatesFromCM cm
+  return $ set states sts cm'
 
 acceptedVersion :: AT.Parser (T.Text,T.Text)
 acceptedVersion = (new <?> "new") <|> (old <?> "old") <?> "version"
@@ -177,13 +168,13 @@ aState parseQDB = do
   _sid       <- ssN
   _sParents  <- (,) <$> ssZ <*> ssN
   (c1,c2)    <- (,) <$> ssZ <*> ssN
-  let _sChildren = if _sType==B then [ PInt c1 , PInt c2 ]
-                                else take c2 [ PInt c1 .. ]
+  let chdn = if _sType==B then [ PInt c1 , PInt c2 ]
+                          else take c2 [ PInt c1 .. ]
   _sqdb      <- if parseQDB
                 then (,,,) <$> ssN <*> ssN <*> ssN <*> ssN
                 else pure (-1,-1,-1,-1)
-  _transitions <- if | _sType==B  -> pure empty
-                     | otherwise  -> fromList <$> AT.count c2 (Bitscore <$> ssD')
+  _transitions <- if | _sType==B  -> pure $ fromList $ map (,0) chdn
+                     | otherwise  -> (fromList . zip chdn) <$> AT.count c2 (Bitscore <$> ssD')
   _emissions   <- if | _sType==MP -> fromList <$> AT.count 16 (Bitscore <$> ssD)
                      | _sType `elem` [ML,MR,IL,IR] -> fromList <$> AT.count 4 (Bitscore <$> ssD)
                      | otherwise -> pure empty
@@ -211,4 +202,5 @@ test = do
   cms07 <- fromFile "rebecca-kirsch/split_split_chr3L_289_0.maf.gz.fa.cm.h1.3.h2.5"
   forM_ cms11 $ \cm -> do
     print $ cm ^. unknownLines
+    print $ makeLocal cm
 
