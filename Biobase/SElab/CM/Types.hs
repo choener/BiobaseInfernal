@@ -471,7 +471,7 @@ hasEndNext cm s = any (`elem` ss) kids
 -- number of such states to move to.
 
 makeLocal :: CM -> CM
-makeLocal cm = lendcm
+makeLocal cm = lendcm & states .~ (buildStatesFromCM lendcm)
   where lbegs = drop 1 $ cm^..nodes.folded.(nodeMainState EntryState).sid -- first one dropped, it is the default transition from root 0
         lbp = prob2Score 1 $ cm^.pbegin / genericLength lbegs
         addbegs :: Transitions Bitscore -> Transitions Bitscore
