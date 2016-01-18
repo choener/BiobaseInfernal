@@ -250,10 +250,7 @@ data EntryExit = EntryState | ExitState
   deriving (Eq,Ord,Read,Show,Generic)
 
 -- | Return the main state for a given node.
---
--- TODO If this were lens-like we could actually set the parent!
 
---nodeMainState :: EntryExit -> Prism' Node State
 nodeMainState ee = prism' repack unpack . _3
   where repack :: (Node,Int,State) -> Node
         repack (n,k,s) = n & nstates %~ (VG.// [(k,s)])
@@ -518,7 +515,7 @@ addLocalEnds cm = lendcm & states .~ (buildStatesFromCM lendcm)
               }
         lep = localEndBitscore cm
         addEnds :: Transitions Bitscore -> Transitions Bitscore
-        addEnds ts = traceShow ("x",ts) $ ts `VG.snoc` (elsid,lep)
+        addEnds ts = ts `VG.snoc` (elsid,lep)
         lendcm = (cm & nodes %~ (`VG.snoc` ell))
                & nodes.traverse.(nodeMainState ExitState).filtered (not . hasEndNext cm).transitions %~ addEnds
 
