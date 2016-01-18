@@ -399,8 +399,8 @@ instance Default CM where
     , _alph           = ""
     , _date           = ""
     , _commandLineLog = def
-    , _pbegin         = 0
-    , _pend           = 0
+    , _pbegin         = 0.05
+    , _pend           = 0.05
     , _wbeta          = 0
     , _qdbBeta1       = 0
     , _qdbBeta2       = 0
@@ -471,15 +471,32 @@ hasEndNext cm s = any (`elem` ss) kids
 -- number of such states to move to.
 
 makeLocal :: CM -> CM
-makeLocal cm = lendcm & states .~ (buildStatesFromCM lendcm)
-  where lbegs = drop 1 $ cm^..nodes.folded.(nodeMainState EntryState).sid -- first one dropped, it is the default transition from root 0
-        lbp = prob2Score 1 $ cm^.pbegin / genericLength lbegs
+makeLocal cm = addLocalEnds $ addLocalBeginnings cm
+
+-- | Given a @CM@, add the necessary transitions to create local
+-- beginnings.
+--
+-- This is done by simply adding additional transitions from the @S 0@
+-- state and its companions @IL 1@ and @IR 2@.
+
+addLocalBeginnings :: CM -> CM
+addLocalBeginnings cm = cm & nodes . vectorIx 0 . nstates . traverse . transitions %~ addbegs
+  where lbegs = drop 1 $ cm^..nodes.folded.(nodeMainState EntryState).sid -- the first node already has a main transition from @S 0@.
+        lbp = localBeginBitscore cm
         addbegs :: Transitions Bitscore -> Transitions Bitscore
         addbegs ts = ts VG.++ (VG.map (,lbp) $ fromList lbegs)
-        lbegcm = cm & nodes . vectorIx 0 . nstates . traverse . transitions %~ addbegs
-        -- upstairs, local beginnings
-        -- downstairs, local ends
-        elsid = maximum (cm^..nodes.folded.nstates.folded.sid) + 1
+
+-- | Calculate the actual local beginnings score.
+
+localBeginBitscore :: CM -> Bitscore
+localBeginBitscore cm = prob2Score 1 $ cm^.pbegin / genericLength lbegs
+  where lbegs = drop 1 $ cm^..nodes.folded.(nodeMainState EntryState).sid
+
+-- | Add a single @local end@ state and transitions to this state.
+
+addLocalEnds :: CM -> CM
+addLocalEnds cm = lendcm & states .~ (buildStatesFromCM lendcm)
+  where elsid = maximum (cm^..nodes.folded.nstates.folded.sid) + 1
         el = State    -- the new local end state to be inserted.
               { _sType = EL
               , _sid   = elsid
@@ -499,11 +516,18 @@ makeLocal cm = lendcm & states .~ (buildStatesFromCM lendcm)
               , _nRefL = '-'
               , _nRefR = '-'
               }
-        lep = prob2Score 1 $ cm^.pend / (genericLength $ lbegcm^..nodes.folded.(nodeMainState ExitState).filtered (not . hasEndNext lbegcm))
+        lep = localEndBitscore cm
         addEnds :: Transitions Bitscore -> Transitions Bitscore
         addEnds ts = ts `VG.snoc` (elsid,lep)
-        lendcm = (lbegcm & nodes %~ (`VG.snoc` ell))
-               & nodes.traverse.(nodeMainState ExitState).filtered (not . hasEndNext lbegcm).transitions %~ addEnds
+        lendcm = (cm & nodes %~ (`VG.snoc` ell))
+               & nodes.traverse.(nodeMainState ExitState).filtered (not . hasEndNext cm).transitions %~ addEnds
+
+-- |
+
+localEndBitscore :: CM -> Bitscore
+localEndBitscore cm = prob2Score 1 $ cm^.pend / (genericLength $ cm^..nodes.folded.(nodeMainState ExitState).filtered (not . hasEndNext cm))
+
+-- |
 
 makeGlobal :: CM -> CM
 makeGlobal = undefined
