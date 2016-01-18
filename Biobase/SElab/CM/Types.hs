@@ -253,21 +253,20 @@ data EntryExit = EntryState | ExitState
 --
 -- TODO If this were lens-like we could actually set the parent!
 
---nodeMainState :: EntryExit -> Node -> Maybe State
-nodeMainState ee = prism' fst go . _2
-  where go n = (n,) <$> case n^.ntype of
-          MatP -> n^? which MP
-          MatL -> n^? which ML
-          MatR -> n^? which MR
-          Bif  | ee == EntryState -> n^? which B
-          BegL | ee == ExitState  -> n^? which S
-          BegR | ee == ExitState  -> n^? which S
-          _    -> Nothing
-        which w = nstates . folded . filtered ((==w) . view sType)
-
---mumu ee n = (n,) <$> nodeMainState ee n
-
---ohoh ee = prism' fst (mumu ee) . _2
+--nodeMainState :: EntryExit -> Prism' Node State
+nodeMainState ee = prism' repack unpack . _3
+  where repack :: (Node,Int,State) -> Node
+        repack (n,k,s) = n & nstates %~ (VG.// [(k,s)])
+        unpack :: Node -> Maybe (Node,Int,State)
+        unpack n = (\k -> (n,k,(n^.nstates) VG.! k)) <$> (go >>= extr)
+          where go | ty == MatP = Just MP
+                   | ty == MatL = Just ML
+                   | ty == MatR = Just MR
+                   | ty == Bif  && ee == EntryState = Just B
+                   | (ty == BegL || ty == BegR) && ee == ExitState  = Just S
+                   | otherwise = Nothing
+                extr z = VG.findIndex ((==z) . view sType) (n^.nstates)
+                ty = n^.ntype
 
 instance Default Node where
   def = Node

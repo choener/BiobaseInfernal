@@ -29,6 +29,7 @@ import qualified Data.List as L
 import qualified Data.Text as T
 import           System.FilePath (takeExtension)
 import           System.IO (stdin)
+import qualified Data.Vector.Generic as VG
 
 import           Biobase.Primary.Letter
 import           Biobase.Primary.Nuc.RNA
@@ -204,5 +205,7 @@ test = do
   forM_ cms11 $ \cm -> do
     --print $ cm ^. unknownLines
     --print $ makeLocal cm
-    print $ (addLocalEnds cm) ^? nodes . vectorIx 1 . nstates . ix 0 . transitions
+    --print $ (addLocalEnds cm) ^? nodes . vectorIx 1 . nstates . ix 0 . transitions
+    let q = (addLocalEnds cm) & nodes . vectorIx 1 . nodeMainState EntryState . transitions %~ id
+    mapM_ print $ VG.toList $ q ^. nodes . vectorIx 1 . nstates . ix 0 . transitions
 
