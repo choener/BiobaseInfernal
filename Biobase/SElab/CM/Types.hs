@@ -23,6 +23,7 @@ import           GHC.Generics (Generic)
 import qualified Data.Vector as V
 import qualified Data.Vector.Generic as VG
 import           Text.Read
+import           Debug.Trace
 
 import           Biobase.Primary.Letter
 import           Biobase.Primary.Nuc.RNA
@@ -455,7 +456,7 @@ buildStatesFromCM cm = States
   where maxState = maximum $ ss^..folded.sid
         ss = cm^..nodes.folded.nstates.folded
 
--- | Determine if any of the children for a state is and @E@ state.
+-- | Determine if any of the children for a state is an @E@ state.
 
 hasEndNext :: CM -> State -> Bool
 hasEndNext cm s = any (`elem` ss) kids
@@ -471,7 +472,7 @@ hasEndNext cm s = any (`elem` ss) kids
 -- number of such states to move to.
 
 makeLocal :: CM -> CM
-makeLocal cm = addLocalEnds $ addLocalBeginnings cm
+makeLocal cm = addLocalEnds $ addLocalBegins cm
 
 -- | Given a @CM@, add the necessary transitions to create local
 -- beginnings.
@@ -479,8 +480,8 @@ makeLocal cm = addLocalEnds $ addLocalBeginnings cm
 -- This is done by simply adding additional transitions from the @S 0@
 -- state and its companions @IL 1@ and @IR 2@.
 
-addLocalBeginnings :: CM -> CM
-addLocalBeginnings cm = cm & nodes . vectorIx 0 . nstates . traverse . transitions %~ addbegs
+addLocalBegins :: CM -> CM
+addLocalBegins cm = cm & nodes . vectorIx 0 . nstates . traverse . transitions %~ addbegs
   where lbegs = drop 1 $ cm^..nodes.folded.(nodeMainState EntryState).sid -- the first node already has a main transition from @S 0@.
         lbp = localBeginBitscore cm
         addbegs :: Transitions Bitscore -> Transitions Bitscore
@@ -518,7 +519,7 @@ addLocalEnds cm = lendcm & states .~ (buildStatesFromCM lendcm)
               }
         lep = localEndBitscore cm
         addEnds :: Transitions Bitscore -> Transitions Bitscore
-        addEnds ts = ts `VG.snoc` (elsid,lep)
+        addEnds ts = traceShow ("x",ts) $ ts `VG.snoc` (elsid,lep)
         lendcm = (cm & nodes %~ (`VG.snoc` ell))
                & nodes.traverse.(nodeMainState ExitState).filtered (not . hasEndNext cm).transitions %~ addEnds
 

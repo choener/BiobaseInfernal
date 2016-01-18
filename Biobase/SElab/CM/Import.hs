@@ -21,6 +21,7 @@ import           Data.Conduit.Zlib
 import           Data.Default
 import           Data.Text (unpack)
 import           Data.Vector.Generic (fromList,empty,toList)
+import           Data.Vector.Generic.Lens
 import           Data.Vector (Vector)
 import           Debug.Trace
 import qualified Data.Attoparsec.Text as AT
@@ -198,9 +199,10 @@ fromFile fp
   | otherwise                 = runResourceT $ sourceFile fp      $=           conduitCM $$ consume
 
 test = do
-  cms11 <- fromFile "tests/test11.cm"
-  cms07 <- fromFile "rebecca-kirsch/split_split_chr3L_289_0.maf.gz.fa.cm.h1.3.h2.5"
+  cms11 <- fromFile "RF00563.cm"
+  --cms07 <- fromFile "rebecca-kirsch/split_split_chr3L_289_0.maf.gz.fa.cm.h1.3.h2.5"
   forM_ cms11 $ \cm -> do
-    print $ cm ^. unknownLines
-    print $ makeLocal cm
+    --print $ cm ^. unknownLines
+    --print $ makeLocal cm
+    print $ (addLocalEnds cm) ^? nodes . vectorIx 1 . nstates . ix 0 . transitions
 
