@@ -374,6 +374,7 @@ data CM = CM
   , _states         :: States
   , _hmm            :: HMM Rfam
   , _unknownLines   :: Seq Text
+  , _cmIsLocal      :: Bool             -- ^ @True@ if we are in local mode
   }
   deriving (Show,Read,Generic)
 
@@ -419,6 +420,7 @@ instance Default CM where
     , _states         = def
     , _hmm            = def
     , _unknownLines   = def
+    , _cmIsLocal      = False
     }
 
 instance Binary    CM
@@ -468,7 +470,7 @@ hasEndNext cm s = any (`elem` ss) kids
 -- number of such states to move to.
 
 makeLocal :: CM -> CM
-makeLocal cm = addLocalEnds $ addLocalBegins cm
+makeLocal cm = (addLocalEnds $ addLocalBegins cm) & cmIsLocal .~ True
 
 -- | Given a @CM@, add the necessary transitions to create local
 -- beginnings.
