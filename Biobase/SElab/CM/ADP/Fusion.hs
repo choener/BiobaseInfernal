@@ -370,9 +370,14 @@ instance
             | (not $ admitPassThrough admit || admitState admit B || admitState admit E || admitState admit EL)
             && c < 0
             = return Done
+            -- TODO since each individual child vector is variable in size
+            -- we should just filter out those children that are set to
+            -- @-1@.
             | (not $ admitPassThrough admit || admitState admit B || admitState admit E || admitState admit EL)
             && styc < 0
             = return $ Skip $ Just (tstate :. c-1)
+            -- All normal states are passed the child and transition score.
+            -- This also moves to the next child then.
             | (not $ admitPassThrough admit || admitState admit B || admitState admit E || admitState admit EL)
             = return $ Yield (TState s (ii:.:RiSixI styc c) (ee:.(i:.trns)))
                              (Just (tstate :. c-1))
@@ -575,7 +580,7 @@ instance
     = map go . termStream ts cs us is
     where go (TState s ii ee) =
             let RiSixI chd c = getIndex (getIdx s) (Proxy :: PRI is (StateIx I))
-                (chd',_)    = styC `unsafeIndex` getPInt i `unsafeIndex` c
+                (chd',_)    = styC `unsafeIndex` getPInt i `unsafeIndex` c -- TODO isn't @c==0@ universally true? only B has two synvars
             in  TState  s (ii:.:RiSixI chd' (c+1)) (ee:.StateIx styC styA chd)
           {-# Inline [0] go #-}
   {-# Inline termStream #-}
@@ -645,7 +650,7 @@ instance
     = map go . addIndexDenseGo cs vs us is
     where go (SvS s tt ii) =
             let RiSixI chd c = getIndex (getIdx s) (Proxy :: PRI is (StateIx I))
-                (!chd',_)    = styC `unsafeIndex` getPInt i `unsafeIndex` c
+                (!chd',_)    = styC `unsafeIndex` getPInt i `unsafeIndex` c -- TODO same here, always 0?
             in  SvS s (tt:.StateIx styC styA chd) (ii:.:RiSixI chd' (c+1))
           {-# Inline [0] go #-}
   {-# Inline addIndexDenseGo #-}
