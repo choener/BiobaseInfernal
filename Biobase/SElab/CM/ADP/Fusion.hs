@@ -27,8 +27,8 @@ import           ADP.Fusion
 import           ADP.Fusion.SynVar.Indices
 import           Biobase.Types.Bitscore
 import           Biobase.Types.NumericalExtremes
-import           Data.PrimitiveArray hiding (map, unsafeIndex)
-import qualified Data.PrimitiveArray as PA
+import           Data.PrimitiveArray.Checked hiding (map, unsafeIndex)  -- TODO disable after bug-free (remove .Checked)
+import qualified Data.PrimitiveArray.Checked as PA
 
 import           Biobase.SElab.CM.Types hiding (S)
 import qualified Biobase.SElab.CM.Types as T
