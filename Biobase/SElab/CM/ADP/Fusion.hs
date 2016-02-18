@@ -51,7 +51,10 @@ data StateIx t where
     , _siType     :: !(Unboxed (PInt () StateIndex)         StateType)
     , _siIx       :: !(PInt () StateIndex)
     } -> StateIx t
-  deriving (Show,Read,Generic)
+  deriving (Generic)
+
+instance Show (StateIx t) where
+  show (StateIx cs ts i@(PInt k)) = show i
 
 makeLenses ''StateIx
 makePrisms ''StateIx
