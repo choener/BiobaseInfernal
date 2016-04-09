@@ -2,6 +2,7 @@
 -------
 
 - parse CM files with version 0.7 as well
+- ADPfusion-0.5.2
 
 0.8.0.0
 -------

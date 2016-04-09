@@ -8,9 +8,10 @@ packages:
   extra-dep: true
 - location: ../Lib-bimaps
   extra-dep: true
+- location: ../Lib-ADPfusion
+  extra-dep: true
 
 extra-deps:
-- ADPfusion-0.5.1.0
 - PrimitiveArray-0.7.0.1
 - cereal-text-0.1.0.1
 - intern-0.9.1.4
