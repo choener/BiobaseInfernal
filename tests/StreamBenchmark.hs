@@ -197,8 +197,8 @@ stream_MP_MatP m tbldata k l = unId $ (f <<< (M:|cmp:|cmp) % (M:|ec:|ec) % tbl %
         h = S.foldl' max 232323
         cmp = CMstate (Proxy :: Proxy '["MP"])    -- MP==1
         ec = EmitChar $ VU.fromList acgu
-        tbl :: ITbl Id Unboxed (Z:.EmptyOk:.EmptyOk) (Z:.StateIx I :.StateIx I) Bitscore
-        tbl = ITbl 0 0 (Z:.EmptyOk:.EmptyOk) tbldata (\_ _ -> return 0 :: Id Bitscore)
+        tbl :: TwITbl Id Unboxed (Z:.EmptyOk:.EmptyOk) (Z:.StateIx I :.StateIx I) Bitscore
+        tbl = TW (ITbl 0 0 (Z:.EmptyOk:.EmptyOk) tbldata) (\_ _ -> return 0 :: Id Bitscore)
         low = mkStateIx0 m
         high = mkStateIxH m
         {-# Inline f #-}
@@ -222,8 +222,8 @@ stream_MP_E m tbldata k l = unId $ (f_MP <<< (M:|cmp:|cmp) % (M:|ec:|ec) % tbl %
         cmp = CMstate (Proxy :: Proxy '["MP"])    -- MP==1
         cme = CMstate (Proxy :: Proxy '["E","EL"])    -- E==7, EL==9
         ec = EmitChar $ VU.fromList acgu
-        tbl :: ITbl Id Unboxed (Z:.EmptyOk:.EmptyOk) (Z:.StateIx I :.StateIx I) Bitscore
-        tbl = ITbl 0 0 (Z:.EmptyOk:.EmptyOk) tbldata (\_ _ -> return 0 :: Id Bitscore)
+        tbl :: TwITbl Id Unboxed (Z:.EmptyOk:.EmptyOk) (Z:.StateIx I :.StateIx I) Bitscore
+        tbl = TW (ITbl 0 0 (Z:.EmptyOk:.EmptyOk) tbldata) (\_ _ -> return 0 :: Id Bitscore)
         low = mkStateIx0 m
         high = mkStateIxH m
         {-# Inline f_MP #-}
