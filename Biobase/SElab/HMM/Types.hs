@@ -64,7 +64,7 @@ data HMM xfam = HMM
   , _insertScores     :: Unboxed (Z:.PInt I NodeIndex:.Letter Unknown) Bitscore   -- ^
   , _transitionScores :: Unboxed (Z:.PInt I NodeIndex:.Letter Unknown) Bitscore   -- ^
   , _unknownLines     :: Seq Text               -- ^ filled with header lines that can not be parsed
-  } deriving (Show,Read,Generic)
+  } deriving (Eq,Show,Read,Generic)
 
 makeLenses ''HMM
 makePrisms ''HMM

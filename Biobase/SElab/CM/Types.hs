@@ -198,7 +198,7 @@ data State = State
   , _transitions  :: Transitions Bitscore
   , _emissions    :: Vector Bitscore  -- emission order is ACGU or AA,AC,AG,AU, CA,CC,CG,CU, GA,GC,GG,GU, UA,UC,UG,UU
   }
-  deriving (Show,Read,Generic)
+  deriving (Eq,Show,Read,Generic)
 
 makeLenses ''State
 makePrisms ''State
@@ -241,7 +241,7 @@ data Node = Node
   , _nRefL   :: Char
   , _nRefR   :: Char
   }
-  deriving (Show,Read,Generic)
+  deriving (Eq,Show,Read,Generic)
 
 makeLenses ''Node
 makePrisms ''Node
@@ -307,7 +307,7 @@ data States = States
   , _sSingleEmissions :: ! (Unboxed (Z:.PInt () StateIndex:.Letter RNA) Bitscore)               -- ^ Scores for the emission of a single nucleotide
   , _sStateType       :: ! (Unboxed (PInt () StateIndex) StateType)                             -- ^ Type of the state at the current index
   }
-  deriving (Show,Read,Generic)
+  deriving (Eq,Show,Read,Generic)
 
 makeLenses ''States
 makePrisms ''States
@@ -376,7 +376,7 @@ data CM = CM
   , _unknownLines   :: Seq Text
   , _cmIsLocal      :: Bool             -- ^ @True@ if we are in local mode
   }
-  deriving (Show,Read,Generic)
+  deriving (Eq,Show,Read,Generic)
 
 makeLenses ''CM
 makePrisms ''CM

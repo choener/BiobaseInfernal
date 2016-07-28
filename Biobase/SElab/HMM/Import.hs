@@ -55,6 +55,17 @@ fromFile file = runResourceT $ sourceFile file $= conduitHMM $$ consume
 conduitHMM :: (Monad m, MonadIO m, MonadThrow m) => Conduit ByteString m (HMM xfam)
 conduitHMM = decodeUtf8 =$= conduitParserEither (parseHMM <?> "HMM parser") =$= awaitForever (either (error . show) (yield . snd))
 
+-- | Parse the header of an HMM, and return the partially filled HMM and
+-- a ByteString with the non-parsed remainder.
+
+parseHMMHeader :: AT.Parser (HMM xfam, ByteString)
+parseHMMHeader = do
+  return undefined
+
+parseHMMBody :: HMM xfam -> AT.Parser (HMM xfam)
+parseHMMBody hmm = do
+  return undefined
+
 -- |
 --
 -- NOTE the idea of filling with @999999@ is that if we run the HMM, then any
