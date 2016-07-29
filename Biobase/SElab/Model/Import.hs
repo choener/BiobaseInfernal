@@ -2,9 +2,12 @@
 module Biobase.SElab.Model.Import where
 
 import           Control.Lens (set)
+import           Control.Monad.Trans.Writer.Strict
 import           Data.Conduit
+import           Data.Text (Text)
 import qualified Data.Conduit.List as CL
 import qualified Data.Map.Strict as M
+import qualified Data.Text as T
 
 import           Biobase.SElab.CM.Types
 import           Biobase.SElab.HMM.Types
@@ -17,7 +20,7 @@ import           Biobase.SElab.Model.Types
 --
 -- TODO run within a logger monad
 
-attachHMMs :: (Monad m) => Conduit (Either (HMM ()) CM) m CM
+attachHMMs :: (Monad m) => Conduit (Either (HMM ()) CM) (WriterT Text m) CM
 attachHMMs = CL.head >>= go
   where go Nothing = return ()
         go (Just (Right cm)) = do
