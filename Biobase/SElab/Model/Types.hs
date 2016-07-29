@@ -16,18 +16,22 @@ import qualified Biobase.SElab.HMM.Types as HMM
 
 -- | Generic model wrapper.
 
+type Model = Either (HMM ()) CM
+
+{-
 data Model = Model
   { _model :: Either (HMM ()) CM
   }
   deriving (Eq,Show,Read,Generic)
 
 makeLenses ''Model
+-}
 
 -- | A getter for the name of the model. Be it CM or HMM.
 
 modelName :: Getter Model Text
 modelName = to f
-  where f m = case _model m of
+  where f m = case {- _model -} m of
                 Left hmm -> HMM._name hmm
                 Right cm -> CM._name cm
 

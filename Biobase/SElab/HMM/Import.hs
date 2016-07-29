@@ -22,6 +22,7 @@ import           Data.Conduit.Text (decodeUtf8)
 import           Data.Conduit (yield,awaitForever,(=$=),Conduit,($$),($=))
 import           Data.Conduit.Zlib (ungzip)
 import           Data.Default
+import           Data.Sequence ((|>))
 import           Data.Text (Text)
 import           Data.Vector.Unboxed (fromList)
 import           Debug.Trace
@@ -33,7 +34,6 @@ import qualified Data.Map as M
 import qualified Data.Text as T
 import qualified Data.Vector.Unboxed as VU
 import           System.FilePath (takeExtension)
-import           Data.Sequence ((|>))
 
 import           Biobase.Primary
 import           Biobase.Types.Accession (Accession(..))
