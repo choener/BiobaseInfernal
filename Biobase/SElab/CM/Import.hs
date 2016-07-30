@@ -19,6 +19,7 @@ import           Data.Conduit.List (consume)
 import           Data.Conduit.Text (decodeUtf8)
 import           Data.Conduit.Zlib
 import           Data.Default
+import           Data.Text (Text)
 import           Data.Text (unpack)
 import           Data.Vector.Generic (fromList,empty,toList)
 import           Data.Vector.Generic.Lens
@@ -27,9 +28,9 @@ import           Debug.Trace
 import qualified Data.Attoparsec.Text as AT
 import qualified Data.List as L
 import qualified Data.Text as T
+import qualified Data.Vector.Generic as VG
 import           System.FilePath (takeExtension)
 import           System.IO (stdin)
-import qualified Data.Vector.Generic as VG
 
 import           Biobase.Primary.Letter
 import           Biobase.Primary.Nuc.RNA
@@ -60,23 +61,34 @@ import qualified Biobase.SElab.HMM.Types as HMM
 conduitCM :: (Monad m, MonadIO m, MonadThrow m) => Conduit ByteString m CM
 conduitCM = decodeUtf8 =$= conduitParserEither (parseCM <?> "CM parser") =$= awaitForever (either (error . show) (yield . snd))
 
--- | Parser for covariance models (CMs). Will switch to specialized parsing
--- depending on the model version.
+-- |
 
-parseCM :: AT.Parser CM
-parseCM = do
+parsePreCM :: AT.Parser (CM, Text)
+parsePreCM = do
   v <- acceptedVersion
   let cm' = version .~ v $ def
   ls <- manyTill cmHeader ("CM" <|> "MODEL:")
   let cm = L.foldl' (\a l -> l a) cm' ls
+  remainder <- AT.takeText
+  return (cm, remainder)
+
+parseCMBody :: CM -> AT.Parser CM
+parseCMBody cm = do
+  let v = cm^.version
   nss <- case v of
           -- parsing of 1.x versions
           (vv,_) | "1."  `T.isPrefixOf` vv -> manyTill node1x "//"
           (vv,_) | "0.7" `T.isPrefixOf` vv -> manyTill node07 "//"
           err -> error $ show err
-  AT.try AT.endOfLine
-  cmhmm <- parseHMM <|> pure def  -- if there is no HMM, then return an empty one
-  buildCM nss cm cmhmm
+  AT.endOfLine  <|> pure ()
+  -- cmhmm <- parseHMM <|> pure def  -- if there is no HMM, then return an empty one
+  buildCM nss cm def
+
+-- | Parser for covariance models (CMs). Will switch to specialized parsing
+-- depending on the model version.
+
+parseCM :: AT.Parser CM
+parseCM = undefined
 
 -- | We have all the parts, just need to fill up the optimized 'States'
 -- data structure.

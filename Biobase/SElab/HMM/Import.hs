@@ -5,6 +5,8 @@ module Biobase.SElab.HMM.Import
   ( conduitHMM
   , fromFile
   , parseHMM
+  , parsePreHMM
+  , parseHMMBody
   ) where
 
 import           Control.Applicative ( (<|>), pure, (<$>), (<$), (<*>), (*>), (<*) )
@@ -58,27 +60,19 @@ conduitHMM = decodeUtf8 =$= conduitParserEither (parseHMM <?> "HMM parser") =$= 
 -- | Parse the header of an HMM, and return the partially filled HMM and
 -- a ByteString with the non-parsed remainder.
 
-parseHMMHeader :: AT.Parser (HMM xfam, ByteString)
-parseHMMHeader = do
-  return undefined
-
-parseHMMBody :: HMM xfam -> AT.Parser (HMM xfam)
-parseHMMBody hmm = do
-  return undefined
-
--- |
---
--- NOTE the idea of filling with @999999@ is that if we run the HMM, then any
--- score bugs will yield weird results that show up immediately.
-
-parseHMM :: AT.Parser (HMM xfam)
-parseHMM = do
+parsePreHMM :: AT.Parser (HMM xfam, Text)
+parsePreHMM = do
   v <- acceptedVersion
   let hmm' = version .~ v $ def
   ls <- hmmHeader `manyTill` "HMM"
   let hmm = L.foldl' (\a l -> l a) hmm' ls
   eolS
   eolS
+  remainder <- AT.takeText
+  return (hmm, remainder)
+
+parseHMMBody :: HMM xfam -> AT.Parser (HMM xfam)
+parseHMMBody hmm = do
   l  <- component0
   ls <- (component (length $ l^._2)) `manyTill` "//"
   AT.try AT.skipSpace
@@ -90,6 +84,14 @@ parseHMM = do
     $ set transitionScores (PA.fromAssocs (Z:.0:.Letter 0) (Z:.(PInt $ length ls):.(Letter . subtract 1 . length $ l^._4)) 999999
                                           [((Z:.s:.k),Bitscore v) | (s,vs) <- zip [0..] (l^._4:map (view  _4    ) ls), (k,v) <- zip [Letter 0 ..] vs ])
     $ hmm
+
+-- |
+--
+-- NOTE the idea of filling with @999999@ is that if we run the HMM, then any
+-- score bugs will yield weird results that show up immediately.
+
+parseHMM :: AT.Parser (HMM xfam)
+parseHMM = undefined
 
 acceptedVersion :: AT.Parser (Text,Text)
 acceptedVersion = (,) <$> vOk <* AT.skipSpace <*> eolS <?> "accepted Version" where

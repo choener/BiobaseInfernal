@@ -3,9 +3,9 @@
 
 module Biobase.SElab.Model.Types where
 
-import           GHC.Generics (Generic)
-import           Data.Text (Text)
 import           Control.Lens
+import           Data.Text (Text)
+import           GHC.Generics (Generic)
 
 import           Biobase.SElab.CM.Types (CM)
 import           Biobase.SElab.HMM.Types (HMM)
