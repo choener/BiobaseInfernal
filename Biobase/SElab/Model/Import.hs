@@ -6,7 +6,7 @@ import           Control.Lens (set,over,(^.))
 import           Control.Monad.Trans.Class (lift)
 import           Control.Monad.Trans.Resource (MonadThrow)
 import           Control.Monad.Trans.Writer.Strict
-import           Control.Monad (when)
+import           Control.Monad (when,replicateM)
 import           Data.ByteString (ByteString)
 import           Data.Conduit
 import           Data.Conduit.Text (decodeUtf8)
@@ -21,7 +21,8 @@ import qualified Data.List as L
 import qualified Data.Map.Strict as M
 import qualified Data.Text as T
 import           Debug.Trace
-import           Control.Parallel.Strategies (using,parList,rdeepseq)
+import           Control.Parallel.Strategies (using,parList,rdeepseq,parMap)
+import           Data.Maybe (catMaybes)
 
 import           Biobase.Types.Accession
 
@@ -123,8 +124,33 @@ preModels = decodeUtf8 =$= prepare [] T.empty =$= premodel
 
 -- | Complete the parsing procedure turning a premodel into a model.
 
-finalizeModels :: (Monad m) => Conduit PreModel (WriterT Text m) Model
-finalizeModels = go where
+finalizeModels :: (Monad m) => Int -> Conduit PreModel (WriterT Text m) Model
+finalizeModels n' = go where
+  n = max 1 n'
+  go = do
+    xs <- catMaybes <$> replicateM n await
+    let ys = parMap rdeepseq parsePreModel xs
+    mapM_ report ys
+    if null xs
+      then return ()
+      else go
+  parsePreModel (Left (hmm,s)) = Left  (AT.parseOnly (parseHMMBody hmm) s, hmm, s)
+  parsePreModel (Right (cm,s)) = Right (AT.parseOnly (parseCMBody cm) s, cm, s)
+  -- success
+  report (Left  (Right p, _, _)) = yield $ Left p
+  report (Right (Right p, _, _)) = yield $ Right p
+  -- failure
+  report (Left (Left err, hmm, s)) = do
+    lift . tell $ "finalizeModels: can't finalize HMM "
+                <> (hmm^.HMM.name)
+                <> "\nERROR:\n"
+                <> T.pack err <> "\n" <> s <> "\n"
+  report (Right (Left err, cm, s)) = do
+    lift . tell $ "finalizeModels: can't finalize CM "
+                <> (cm^.CM.name)
+                <> "\nERROR:\n" <>
+                T.pack err <> "\n" <> s <> "\n"
+  {-
   go = do
     x <- await
     case x of
@@ -149,13 +175,20 @@ finalizeModels = go where
         Right p  -> do
           yield $ Right p
           go
+-}
 
 -- | Evaluate in parallel
 
-deepseqPar :: (Monad m, NFData x) => Int -> Conduit x (WriterT Text m) x
+{-
+deepseqPar :: forall m x . (Monad m, NFData x) => Int -> Conduit x (WriterT Text m) x
 deepseqPar n = go where
   go = do
-    xs <- sequence [ await | _ <- [1..n] ]
-    let ys = [ x | Just x <- xs] `using` parList rdeepseq
-    mapM_ yield ys
+    xs <- trace "before" $ replicateM n $ do
+            Just x <- await
+            z <- lift $ WriterT x
+            return $ Just x
+    let ys :: [Maybe x] = xs `using` parList rdeepseq
+    let zs :: [x] = [ y | Just y <- ys ]
+    trace "after" $ zs `deepseq` mapM_ yield zs
+-}
 

@@ -137,6 +137,7 @@ benchmark parsing
                , criterion        >= 1.1.0.0  &&  < 1.2
                , lens
                , resourcet
+               , stm-conduit      >= 3.0      &&  < 4.0
                , text
                , transformers
                --
@@ -148,7 +149,7 @@ benchmark parsing
   default-language:
     Haskell2010
   ghc-options:
-    -O2 -threaded -rtsopts -with-rtsopts=-N
+    -O2 -threaded -rtsopts "-with-rtsopts=-N -I0"
 
 
 
