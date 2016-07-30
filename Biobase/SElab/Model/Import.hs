@@ -6,6 +6,7 @@ import           Control.Lens (set,over,(^.))
 import           Control.Monad.Trans.Class (lift)
 import           Control.Monad.Trans.Resource (MonadThrow)
 import           Control.Monad.Trans.Writer.Strict
+import           Control.Monad (when)
 import           Data.ByteString (ByteString)
 import           Data.Conduit
 import           Data.Conduit.Text (decodeUtf8)
@@ -59,17 +60,17 @@ attachHMMs = go where
           -- We have no attached HMM, and the stream is finished
           Nothing -> do
             yield cm
-            lift . tell $ "CM: " <> (cm^.CM.name) <> " has no attached HMM!"
+            lift . tell $ "CM: " <> (cm^.CM.name) <> " has no attached HMM and the stream is finished\n"
             return ()
           -- We have an attached HMM
           Just (Left h) -> do
             yield $ set hmm (over HMM.accession retagAccession h) cm
---            lift . tell $ "CM: " <> (cm^.CM.name) <> (_getAccession $ cm^.CM.accession) <> " all is fine!"
+--            lift . tell $ "CM: " <> (cm^.CM.name) <> (_getAccession $ cm^.CM.accession) <> " all is fine!\n"
             go
           -- We have no attached HMM, a CM is coming in
           Just (Right cm') -> do
             yield cm
-            lift . tell $ "CM: " <> (cm^.CM.name) <> " has no attached HMM!"
+            lift . tell $ "CM: " <> (cm^.CM.name) <> " has no attached HMM and is followed by " <> (cm'^.CM.name) <> "\n"
             leftover $ Right cm'
             go
 
@@ -86,7 +87,12 @@ preModels = decodeUtf8 =$= prepare [] T.empty =$= premodel
     prepare ls pre = do
       x <- await
       case x of
-        Nothing -> return ()
+        -- nothing left, but we need to send the remaining text downstream
+        Nothing -> do
+          let yld = T.concat . L.reverse $ pre : ls
+          yield yld
+          return ()
+        -- try splitting at model boundaries
         Just l' -> do
           let l = pre <> l'
           let (p,q) = T.breakOn "\n//" l

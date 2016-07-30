@@ -75,7 +75,7 @@ parseHMMBody :: HMM xfam -> AT.Parser (HMM xfam)
 parseHMMBody hmm = do
   l  <- component0
   ls <- (component (length $ l^._2)) `manyTill` "//"
-  AT.try AT.skipSpace
+  --AT.skipSpace
   return
     $ set matchScores      (PA.fromAssocs (Z:.0:.Letter 0) (Z:.(PInt $ length ls):.(Letter . subtract 1 . length $ l^._2)) 999999
                                           [((Z:.s:.k),Bitscore v) | (s,vs) <- zip [0..] (l^._2:map (view (_2._1)) ls), (k,v) <- zip [Letter 0 ..] vs ])
