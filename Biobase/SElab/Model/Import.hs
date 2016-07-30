@@ -1,6 +1,7 @@
 
 module Biobase.SElab.Model.Import where
 
+import           Control.DeepSeq
 import           Control.Lens (set,over,(^.))
 import           Control.Monad.Trans.Class (lift)
 import           Control.Monad.Trans.Resource (MonadThrow)
@@ -19,6 +20,7 @@ import qualified Data.List as L
 import qualified Data.Map.Strict as M
 import qualified Data.Text as T
 import           Debug.Trace
+import           Control.Parallel.Strategies (using,parList,rdeepseq)
 
 import           Biobase.Types.Accession
 
@@ -46,28 +48,30 @@ newtype ErrorLog = Seq Text
 -- TODO got the order wrong ;-)
 
 attachHMMs :: (Monad m) => Conduit Model (WriterT Text m) CM
-attachHMMs = CL.head >>= go
-  where go Nothing = return ()
-        go (Just (Right cm)) = do
-          mhmm <- CL.peek
-          case mhmm of
-            -- We have no attached HMM, and the stream is finished
-            Nothing -> do
-              yield cm
-              lift . tell $ "CM: " <> (cm^.CM.name) <> " has no attached HMM!"
-            -- We have an attached HMM
-            Just (Left h) -> do
-              CL.drop 1
-              yield $ set hmm (over HMM.accession retagAccession h) cm
-              lift . tell $ "CM: " <> (cm^.CM.name) <> (_getAccession $ cm^.CM.accession) <> " all is fine!"
-            -- We have no attached HMM, a CM is coming in
-            Just (Right cm') -> do
-              yield cm
-              lift . tell $ "CM: " <> (cm^.CM.name) <> " has no attached HMM!"
-          CL.head >>= go
-        go (Just (Left hmm)) = do
-          lift . tell $ "HMM: " <> (hmm^.HMM.name) <> " has no CM it belong to and is being dropped!"
-          CL.head >>= go
+attachHMMs = go where
+  go = do
+    cm <- await
+    case cm of
+      Nothing -> return ()
+      Just (Right cm) -> do
+        mhmm <- await
+        case mhmm of
+          -- We have no attached HMM, and the stream is finished
+          Nothing -> do
+            yield cm
+            lift . tell $ "CM: " <> (cm^.CM.name) <> " has no attached HMM!"
+            return ()
+          -- We have an attached HMM
+          Just (Left h) -> do
+            yield $ set hmm (over HMM.accession retagAccession h) cm
+--            lift . tell $ "CM: " <> (cm^.CM.name) <> (_getAccession $ cm^.CM.accession) <> " all is fine!"
+            go
+          -- We have no attached HMM, a CM is coming in
+          Just (Right cm') -> do
+            yield cm
+            lift . tell $ "CM: " <> (cm^.CM.name) <> " has no attached HMM!"
+            leftover $ Right cm'
+            go
 
 -- | High-level parsing of stochastic model files. For each model, the
 -- header is extracted, together with a bytestring with the remainder that
@@ -120,15 +124,32 @@ finalizeModels = go where
     case x of
       Nothing -> return ()
       Just (Left (hmm,s)) -> case AT.parseOnly (parseHMMBody hmm) s of
-        Left err -> do lift . tell $ "finalizeModels: can't finalize HMM "
-                                      <> (hmm^.HMM.name)
-                                      <> "\nERROR:\n"
-                                      <> T.pack err <> "\n" <> s <> "\n"
-        Right p  -> do yield $ Left p
+        Left err -> do
+          lift . tell $ "finalizeModels: can't finalize HMM "
+                      <> (hmm^.HMM.name)
+                      <> "\nERROR:\n"
+                      <> T.pack err <> "\n" <> s <> "\n"
+          go
+        Right p  -> do
+          yield $ Left p
+          go
       Just (Right (cm,s)) -> case AT.parseOnly (parseCMBody cm) s of
-        Left err -> do lift . tell $ "finalizeModels: can't finalize CM "
-                                      <> (cm^.CM.name)
-                                      <> "\nERROR:\n" <>
-                                      T.pack err <> "\n" <> s <> "\n"
-        Right p  -> do yield $ Right p
+        Left err -> do
+          lift . tell $ "finalizeModels: can't finalize CM "
+                      <> (cm^.CM.name)
+                      <> "\nERROR:\n" <>
+                      T.pack err <> "\n" <> s <> "\n"
+          go
+        Right p  -> do
+          yield $ Right p
+          go
+
+-- | Evaluate in parallel
+
+deepseqPar :: (Monad m, NFData x) => Int -> Conduit x (WriterT Text m) x
+deepseqPar n = go where
+  go = do
+    xs <- sequence [ await | _ <- [1..n] ]
+    let ys = [ x | Just x <- xs] `using` parList rdeepseq
+    mapM_ yield ys
 

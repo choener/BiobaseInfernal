@@ -10,6 +10,7 @@
 
 module Main where
 
+import           Control.Lens
 import           Control.Monad.Trans.Resource (runResourceT)
 import           Control.Monad.Trans.Writer.Strict
 import           Control.Monad (when)
@@ -20,7 +21,8 @@ import           Data.Conduit.List (consume)
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
 
-import           Biobase.SElab.CM.Types
+import           Biobase.SElab.CM.Types as CM
+import           Biobase.SElab.HMM.Types as HMM
 import           Biobase.SElab.Model.Import
 import           Biobase.SElab.Model.Types
 
@@ -32,6 +34,9 @@ parseOnlyHeader :: String -> IO [PreModel]
 parseOnlyHeader file = do
   (xs,log) <- runResourceT $ runWriterT $ sourceFile file $= preModels $$ consume
   when (not $ T.null log) $ T.putStrLn log
+--  print $ length xs
+--  print $ xs ^.. ix 0 . _Right . _1 . CM.name
+--  print $ xs ^.. ix 1 . _Left . _1 . HMM.name
   return xs
 
 parseFull :: String -> IO [CM]
@@ -40,26 +45,32 @@ parseFull file = do
   when (not $ T.null log) $ T.putStrLn log
   return xs
 
+parseFullPar :: String -> IO [CM]
+parseFullPar file = do
+  (xs,log) <- runResourceT $ runWriterT $ sourceFile file $= preModels $= finalizeModels $= attachHMMs $= deepseqPar 16 $$ consume
+  when (not $ T.null log) $ T.putStrLn log
+  return xs
+
 main :: IO ()
 main = defaultMain
   -- only parse the header
   [ bgroup "header"
-    [ bench "small"  $ nfIO $ parseOnlyHeader "./tests/test11.cm"
+    [ bench "small"  $ nfIO $ parseOnlyHeader "./tests/four-times.cm"
 --    , bench "medium" $ nfIO (return ())
 --    , bench "large"  $ nfIO (return ())
     ]
   -- full parsing, single-threaded
   , bgroup "singlethreaded"
-    [ bench "small"  $ nfIO $ parseFull "./tests/test11.cm"
+    [ bench "small"  $ nfIO $ parseFull "./tests/four-times.cm"
 --    , bench "medium" $ nfIO (return ())
 --    , bench "large"  $ nfIO (return ())
     ]
---  -- full parsing, multi-threaded
---  , bgroup "multithreaded"
---    [ bench "small"  $ nfIO (return ())
+  -- full parsing, multi-threaded
+  , bgroup "multithreaded"
+    [ bench "small"  $ nfIO $ parseFullPar "./tests/four-times.cm"
 --    , bench "medium" $ nfIO (return ())
 --    , bench "large"  $ nfIO (return ())
---    ]
+    ]
   ]
 
 
