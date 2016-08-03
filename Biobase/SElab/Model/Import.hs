@@ -3,16 +3,22 @@ module Biobase.SElab.Model.Import where
 
 import           Control.DeepSeq
 import           Control.Lens (set,over,(^.))
+import           Control.Monad (void,unless)
 import           Control.Monad.Trans.Class (lift)
 import           Control.Monad.Trans.Resource (MonadThrow)
+import           Control.Monad.Trans.Resource (runResourceT,MonadThrow)
 import           Control.Monad.Trans.Writer.Strict
 import           Control.Monad (when,replicateM)
+import           Control.Parallel.Strategies (using,parList,rdeepseq,parMap)
 import           Data.ByteString (ByteString)
 import           Data.Conduit
 import           Data.Conduit.Text (decodeUtf8)
+import           Data.Conduit.Zlib
+import           Data.Maybe (catMaybes)
 import           Data.Monoid
 import           Data.Text (Text)
 import           Data.Text (Text)
+import           Debug.Trace
 import qualified Data.Attoparsec.Text as AT
 import qualified Data.ByteString.Char8 as BS
 import qualified Data.Conduit.Combinators as CC
@@ -20,9 +26,8 @@ import qualified Data.Conduit.List as CL
 import qualified Data.List as L
 import qualified Data.Map.Strict as M
 import qualified Data.Text as T
-import           Debug.Trace
-import           Control.Parallel.Strategies (using,parList,rdeepseq,parMap)
-import           Data.Maybe (catMaybes)
+import           System.FilePath (takeExtension)
+import           System.IO (stdin)
 
 import           Biobase.Types.Accession
 
@@ -44,8 +49,6 @@ newtype ErrorLog = Seq Text
 -- HMM.
 --
 -- The @WriterT@ logs errors during HMM/CM combination.
---
--- TODO use leftover instead of peeking?
 --
 -- TODO got the order wrong ;-)
 
@@ -82,8 +85,6 @@ attachHMMs = go where
 preModels :: (Monad m, MonadThrow m) => Conduit ByteString (WriterT Text m) PreModel
 preModels = decodeUtf8 =$= prepare [] T.empty =$= premodel
   where
---    header l = "INFERNAL" `T.isPrefixOf` l || "HMMER" `T.isPrefixOf` l
---    slashed = T.isPrefixOf "\\"
     -- prepare the incoming bytestring to have boundaries after each "\n//"
     prepare ls pre = do
       x <- await
@@ -91,7 +92,7 @@ preModels = decodeUtf8 =$= prepare [] T.empty =$= premodel
         -- nothing left, but we need to send the remaining text downstream
         Nothing -> do
           let yld = T.concat . L.reverse $ pre : ls
-          yield yld
+          unless (T.null yld) $ yield yld
           return ()
         -- try splitting at model boundaries
         Just l' -> do
@@ -123,8 +124,16 @@ preModels = decodeUtf8 =$= prepare [] T.empty =$= premodel
               premodel
 
 -- | Complete the parsing procedure turning a premodel into a model.
+--
+-- The parameter @n@ specifies the number of models to finalize in
+-- parallel. Unless memory is extremely tight, a value of @32-64@ should
+-- give nice speedups on typical machines. We use @parMap rdeepseq@.
 
-finalizeModels :: (Monad m) => Int -> Conduit PreModel (WriterT Text m) Model
+finalizeModels
+  :: (Monad m)
+  => Int
+  -- ^ models to parse in parallel.
+  -> Conduit PreModel (WriterT Text m) Model
 finalizeModels n' = go where
   n = max 1 n'
   go = do
@@ -150,45 +159,50 @@ finalizeModels n' = go where
                 <> (cm^.CM.name)
                 <> "\nERROR:\n" <>
                 T.pack err <> "\n" <> s <> "\n"
-  {-
-  go = do
-    x <- await
-    case x of
-      Nothing -> return ()
-      Just (Left (hmm,s)) -> case AT.parseOnly (parseHMMBody hmm) s of
-        Left err -> do
-          lift . tell $ "finalizeModels: can't finalize HMM "
-                      <> (hmm^.HMM.name)
-                      <> "\nERROR:\n"
-                      <> T.pack err <> "\n" <> s <> "\n"
-          go
-        Right p  -> do
-          yield $ Left p
-          go
-      Just (Right (cm,s)) -> case AT.parseOnly (parseCMBody cm) s of
-        Left err -> do
-          lift . tell $ "finalizeModels: can't finalize CM "
-                      <> (cm^.CM.name)
-                      <> "\nERROR:\n" <>
-                      T.pack err <> "\n" <> s <> "\n"
-          go
-        Right p  -> do
-          yield $ Right p
-          go
--}
 
--- | Evaluate in parallel
+-- | Load a number of models from file.
+--
+-- TODO We later on want @(Int,PreModel) -> Bool@ as a filter, where the
+-- @Int@ is the running number of models seen. Models with same ACC get the
+-- same id.
 
-{-
-deepseqPar :: forall m x . (Monad m, NFData x) => Int -> Conduit x (WriterT Text m) x
-deepseqPar n = go where
-  go = do
-    xs <- trace "before" $ replicateM n $ do
-            Just x <- await
-            z <- lift $ WriterT x
-            return $ Just x
-    let ys :: [Maybe x] = xs `using` parList rdeepseq
-    let zs :: [x] = [ y | Just y <- ys ]
-    trace "after" $ zs `deepseq` mapM_ yield zs
--}
+fromFile
+  :: FilePath
+    -- ^ input file name. Can be @-@ for stdin. If a file and the file ends
+    -- with @.gz@, the file is uncompressed on the ly.
+  -> Int
+    -- ^ amount of parallelism when parsing models (@16-64@ seems useful)
+  -> ((Int,PreModel) -> Bool)
+    -- ^ filter premodels before they are fully parsed. Full parsing is
+    -- costly. Use @const True@ if unsure.
+  -> IO ([CM], Text)
+fromFile fp np preFilter
+  | fp == "-"                 = parse (CC.sourceHandle stdin)
+  | takeExtension fp == ".gz" = parse (CC.sourceFile fp $= ungzip)
+  | otherwise                 = parse (CC.sourceFile fp)
+  where
+    parse source =
+      runResourceT $ runWriterT $ source
+      $= preModels
+      $= (void $ CL.mapAccum accIndex (M.empty))
+      $= CL.filter preFilter
+      $= CL.map snd
+      $= finalizeModels np $= attachHMMs
+      $$ CL.consume
+    accIndex
+      :: PreModel -- the incoming premodel
+      -> M.Map (Accession ()) Int -- a map of known accession/running index values
+      -> (M.Map (Accession ()) Int, (Int,PreModel)) -- updated map, combined index+premodel
+    -- During return, we always @insert@, as we assume that running indices
+    -- are typically new. Every second index should be new, unless there
+    -- are duplicate entries for an accession, then there is more than just
+    -- one CM and one HMM.
+    accIndex (Left (hmm,thmm)) ai =
+      let acc = retagAccession $ hmm^.HMM.accession
+          ix  = M.findWithDefault (M.size ai + 1) acc ai
+      in  (M.insert acc ix ai, (ix, Left (hmm,thmm)))
+    accIndex (Right (cm,tcm)) ai =
+      let acc = retagAccession $ cm ^.CM.accession
+          ix  = M.findWithDefault (M.size ai + 1) acc ai
+      in  (M.insert acc ix ai, (ix, Right (cm,tcm)))
 

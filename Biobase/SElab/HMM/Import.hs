@@ -91,7 +91,11 @@ parseHMMBody hmm = do
 -- score bugs will yield weird results that show up immediately.
 
 parseHMM :: AT.Parser (HMM xfam)
-parseHMM = undefined
+parseHMM = do
+  (pre,text) <- parsePreHMM
+  case AT.parseOnly (parseHMMBody pre) text of
+    Left err -> fail $ err
+    Right res -> return res
 
 acceptedVersion :: AT.Parser (Text,Text)
 acceptedVersion = (,) <$> vOk <* AT.skipSpace <*> eolS <?> "accepted Version" where

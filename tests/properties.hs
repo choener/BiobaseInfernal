@@ -13,6 +13,7 @@ import           Test.Tasty.TH
 
 import qualified Biobase.SElab.HMM as HMM
 import qualified Biobase.SElab.CM as CM
+import qualified Biobase.SElab.Model as Mdl
 
 
 
@@ -26,8 +27,9 @@ case_HMM_import = do
   assertEqual "amino alphabet" "amino" $ h ^. HMM.alphabet
 
 case_CM__import = do
-  cms <- CM.fromFile "tests/test11.cm"
+  (cms, log) <- Mdl.fromFile "tests/test11.cm" 1 (const True)
   let c = head cms
+  assertEqual "Mdl.fromFile has empty log" "" log
   assertEqual "tests/test.CM has a single Infernal 1.1 CM" 1 $ length cms
   assertEqual "unknown lines in CM:" mempty $ c ^. CM.unknownLines
   assertEqual "unknown lines in sub-HMM:" mempty $ c ^. CM.hmm . HMM.unknownLines

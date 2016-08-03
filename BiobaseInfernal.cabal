@@ -70,6 +70,7 @@ library
                , PrimitiveArray       >= 0.7      &&  < 0.7.1
 
   exposed-modules:
+    Biobase.SElab.Model
     Biobase.SElab.Model.Import
     Biobase.SElab.Model.Types
     Biobase.SElab.CM
