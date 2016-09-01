@@ -1,0 +1,8 @@
+packages: .
+--          ../Lib-ADPfusion
+--          ../Lib-bimaps
+          ../Lib-BiobaseTypes
+          ../Lib-BiobaseXNA
+--          ../Lib-DPutils
+--          ../Lib-OrderedBits
+--          ../Lib-PrimitiveArray
