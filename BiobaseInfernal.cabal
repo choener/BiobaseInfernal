@@ -64,6 +64,8 @@ library
                , vector               >= 0.10     &&  < 0.12
                , vector-th-unbox      >= 0.2      &&  < 0.3
                , zlib                 >= 0.6      &&  < 0.7
+               , pipes                >= 4.0      &&  < 5.0
+               , pipes-text           >= 0.0      &&  < 0.1
                -- own libraries (keep tight control over versioning?)
                , BiobaseTypes         == 0.1.2.*
                , BiobaseXNA           == 0.9.3.*
