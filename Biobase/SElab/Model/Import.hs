@@ -1,39 +1,32 @@
 
 module Biobase.SElab.Model.Import where
 
+import           Control.Applicative
 import           Control.DeepSeq
 import           Control.Lens (set,over,(^.))
-import           Control.Monad (void,unless)
+import           Control.Monad (liftM2)
 import           Control.Monad.Trans.Class (lift)
-import           Control.Monad.Trans.Resource (MonadThrow)
-import           Control.Monad.Trans.Resource (runResourceT,MonadThrow)
 import           Control.Monad.Trans.Writer.Strict
+import           Control.Monad (void,unless)
 import           Control.Monad (when,replicateM)
 import           Control.Parallel.Strategies (using,parList,rdeepseq,parMap)
 import           Data.ByteString (ByteString)
-import           Data.Conduit
-import           Data.Conduit.Text (decodeUtf8)
-import           Data.Conduit.Zlib
 import           Data.Maybe (catMaybes)
 import           Data.Monoid
+import           Data.String (IsString)
 import           Data.Text (Text)
 import           Data.Text (Text)
 import           Debug.Trace
 import qualified Data.Attoparsec.Text as AT
 import qualified Data.ByteString.Char8 as BS
-import qualified Data.Conduit.Combinators as CC
-import qualified Data.Conduit.List as CL
 import qualified Data.List as L
 import qualified Data.Map.Strict as M
 import qualified Data.Text as T
+import qualified Pipes as P
+import qualified Pipes.Attoparsec as PA
+import qualified Pipes.Parse as PP
 import           System.FilePath (takeExtension)
 import           System.IO (stdin)
-import qualified Pipes as P
-import qualified Pipes.Parse as PP
-import           Control.Monad (liftM2)
-import           Control.Applicative
-import           Data.String (IsString)
-import qualified Pipes.Attoparsec as PA
 
 import           Biobase.Types.Accession
 

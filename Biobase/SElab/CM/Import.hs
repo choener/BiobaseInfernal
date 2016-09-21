@@ -8,32 +8,23 @@ import           Control.Applicative ( (<|>), pure, (<$>), (<$), (<*>), (<*) )
 import           Control.Lens
 import           Control.Monad (forM_)
 import           Control.Monad.IO.Class (MonadIO)
-import           Control.Monad.Trans.Resource (runResourceT,MonadThrow)
 import           Data.Attoparsec.ByteString (takeTill,count,many1,(<?>),manyTill,option)
 import           Data.ByteString.Char8 (ByteString)
---import           Data.Conduit
---import           Data.Conduit.Attoparsec (conduitParserEither)
---import           Data.Conduit.Binary (sourceFile)
---import           Data.Conduit.Binary (sourceHandle)
---import           Data.Conduit.List (consume)
---import           Data.Conduit.Text (decodeUtf8)
---import           Data.Conduit.Zlib
 import           Data.Default
+import           Data.Text.Encoding (decodeUtf8)
 import           Data.Text (Text)
 import           Data.Text (unpack)
 import           Data.Vector.Generic (fromList,empty,toList)
 import           Data.Vector.Generic.Lens
 import           Data.Vector (Vector)
 import           Debug.Trace
---import qualified Data.Attoparsec.Text as AT
+import qualified Data.Attoparsec.ByteString.Char8 as ABC
+import qualified Data.ByteString.Char8 as BSC
 import qualified Data.List as L
 import qualified Data.Text as T
 import qualified Data.Vector.Generic as VG
 import           System.FilePath (takeExtension)
 import           System.IO (stdin)
-import qualified Data.Attoparsec.ByteString.Char8 as ABC
-import           Data.Text.Encoding (decodeUtf8)
-import qualified Data.ByteString.Char8 as BSC
 
 import           Biobase.Primary.Letter
 import           Biobase.Primary.Nuc.RNA

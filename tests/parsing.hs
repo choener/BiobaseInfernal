@@ -11,17 +11,9 @@
 module Main where
 
 import           Control.Lens
-import           Control.Monad.Trans.Resource (runResourceT)
 import           Control.Monad.Trans.Writer.Strict
 import           Control.Monad (when)
 import           Criterion.Main
-import           Data.Conduit
-import           Data.Conduit.Async
-import           Data.Conduit.Binary (sourceFile)
-import           Data.Conduit.Lazy (lazyConsume)
-import           Data.Conduit.List as CL
-import           Data.Conduit.List (consume,sinkNull)
-import           Data.Conduit.Zlib
 import           Data.List as L
 import qualified Data.Text as T
 import qualified Data.Text.IO as T
@@ -33,6 +25,8 @@ import           Biobase.SElab.Model.Import
 import           Biobase.SElab.Model.Types
 
 
+
+{-
 
 -- | Parse only the header
 
@@ -88,4 +82,9 @@ ccm n = go where
       Just x -> do
         Prelude.mapM_ yield $ L.concat $ L.replicate n $ x : maybeToList yy
         go
+
+-}
+
+main :: IO ()
+main = return ()
 

@@ -2,43 +2,29 @@
 -- | Import HMMER3 HMM models.
 
 module Biobase.SElab.HMM.Import where
---  ( conduitHMM
---  , fromFile
---  , parseHMM
---  , parsePreHMM
---  , parseHMMBody
---  ) where
 
 import           Control.Applicative ( (<|>), pure, (<$>), (<$), (<*>), (*>), (<*) )
 import           Control.Lens hiding ((|>))
 import           Control.Monad
 import           Control.Monad.IO.Class (MonadIO)
-import           Control.Monad.Trans.Resource (runResourceT,MonadThrow)
 import           Data.Attoparsec.ByteString (count,many1,(<?>),manyTill,option)
 import           Data.ByteString.Char8 (ByteString,unpack)
-import qualified Data.ByteString.Char8 as BSC
 import           Data.Char (isSpace,isAlpha,isDigit)
---import           Data.Conduit.Attoparsec (conduitParserEither)
---import           Data.Conduit.Binary (sourceFile)
---import           Data.Conduit.List (consume)
---import           Data.Conduit.Text (decodeUtf8)
---import           Data.Conduit (yield,awaitForever,(=$=),Conduit,($$),($=))
---import           Data.Conduit.Zlib (ungzip)
+import           Data.Char.Util
 import           Data.Default
 import           Data.Sequence ((|>))
+import           Data.Text.Encoding (decodeUtf8)
 import           Data.Text (Text)
 import           Data.Vector.Unboxed (fromList)
 import           Debug.Trace
 import qualified Data.Attoparsec.ByteString as AB
 import qualified Data.Attoparsec.ByteString.Char8 as ABC
---import qualified Data.Attoparsec.Text as AT
+import qualified Data.ByteString.Char8 as BSC
 import qualified Data.List as L
 import qualified Data.Map as M
 import qualified Data.Text as T
 import qualified Data.Vector.Unboxed as VU
 import           System.FilePath (takeExtension)
-import           Data.Char.Util
-import           Data.Text.Encoding (decodeUtf8)
 
 import           Biobase.Primary
 import           Biobase.Types.Accession (Accession(..))
