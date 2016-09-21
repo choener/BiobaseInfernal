@@ -28,6 +28,12 @@ import qualified Data.Map.Strict as M
 import qualified Data.Text as T
 import           System.FilePath (takeExtension)
 import           System.IO (stdin)
+import qualified Pipes as P
+import qualified Pipes.Parse as PP
+import           Control.Monad (liftM2)
+import           Control.Applicative
+import           Data.String (IsString)
+import qualified Pipes.Attoparsec as PA
 
 import           Biobase.Types.Accession
 
@@ -39,48 +45,94 @@ import           Biobase.SElab.Model.Types
 
 
 
-type PreModel = Either (HMM (), Text) (CM, Text)
+type PreModel = Either (HMM (), ByteString) (CM, ByteString)
 
-type Logger m = WriterT ErrorLog m
+type Logger m = WriterT Log m
 
-newtype ErrorLog = Seq Text
+-- TODO use a builder?
+
+newtype Log = Log { getLog :: Text }
+  deriving (Monoid,IsString)
 
 -- | Combine CMs with their HMMs. Assumes that each CM is followed by its
 -- HMM.
---
--- The @WriterT@ logs errors during HMM/CM combination.
---
--- TODO got the order wrong ;-)
 
-attachHMMs :: (Monad m) => Conduit Model (WriterT Text m) CM
-attachHMMs = go where
+attachHMMs :: (Monad m) => PP.Producer Model (Logger m) r -> PP.Producer CM (Logger m) ((), PP.Producer Model (Logger m) r)
+attachHMMs = PP.parsed go where
+  go :: (Monad m) => PP.Parser Model (Logger m) (Either () CM)
   go = do
-    cm <- await
-    case cm of
-      Nothing -> return ()
+    mcm <- PP.draw
+    case mcm of
+      Nothing -> return $ Left ()
+      Just (Left hmm) -> do
+        lift . tell . Log $ "HMM: " <> (hmm^.HMM.name) <> " is an orphan\n"
+        go
       Just (Right cm) -> do
-        mhmm <- await
-        case mhmm of
-          -- We have no attached HMM, and the stream is finished
+        mhm <- PP.draw
+        case mhm of
           Nothing -> do
-            yield cm
-            lift . tell $ "CM: " <> (cm^.CM.name) <> " has no attached HMM and the stream is finished\n"
-            return ()
-          -- We have an attached HMM
-          Just (Left h) -> do
-            yield $ set hmm (over HMM.accession retagAccession h) cm
---            lift . tell $ "CM: " <> (cm^.CM.name) <> (_getAccession $ cm^.CM.accession) <> " all is fine!\n"
+            lift . tell . Log $ "CM: " <> (cm^.CM.name) <> " has no attached HMM and the stream is finished\n"
+            return $ Right cm
+          -- TODO actually check that these belong together
+          Just (Left hm) | (cm^.CM.name) == (hm^.HMM.name) -> do
+            -- cm and hmm belong together
+            return . Right $ set hmm (over HMM.accession retagAccession hm) cm
+          -- The HMM doesn't belong to our CM
+          Just (Left hm) -> do
+            lift . tell . Log $ "CM: " <> (cm^.CM.name) <> " and HMM: " <> (hm^.HMM.name) <> " do not belong together, dropping the HMM from the stream\n"
+            return . Right $ cm
+          Just (Right dup) -> do
+            lift . tell . Log $ "CM: " <> (cm^.CM.name) <> " has no attached HMM\n"
+            PP.unDraw $ Right dup
             go
-          -- We have no attached HMM, a CM is coming in
-          Just (Right cm') -> do
-            yield cm
-            lift . tell $ "CM: " <> (cm^.CM.name) <> " has no attached HMM and is followed by " <> (cm'^.CM.name) <> "\n"
-            leftover $ Right cm'
-            go
+
+---- | Combine CMs with their HMMs. Assumes that each CM is followed by its
+---- HMM.
+----
+---- The @WriterT@ logs errors during HMM/CM combination.
+----
+---- TODO got the order wrong ;-)
+--
+--attachHMMs :: (Monad m) => Conduit Model (WriterT Text m) CM
+--attachHMMs = go where
+--  go = do
+--    cm <- await
+--    case cm of
+--      Nothing -> return ()
+--      Just (Right cm) -> do
+--        mhmm <- await
+--        case mhmm of
+--          -- We have no attached HMM, and the stream is finished
+--          Nothing -> do
+--            yield cm
+--            lift . tell $ "CM: " <> (cm^.CM.name) <> " has no attached HMM and the stream is finished\n"
+--            return ()
+--          -- We have an attached HMM
+--          Just (Left h) -> do
+--            yield $ set hmm (over HMM.accession retagAccession h) cm
+----            lift . tell $ "CM: " <> (cm^.CM.name) <> (_getAccession $ cm^.CM.accession) <> " all is fine!\n"
+--            go
+--          -- We have no attached HMM, a CM is coming in
+--          Just (Right cm') -> do
+--            yield cm
+--            lift . tell $ "CM: " <> (cm^.CM.name) <> " has no attached HMM and is followed by " <> (cm'^.CM.name) <> "\n"
+--            leftover $ Right cm'
+--            go
+
 
 -- | High-level parsing of stochastic model files. For each model, the
--- header is extracted, together with a bytestring with the remainder that
--- needs to be parsed yet.
+-- header is extracted, together with a @Producer@ for the remainder of the
+-- input for that particular model.
+
+-- TODO currently, the attoparsec parsers are too eager. they should not
+-- return the full input
+
+--preModel :: (Monad m) => PP.Parser _ m _
+--preModel = preCM <|> preHMM where
+--  preCM = undefined
+--  preHMM = undefined
+
+{-
 
 preModels :: (Monad m, MonadThrow m) => Conduit ByteString (WriterT Text m) PreModel
 preModels = decodeUtf8 =$= prepare [] T.empty =$= premodel
@@ -205,4 +257,6 @@ fromFile fp np preFilter
       let acc = retagAccession $ cm ^.CM.accession
           ix  = M.findWithDefault (M.size ai + 1) acc ai
       in  (M.insert acc ix ai, (ix, Right (cm,tcm)))
+
+-}
 

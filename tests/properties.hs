@@ -20,16 +20,17 @@ import qualified Biobase.SElab.Model as Mdl
 -- | Import a HMMER 3 HMM and do some basic consistency checks
 
 case_HMM_import = do
-  hmms <- HMM.fromFile "tests/test.hmm"
+  hmms <- HMM.hmmFromFile "tests/test.hmm"
   let h = head hmms
   assertEqual "tests/test.hmm has a single HMMER 3 HMM" 1 $ length hmms
   assertEqual "unknown lines:" mempty $ h ^. HMM.unknownLines
   assertEqual "amino alphabet" "amino" $ h ^. HMM.alphabet
 
 case_CM__import = do
-  (cms, log) <- Mdl.fromFile "tests/test11.cm" 1 (const True)
+  -- (cms, log) <- Mdl.fromFile "tests/test11.cm" 1 (const True)
+  cms <- CM.cmFromFile "tests/test11.cm"
   let c = head cms
-  assertEqual "Mdl.fromFile has empty log" "" log
+  --assertEqual "Mdl.fromFile has empty log" "" log
   assertEqual "tests/test.CM has a single Infernal 1.1 CM" 1 $ length cms
   assertEqual "unknown lines in CM:" mempty $ c ^. CM.unknownLines
   assertEqual "unknown lines in sub-HMM:" mempty $ c ^. CM.hmm . HMM.unknownLines

@@ -3,6 +3,6 @@ packages: .
 --          ../Lib-bimaps
           ../Lib-BiobaseTypes
           ../Lib-BiobaseXNA
---          ../Lib-DPutils
+          ../Lib-DPutils
 --          ../Lib-OrderedBits
---          ../Lib-PrimitiveArray
+          ../Lib-PrimitiveArray

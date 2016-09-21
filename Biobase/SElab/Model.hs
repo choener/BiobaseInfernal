@@ -5,3 +5,5 @@ module Biobase.SElab.Model
 
 import Biobase.SElab.Model.Import
 
+fromFile = undefined
+

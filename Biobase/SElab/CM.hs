@@ -11,6 +11,6 @@ module Biobase.SElab.CM
   , module Biobase.SElab.CM.Import
   ) where
 
-import Biobase.SElab.CM.Import (conduitCM,fromFile)
+import Biobase.SElab.CM.Import (cmFromFile)
 import Biobase.SElab.CM.Types
 

@@ -11,13 +11,13 @@ import           Control.Monad.IO.Class (MonadIO)
 import           Control.Monad.Trans.Resource (runResourceT,MonadThrow)
 import           Data.Attoparsec.ByteString (takeTill,count,many1,(<?>),manyTill,option)
 import           Data.ByteString.Char8 (ByteString)
-import           Data.Conduit
-import           Data.Conduit.Attoparsec (conduitParserEither)
-import           Data.Conduit.Binary (sourceFile)
-import           Data.Conduit.Binary (sourceHandle)
-import           Data.Conduit.List (consume)
-import           Data.Conduit.Text (decodeUtf8)
-import           Data.Conduit.Zlib
+--import           Data.Conduit
+--import           Data.Conduit.Attoparsec (conduitParserEither)
+--import           Data.Conduit.Binary (sourceFile)
+--import           Data.Conduit.Binary (sourceHandle)
+--import           Data.Conduit.List (consume)
+--import           Data.Conduit.Text (decodeUtf8)
+--import           Data.Conduit.Zlib
 import           Data.Default
 import           Data.Text (Text)
 import           Data.Text (unpack)
@@ -25,16 +25,19 @@ import           Data.Vector.Generic (fromList,empty,toList)
 import           Data.Vector.Generic.Lens
 import           Data.Vector (Vector)
 import           Debug.Trace
-import qualified Data.Attoparsec.Text as AT
+--import qualified Data.Attoparsec.Text as AT
 import qualified Data.List as L
 import qualified Data.Text as T
 import qualified Data.Vector.Generic as VG
 import           System.FilePath (takeExtension)
 import           System.IO (stdin)
+import qualified Data.Attoparsec.ByteString.Char8 as ABC
+import           Data.Text.Encoding (decodeUtf8)
+import qualified Data.ByteString.Char8 as BSC
 
 import           Biobase.Primary.Letter
 import           Biobase.Primary.Nuc.RNA
-import           Biobase.Types.Accession (Accession(Accession),Rfam)
+import           Biobase.Types.Accession (Accession(Accession),Rfam,retagAccession)
 import           Biobase.Types.Bitscore
 import           Data.PrimitiveArray hiding (fromList,map,toList)
 
@@ -58,21 +61,41 @@ import qualified Biobase.SElab.HMM.Types as HMM
 -- still leaves the unmerged ones separately. Maybe we then want the
 -- @these@ package, which has @a , b, (a,b)@ style data types.
 
-conduitCM :: (Monad m, MonadIO m, MonadThrow m) => Conduit ByteString m CM
-conduitCM = decodeUtf8 =$= conduitParserEither (parseCM <?> "CM parser") =$= awaitForever (either (error . show) (yield . snd))
+--conduitCM :: (Monad m, MonadIO m, MonadThrow m) => Conduit ByteString m CM
+--conduitCM = decodeUtf8 =$= conduitParserEither (parseCM <?> "CM parser") =$= awaitForever (either (error . show) (yield . snd))
+
+-- | Simple convenience function for parsing HMM's without a lot of
+-- fancyness.
+
+cmFromFile :: FilePath -> IO [CM]
+cmFromFile fp = do
+  bs <- BSC.readFile fp
+  case ABC.parseOnly (many1 parseCM <* ABC.endOfInput) bs of
+    Left err -> error err
+    Right xs -> return xs
+
+-- | Parser for covariance models (CMs). Will switch to specialized parsing
+-- depending on the model version.
+
+parseCM :: ABC.Parser CM
+parseCM = do
+  pre <- parsePreCM
+  bdy <- parseCMBody pre
+  hm  <- parseHMM
+  return $ set hmm (over HMM.accession retagAccession hm) bdy
 
 -- |
 
-parsePreCM :: AT.Parser (CM, Text)
+parsePreCM :: ABC.Parser CM -- (CM, Text)
 parsePreCM = do
   v <- acceptedVersion
   let cm' = version .~ v $ def
   ls <- manyTill cmHeader ("CM" <|> "MODEL:")
   let cm = L.foldl' (\a l -> l a) cm' ls
-  remainder <- AT.takeText
-  return (cm, remainder)
+  -- remainder <- ABC.takeText
+  return cm -- (cm, remainder)
 
-parseCMBody :: CM -> AT.Parser CM
+parseCMBody :: CM -> ABC.Parser CM
 parseCMBody cm = do
   let v = cm^.version
   nss <- case v of
@@ -80,15 +103,9 @@ parseCMBody cm = do
           (vv,_) | "1."  `T.isPrefixOf` vv -> manyTill node1x "//"
           (vv,_) | "0.7" `T.isPrefixOf` vv -> manyTill node07 "//"
           err -> error $ show err
-  AT.endOfLine  <|> pure ()
+  ABC.endOfLine  <|> pure ()
   -- cmhmm <- parseHMM <|> pure def  -- if there is no HMM, then return an empty one
   buildCM nss cm def
-
--- | Parser for covariance models (CMs). Will switch to specialized parsing
--- depending on the model version.
-
-parseCM :: AT.Parser CM
-parseCM = undefined
 
 -- | We have all the parts, just need to fill up the optimized 'States'
 -- data structure.
@@ -96,7 +113,7 @@ parseCM = undefined
 -- TODO make sure that @ss@ is ordered by @sid@ and that there are no
 -- missing states!
 
-buildCM :: [(Node,[State])] -> CM -> HMM Rfam -> AT.Parser CM
+buildCM :: [(Node,[State])] -> CM -> HMM Rfam -> ABC.Parser CM
 buildCM nss cm cmhmm = do
   let maxState = maximum $ nss ^.. folded . _2 . folded . sid
   let ns = fromList [ n & nstates .~ fromList ss | (n,ss) <- nss ]
@@ -106,28 +123,28 @@ buildCM nss cm cmhmm = do
   let sts = buildStatesFromCM cm'
   return $ set states sts cm'
 
-acceptedVersion :: AT.Parser (T.Text,T.Text)
+acceptedVersion :: ABC.Parser (T.Text,T.Text)
 acceptedVersion = (new <?> "new") <|> (old <?> "old") <?> "version"
-  where new = (,) <$ "INFERNAL1/a [" <*> (AT.takeTill (=='|') <?> "x-|") <*> (eolS <?> "|->")
-        old = (,"") <$ "INFERNAL-1 [" <*> (AT.takeTill (==']')) <* eolS
+  where new = (,) <$ "INFERNAL1/a [" <*> (decodeUtf8 <$> ABC.takeTill (=='|') <?> "x-|") <*> (eolT <?> "|->")
+        old = (,"") <$ "INFERNAL-1 [" <*> (decodeUtf8 <$> ABC.takeTill (==']')) <* eolT
 
 -- | Parse CM header information.
 --
 -- TODO not all header information is stored in the structure yet.
 
-cmHeader :: AT.Parser (CM -> CM)
-cmHeader = AT.choice
-  [ set name          <$ "NAME"     <*> eolS <?> "name"
-  , set description   <$ "DESC"     <*> eolS <?> "description"
+cmHeader :: ABC.Parser (CM -> CM)
+cmHeader = ABC.choice
+  [ set name          <$ "NAME"     <*> eolT <?> "name"
+  , set description   <$ "DESC"     <*> eolT <?> "description"
   , set statesInModel <$ "STATES"   <*> eolN <?> "states"
   , set nodesInModel  <$ "NODES"    <*> eolN <?> "nodes"
   , set clen          <$ "CLEN"     <*> eolN <?> "clen"
   , set w             <$ "W"        <*> eolN <?> "w"
-  , set alph          <$ "ALPH"     <*> eolS <?> "alph"
+  , set alph          <$ "ALPH"     <*> eolT <?> "alph"
   , set referenceAnno <$ "RF"       <*> eolB <?> "rf"
   , set consensusRes  <$ "CONS"     <*> eolB <?> "cons"
   , set alignColMap   <$ "MAP"      <*> eolB <?> "map"
-  , set date          <$ "DATE"     <*> eolS <?> "date"
+  , set date          <$ "DATE"     <*> eolT <?> "date"
   , set pbegin        <$ "PBEGIN"   <*> eolD <?> "pbegin"
   , set pend          <$ "PEND"     <*> eolD <?> "pend"
   , set wbeta         <$ "WBETA"    <*> eolD <?> "wbeta"
@@ -141,43 +158,43 @@ cmHeader = AT.choice
   , set cksum         <$ "CKSUM"    <*> eolN <?> "cksum"
   , set ga            <$ "GA"       <*> eolD <?> "ga"
   , set tc            <$ "TC"       <*> eolD <?> "tc"
-  , set accession . Accession <$ "ACC" <*> eolS <?> "hmmAccession"
+  , set accession . Accession <$ "ACC" <*> eolT <?> "hmmAccession"
   , ecm "ECMLC"
   , ecm "ECMGC"
   , ecm "ECMLI"
   , ecm "ECMGI"
   , set efp7gf <$> ((,) <$ "EFP7GF" <*> ssD <*> eolD <?> "efp7gf")
-  , set nullModel . fromList . map Bitscore <$ "NULL"   <*> AT.count 4 ssD <* eolS <?> "null"
-  , (\s -> over commandLineLog (|>s)) <$ "COM"  <*> eolS <?> "com"
-  , (\x ->   over unknownLines (|> x)) <$> AT.takeWhile1 (/='\n') <* AT.take 1
+  , set nullModel . fromList . map Bitscore <$ "NULL"   <*> ABC.count 4 ssD <* eolS <?> "null"
+  , (\s -> over commandLineLog (|> decodeUtf8 s)) <$ "COM"  <*> eolS <?> "com"
+  , (\x ->   over unknownLines (|> decodeUtf8 x)) <$> ABC.takeWhile1 (/='\n') <* ABC.take 1
   ] <?> "cmHeader"
   where
     ecm s = (\a b c d e f -> set ecmlc (EValueParams a b c d e f)) <$ s <*> ssD <*> ssD <*> ssD <*> ssN <*> ssN <*> ssD <* eolS <?> "ecm parser"
 
 -- | Parse a node together with the attached states.
 
-node1x :: AT.Parser (Node, [State])
-node1x = (,) <$> aNode <*> AT.many1 (aState True) <?> "node1x" where
-  aNode =   Node empty <$ AT.skipSpace <* ("[ " <?> "[ ") <*> anType <*> (ssN <?> "node ID") <* AT.skipSpace <* "]"
+node1x :: ABC.Parser (Node, [State])
+node1x = (,) <$> aNode <*> ABC.many1 (aState True) <?> "node1x" where
+  aNode =   Node empty <$ ABC.skipSpace <* ("[ " <?> "[ ") <*> anType <*> (ssN <?> "node ID") <* ABC.skipSpace <* "]"
         <*> (ssN_ <?> "mapL") <*> (ssN_ <?> "mapR") <*> (ssC <?> "consL") <*> (ssC <?> "consR") <*> (ssC <?> "rfL") <*> (eolC <?> "rfR") <?> "aNode"
 
-node07 :: AT.Parser (Node, [State])
-node07 = (,) <$> aNode <*> AT.many1 (aState False) <?> "node07" where
-  aNode = (\x y -> Node empty x y 0 0 '-' '-' '-' '-') <$ AT.skipSpace <* ("[ " <?> "[ ") <*> anType <*> (ssN <?> "node ID") <* AT.skipSpace <* "]"
+node07 :: ABC.Parser (Node, [State])
+node07 = (,) <$> aNode <*> ABC.many1 (aState False) <?> "node07" where
+  aNode = (\x y -> Node empty x y 0 0 '-' '-' '-' '-') <$ ABC.skipSpace <* ("[ " <?> "[ ") <*> anType <*> (ssN <?> "node ID") <* ABC.skipSpace <* "]"
 
 -- | Parse the node type
 
-anType :: AT.Parser NodeType
-anType = AT.choice [ Bif  <$ "BIF" , MatP <$ "MATP", MatL <$ "MATL", MatR <$ "MATR"
+anType :: ABC.Parser NodeType
+anType = ABC.choice [ Bif  <$ "BIF" , MatP <$ "MATP", MatL <$ "MATL", MatR <$ "MATR"
                    , BegL <$ "BEGL", BegR <$ "BEGR", Root <$ "ROOT", End  <$ "END" ] <?> "anType"
 
 -- | Parsing of states.
 
 aState
   :: Bool             -- ^ Control if the four QDB parameters are present. Currently 'node1x' will parse those, 'node07' won't.
-  -> AT.Parser State
+  -> ABC.Parser State
 aState parseQDB = do
-  AT.skipSpace
+  ABC.skipSpace
   _sType     <- asType <?> "asType"
   _sid       <- ssN
   _sParents  <- (,) <$> ssZ <*> ssN
@@ -188,36 +205,36 @@ aState parseQDB = do
                 then (,,,) <$> ssN <*> ssN <*> ssN <*> ssN
                 else pure (-1,-1,-1,-1)
   _transitions <- if | _sType==B  -> pure $ fromList $ map (,0) chdn
-                     | otherwise  -> (fromList . zip chdn) <$> AT.count c2 (Bitscore <$> ssD')
-  _emissions   <- if | _sType==MP -> fromList <$> AT.count 16 (Bitscore <$> ssD)
-                     | _sType `elem` [ML,MR,IL,IR] -> fromList <$> AT.count 4 (Bitscore <$> ssD)
+                     | otherwise  -> (fromList . zip chdn) <$> ABC.count c2 (Bitscore <$> ssD')
+  _emissions   <- if | _sType==MP -> fromList <$> ABC.count 16 (Bitscore <$> ssD)
+                     | _sType `elem` [ML,MR,IL,IR] -> fromList <$> ABC.count 4 (Bitscore <$> ssD)
                      | otherwise -> pure empty
   eolS
   return State{..}
 
 -- | Type of the state
 
-asType :: AT.Parser StateType
-asType = AT.choice [ D  <$ "D" , MP <$ "MP", ML <$ "ML", MR <$ "MR"
+asType :: ABC.Parser StateType
+asType = ABC.choice [ D  <$ "D" , MP <$ "MP", ML <$ "ML", MR <$ "MR"
                    , IL <$ "IL", IR <$ "IR", S  <$ "S" , E  <$ "E" , B <$ "B" ]
 
 -- | Read a list of CMs from a given filename. The special filename @-@
 -- reads from @stdin@, while a suffix ending in @.gz@ will pipe through
 -- @ungzip@ before parsing the contents.
 
-fromFile :: FilePath -> IO [CM]
-fromFile fp
-  | fp == "-"                 = runResourceT $ sourceHandle stdin $=           conduitCM $$ consume
-  | takeExtension fp == ".gz" = runResourceT $ sourceFile fp      $= ungzip $= conduitCM $$ consume
-  | otherwise                 = runResourceT $ sourceFile fp      $=           conduitCM $$ consume
-
-test = do
-  cms11 <- fromFile "RF00563.cm"
-  --cms07 <- fromFile "rebecca-kirsch/split_split_chr3L_289_0.maf.gz.fa.cm.h1.3.h2.5"
-  forM_ cms11 $ \cm -> do
-    --print $ cm ^. unknownLines
-    --print $ makeLocal cm
-    --print $ (addLocalEnds cm) ^? nodes . vectorIx 1 . nstates . ix 0 . transitions
-    let q = (addLocalEnds cm) & nodes . vectorIx 1 . nodeMainState EntryState . transitions %~ id
-    mapM_ print $ VG.toList $ q ^. nodes . vectorIx 1 . nstates . ix 0 . transitions
-
+--fromFile :: FilePath -> IO [CM]
+--fromFile fp
+--  | fp == "-"                 = runResourceT $ sourceHandle stdin $=           conduitCM $$ consume
+--  | takeExtension fp == ".gz" = runResourceT $ sourceFile fp      $= ungzip $= conduitCM $$ consume
+--  | otherwise                 = runResourceT $ sourceFile fp      $=           conduitCM $$ consume
+--
+--test = do
+--  cms11 <- fromFile "RF00563.cm"
+--  --cms07 <- fromFile "rebecca-kirsch/split_split_chr3L_289_0.maf.gz.fa.cm.h1.3.h2.5"
+--  forM_ cms11 $ \cm -> do
+--    --print $ cm ^. unknownLines
+--    --print $ makeLocal cm
+--    --print $ (addLocalEnds cm) ^? nodes . vectorIx 1 . nstates . ix 0 . transitions
+--    let q = (addLocalEnds cm) & nodes . vectorIx 1 . nodeMainState EntryState . transitions %~ id
+--    mapM_ print $ VG.toList $ q ^. nodes . vectorIx 1 . nstates . ix 0 . transitions
+--
