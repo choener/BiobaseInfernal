@@ -13,7 +13,6 @@ import           Data.Attoparsec.Text.Lazy as AT
 import           Data.Char (isDigit)
 import           Data.HashMap.Strict (HashMap)
 import           Data.List (foldl')
-import           Data.Stringable (fromText)
 import           Data.Text.Lazy.Encoding (decodeUtf8)
 import           Data.Text.Lazy.IO as TL
 import           Data.Text (Text)
@@ -23,6 +22,7 @@ import qualified Data.HashMap.Strict as HM
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 import           System.FilePath (takeExtension)
+import           Data.String.Conversions.Monomorphic
 
 import Biobase.Types.Accession (Accession(..),Species)
 import Biobase.Types.Names
@@ -40,7 +40,7 @@ parseTaxon = do
   skipSpace <?> "1st space"
   species <- speciesName <$> takeWhile1 (/='\t') <?> "species"
   skipSpace <?> "2nd space"
-  classification <- (fromList . map (,Unknown) . map fromText) <$> takeWhile1 (\z -> z/=';' && z/='.') `sepBy` "; " <?> "classification"
+  classification <- (fromList . map (,Unknown) . map fromST) <$> takeWhile1 (\z -> z/=';' && z/='.') `sepBy` "; " <?> "classification"
   unknowns <- manyTill anyChar (endOfInput <|> endOfLine)
   return $ Taxon {..}
 
