@@ -79,39 +79,17 @@ attachHMMs = PP.parsed go where
             PP.unDraw $ Right dup
             go
 
----- | Combine CMs with their HMMs. Assumes that each CM is followed by its
----- HMM.
-----
----- The @WriterT@ logs errors during HMM/CM combination.
-----
----- TODO got the order wrong ;-)
---
---attachHMMs :: (Monad m) => Conduit Model (WriterT Text m) CM
---attachHMMs = go where
---  go = do
---    cm <- await
---    case cm of
---      Nothing -> return ()
---      Just (Right cm) -> do
---        mhmm <- await
---        case mhmm of
---          -- We have no attached HMM, and the stream is finished
---          Nothing -> do
---            yield cm
---            lift . tell $ "CM: " <> (cm^.CM.name) <> " has no attached HMM and the stream is finished\n"
---            return ()
---          -- We have an attached HMM
---          Just (Left h) -> do
---            yield $ set hmm (over HMM.accession retagAccession h) cm
-----            lift . tell $ "CM: " <> (cm^.CM.name) <> (_getAccession $ cm^.CM.accession) <> " all is fine!\n"
---            go
---          -- We have no attached HMM, a CM is coming in
---          Just (Right cm') -> do
---            yield cm
---            lift . tell $ "CM: " <> (cm^.CM.name) <> " has no attached HMM and is followed by " <> (cm'^.CM.name) <> "\n"
---            leftover $ Right cm'
---            go
+-- | Parses @HMM@ and @CM@ models from Rfam. The filtering function takes
+-- the model name and accession and allows for premature termination of the
+-- parsing of the current model.
 
+parseSelectively :: (Monad m)
+  => (Text -> Accession xfam -> Bool)
+  -- ^ filter function
+  -> PP.Producer ByteString (Logger m) r
+  -> PP.Producer Model (Logger m) r
+parseSelectively fltr = preHMM where
+  preHMM = undefined
 
 -- | High-level parsing of stochastic model files. For each model, the
 -- header is extracted, together with a @Producer@ for the remainder of the
