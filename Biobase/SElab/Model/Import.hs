@@ -3,7 +3,7 @@ module Biobase.SElab.Model.Import where
 
 import           Control.Applicative
 import           Control.DeepSeq
-import           Control.Lens (set,over,(^.))
+import           Control.Lens (set,over,(^.),zoom)
 import           Control.Monad (liftM2)
 import           Control.Monad.Trans.Class (lift)
 import           Control.Monad.Trans.Writer.Strict
@@ -23,12 +23,15 @@ import qualified Data.List as L
 import qualified Data.Map.Strict as M
 import qualified Data.Text as T
 import qualified Pipes as P
+import qualified Pipes.Prelude as P
 import qualified Pipes.Attoparsec as PA
 import qualified Pipes.Parse as PP
 import           System.FilePath (takeExtension)
 import           System.IO (stdin)
+import qualified Data.Attoparsec.ByteString.Char8 as ABC
 
 import           Biobase.Types.Accession
+import           Pipes.Split.ByteString
 
 import           Biobase.SElab.CM.Import as CM
 import           Biobase.SElab.CM.Types as CM
@@ -87,9 +90,20 @@ parseSelectively :: (Monad m)
   => (Text -> Accession xfam -> Bool)
   -- ^ filter function
   -> PP.Producer ByteString (Logger m) r
-  -> PP.Producer Model (Logger m) r
-parseSelectively fltr = preHMM where
-  preHMM = undefined
+  -> PP.Producer (Maybe (Either (HMM xfam) CM)) (Logger m) (r, PP.Producer ByteString (Logger m) r)
+parseSelectively fltr = PP.parsed go where
+  -- | Parse either a CM or a HMM ...
+  go = do
+    p <- zoom (splitKeepEnd "//") parseCM -- parseCM -- (parseCM <|> parseHMM)
+    return $ Right $ (Nothing :: Maybe (Either (HMM xfam) CM))
+  parseCM :: Monad m => PP.StateT (PP.Producer a m x) m (Maybe (Either (HMM xfam) CM))
+  parseCM = undefined
+    {-
+    pre <- parsePreCM
+    if fltr pre
+    then Just <$> parseCMBody pre
+    else Nothing <* undefined -- drain
+    -}
 
 -- | High-level parsing of stochastic model files. For each model, the
 -- header is extracted, together with a @Producer@ for the remainder of the
