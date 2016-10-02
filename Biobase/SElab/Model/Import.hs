@@ -27,8 +27,11 @@ import qualified Pipes.Prelude as P
 import qualified Pipes.Attoparsec as PA
 import qualified Pipes.Parse as PP
 import           System.FilePath (takeExtension)
-import           System.IO (stdin)
+import           System.IO (stdin,withFile,IOMode(..))
 import qualified Data.Attoparsec.ByteString.Char8 as ABC
+import qualified Pipes.ByteString as PB
+import qualified Pipes.GZip as PG
+import qualified Pipes.Safe.Prelude as PSP
 
 import           Biobase.Types.Accession
 import           Pipes.Split.ByteString
@@ -82,126 +85,72 @@ attachHMMs = PP.parsed go where
             PP.unDraw $ Right dup
             go
 
+type FilterFun = Text -> Accession () -> Bool
+
 -- | Parses @HMM@ and @CM@ models from Rfam. The filtering function takes
 -- the model name and accession and allows for premature termination of the
 -- parsing of the current model.
 
 parseSelectively :: (Monad m)
-  => (Text -> Accession xfam -> Bool)
+  => FilterFun
   -- ^ filter function
   -> PP.Producer ByteString (Logger m) r
-  -> PP.Producer (Maybe (Either (HMM xfam) CM)) (Logger m) (r, PP.Producer ByteString (Logger m) r)
-parseSelectively fltr = PP.parsed go where
+--  -> PP.Producer (Maybe (Either (HMM xfam) CM)) (Logger m) (r, PP.Producer ByteString (Logger m) r)
+  -> PP.Producer Model (Logger m) (r, PP.Producer ByteString (Logger m) r)
+parseSelectively fltr p = PP.parsed go p P.>-> P.concat where
   -- | Parse either a CM or a HMM ...
   go = do
-    p <- zoom (splitKeepEnd "//") parseCM -- parseCM -- (parseCM <|> parseHMM)
-    return $ Right $ (Nothing :: Maybe (Either (HMM xfam) CM))
-  parseCM :: Monad m => PP.StateT (PP.Producer a m x) m (Maybe (Either (HMM xfam) CM))
-  parseCM = undefined
-    {-
-    pre <- parsePreCM
-    if fltr pre
-    then Just <$> parseCMBody pre
-    else Nothing <* undefined -- drain
-    -}
+    p <- zoom (splitKeepEnd "//") parseCM
+    case p of
+      Nothing -> return $ Left $ error "done"
+      Just _ -> return $ Right $ (Nothing :: Maybe (Either (HMM ()) CM))
+  parseCM :: Monad m => PP.StateT (PP.Producer ByteString m x) m (Maybe (Either (HMM ()) CM))
+  parseCM = do
+    pre <- traceShow "hi" . PA.parse $ (Left <$> parsePreHMM) <|> (Right <$> parsePreCM)
+    case pre of
+      Nothing -> return $ error "nothing"
+      Just (Left err) -> return $ error "just left"
+      Just (Right mdl) -> trace "if" $ if fltr (mdl^.modelName) (mdl^.modelAccession)
+        then do
+          m <- case mdl of
+            Left hmm -> do
+              h <- PA.parse $ parseHMMBody hmm
+              return $ Left h
+            Right cm -> do
+              c <- trace "ho" . PA.parse $ parseCMBody cm
+              return $ Right c
+          case m of
+            Left _ -> error "left m"
+            Right x -> error $ _ x
+        else PP.skipAll >> return Nothing
 
--- | High-level parsing of stochastic model files. For each model, the
--- header is extracted, together with a @Producer@ for the remainder of the
--- input for that particular model.
 
--- TODO currently, the attoparsec parsers are too eager. they should not
--- return the full input
-
---preModel :: (Monad m) => PP.Parser _ m _
---preModel = preCM <|> preHMM where
---  preCM = undefined
---  preHMM = undefined
-
-{-
-
-preModels :: (Monad m, MonadThrow m) => Conduit ByteString (WriterT Text m) PreModel
-preModels = decodeUtf8 =$= prepare [] T.empty =$= premodel
+fromFile
+  :: FilePath
+    -- ^ input file name. Can be @-@ for stdin. If a file and the file ends
+    -- with @.gz@, the file is uncompressed on the ly.
+  -> FilterFun
+    -- ^ filter premodels before they are fully parsed. Full parsing is
+    -- costly. Use @\name acc -> True@ if all models should be loaded.
+  -> IO [CM]
+fromFile fp fltr
+  | fp == "-"                 = parse (PB.fromHandle stdin)
+  | takeExtension fp == ".gz" = withFile fp ReadMode $ \hdl -> parse (PG.decompress $ PB.fromHandle hdl)
+  | otherwise                 = withFile fp ReadMode $ \hdl -> parse (PB.fromHandle hdl)
   where
-    -- prepare the incoming bytestring to have boundaries after each "\n//"
-    prepare ls pre = do
-      x <- await
-      case x of
-        -- nothing left, but we need to send the remaining text downstream
-        Nothing -> do
-          let yld = T.concat . L.reverse $ pre : ls
-          unless (T.null yld) $ yield yld
-          return ()
-        -- try splitting at model boundaries
-        Just l' -> do
-          let l = pre <> l'
-          let (p,q) = T.breakOn "\n//" l
-          if "\n//" `T.isPrefixOf` q
-            then do let yld = T.concat . L.reverse $ "\n//" : p : ls
-                    yield yld
-                    prepare [] (T.stripStart $ T.drop 3 q)
-            else prepare (pre:ls) l'
-    premodel = do
-      s <- await
-      case s of
-        Nothing -> return ()
-        Just t -> if
-          | "INFERNAL" `T.isPrefixOf` t -> case AT.parseOnly parsePreCM t of
-            Left err -> do lift . tell $ "preModels: " <> T.pack err
-                           premodel
-            Right p -> do yield $ Right p
-                          premodel
-          | "HMMER"    `T.isPrefixOf` t -> case AT.parseOnly parsePreHMM t of
-            Left err -> do lift . tell $ "preModels: " <> T.pack err
-                           premodel
-            Right p -> do yield $ Left p
-                          premodel
-          | otherwise -> do
-              lift . tell $ "preModels: unknown model beginning with:\n"
-              lift . tell $ t
-              premodel
-
--- | Complete the parsing procedure turning a premodel into a model.
---
--- The parameter @n@ specifies the number of models to finalize in
--- parallel. Unless memory is extremely tight, a value of @32-64@ should
--- give nice speedups on typical machines. We use @parMap rdeepseq@.
-
-finalizeModels
-  :: (Monad m)
-  => Int
-  -- ^ models to parse in parallel.
-  -> Conduit PreModel (WriterT Text m) Model
-finalizeModels n' = go where
-  n = max 1 n'
-  go = do
-    xs <- catMaybes <$> replicateM n await
-    let ys = parMap rdeepseq parsePreModel xs
-    mapM_ report ys
-    if null xs
-      then return ()
-      else go
-  parsePreModel (Left (hmm,s)) = Left  (AT.parseOnly (parseHMMBody hmm) s, hmm, s)
-  parsePreModel (Right (cm,s)) = Right (AT.parseOnly (parseCMBody cm) s, cm, s)
-  -- success
-  report (Left  (Right p, _, _)) = yield $ Left p
-  report (Right (Right p, _, _)) = yield $ Right p
-  -- failure
-  report (Left (Left err, hmm, s)) = do
-    lift . tell $ "finalizeModels: can't finalize HMM "
-                <> (hmm^.HMM.name)
-                <> "\nERROR:\n"
-                <> T.pack err <> "\n" <> s <> "\n"
-  report (Right (Left err, cm, s)) = do
-    lift . tell $ "finalizeModels: can't finalize CM "
-                <> (cm^.CM.name)
-                <> "\nERROR:\n" <>
-                T.pack err <> "\n" <> s <> "\n"
+    parse source = do
+      ((xs,((),rmdr)),log) <- runWriterT . P.toListM' $ attachHMMs $ parseSelectively fltr source
+      -- TODO log should be empty
+      -- TODO rmdr should be empty
+      return xs
 
 -- | Load a number of models from file.
 --
 -- TODO We later on want @(Int,PreModel) -> Bool@ as a filter, where the
 -- @Int@ is the running number of models seen. Models with same ACC get the
 -- same id.
+
+{-
 
 fromFile
   :: FilePath

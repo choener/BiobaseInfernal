@@ -66,6 +66,8 @@ library
                , pipes-bytestring     >= 2.0
                , pipes-parse          >= 3.0
                , utf8-string          >= 1.0
+               , pipes-zlib           >= 0.4
+               , pipes-safe           >= 2.2
                -- own libraries (keep tight control over versioning?)
                , BiobaseTypes         == 0.1.2.*
                , BiobaseXNA           == 0.9.3.*
