@@ -96,19 +96,24 @@ parseSelectively :: (Monad m)
   -- ^ filter function
   -> PP.Producer ByteString (Logger m) r
 --  -> PP.Producer (Maybe (Either (HMM xfam) CM)) (Logger m) (r, PP.Producer ByteString (Logger m) r)
-  -> PP.Producer Model (Logger m) (r, PP.Producer ByteString (Logger m) r)
+  -> PP.Producer Model (Logger m) ((), PP.Producer ByteString (Logger m) r)
 parseSelectively fltr p = PP.parsed go p P.>-> P.concat where
   -- | Parse either a CM or a HMM ...
   go = do
-    p <- zoom (splitKeepEnd "//\n") parseCM
+    p <- zoom (splitKeepEnd "//\n") parseMdl
     case p of
-      Nothing -> return $ Right Nothing -- return $ Left $ error "done"
-      Just x -> return $ Right $ Just x
-  parseCM :: Monad m => PP.StateT (PP.Producer ByteString m x) m (Maybe (Either (HMM ()) CM))
-  parseCM = do
+      Left () -> return $ Left ()
+      Right x -> return $ Right x
+  -- parse models.
+  parseMdl :: Monad m => PP.StateT (PP.Producer ByteString m x) m (Either () (Maybe (Either (HMM ()) CM)))
+  parseMdl = do
+    -- if @pre@ is Nothing, the underlying producer is exhausted.
+    -- if @pre@ is @Just $ Left x@, then we have a parse error.
+    -- if @pre@ is @Just $ Right y@, then we have a successful parse. In
+    -- this case, @y@ is either a @Left hmm@ or a @Right cm@.
     pre <- PA.parse $ (Left <$> parsePreHMM) <|> (Right <$> parsePreCM)
     case pre of
-      Nothing -> return $ Nothing -- $ error "nothing"
+      Nothing -> return $ Left ()
       Just (Left err) -> do
         eoi1 <- PP.isEndOfInput
         da <- PP.drawAll
@@ -126,7 +131,7 @@ parseSelectively fltr p = PP.parsed go p P.>-> P.concat where
                   eoi1 <- PP.isEndOfInput
                   da <- PP.drawAll
                   eoi2 <- PP.isEndOfInput
-                  traceShow ("hmm-trace",eoi1,da,eoi2,hh^.HMM.name,hh^.HMM.accession) . return $ Just $ Left hh
+                  traceShow ("hmm-trace",eoi1,da,eoi2,hh^.HMM.name,hh^.HMM.accession) . return $ Right $ Just $ Left hh
             Right cm -> do
               c <- PA.parse $ parseCMBody cm
               case c of
@@ -136,8 +141,8 @@ parseSelectively fltr p = PP.parsed go p P.>-> P.concat where
                   eoi <- PP.isEndOfInput
                   da <- PP.drawAll
                   eoi <- PP.isEndOfInput
-                  return $ Just $ Right d
-        else PP.skipAll >> return Nothing
+                  return $ Right $ Just $ Right d
+        else PP.skipAll >> return undefined -- $ Right $ Nothing
 
 
 fromFile
