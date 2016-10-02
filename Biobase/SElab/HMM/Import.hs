@@ -25,6 +25,7 @@ import qualified Data.Map as M
 import qualified Data.Text as T
 import qualified Data.Vector.Unboxed as VU
 import           System.FilePath (takeExtension)
+import           Control.DeepSeq (($!!))
 
 import           Biobase.Primary
 import           Biobase.Types.Accession (Accession(..))
@@ -77,9 +78,9 @@ parseHMMBody :: HMM xfam -> ABC.Parser (HMM xfam)
 parseHMMBody hmm = do
   l  <- component0
   ls <- (component (length $ l^._2)) `manyTill` "//"
-  --ABC.skipSpace
+  ABC.skipSpace
   return
-    $ set matchScores      (PA.fromAssocs (Z:.0:.Letter 0) (Z:.(PInt $ length ls):.(Letter . subtract 1 . length $ l^._2)) 999999
+    $!! set matchScores      (PA.fromAssocs (Z:.0:.Letter 0) (Z:.(PInt $ length ls):.(Letter . subtract 1 . length $ l^._2)) 999999
                                           [((Z:.s:.k),Bitscore v) | (s,vs) <- zip [0..] (l^._2:map (view (_2._1)) ls), (k,v) <- zip [Letter 0 ..] vs ])
     $ set insertScores     (PA.fromAssocs (Z:.0:.Letter 0) (Z:.(PInt $ length ls):.(Letter . subtract 1 . length $ l^._3)) 999999
                                           [((Z:.s:.k),Bitscore v) | (s,vs) <- zip [0..] (l^._3:map (view  _3    ) ls), (k,v) <- zip [Letter 0 ..] vs ])

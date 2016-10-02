@@ -25,6 +25,7 @@ import qualified Data.Text as T
 import qualified Data.Vector.Generic as VG
 import           System.FilePath (takeExtension)
 import           System.IO (stdin)
+import           Control.DeepSeq (($!!))
 
 import           Biobase.Primary.Letter
 import           Biobase.Primary.Nuc.RNA
@@ -112,12 +113,12 @@ buildCM nss cm cmhmm = do
           $ set nodes ns
           $ cm
   let sts = buildStatesFromCM cm'
-  return $ set states sts cm'
+  return $!! set states sts cm'
 
 acceptedVersion :: ABC.Parser (T.Text,T.Text)
-acceptedVersion = (new <?> "new") <|> (old <?> "old") <?> "version"
+acceptedVersion = (new <?> "new") <|> (old <?> "old") <?> "acceptedVersion"
   where new = (,) <$ "INFERNAL1/a [" <*> (decodeUtf8 <$> ABC.takeTill (=='|') <?> "x-|") <*> (eolT <?> "|->")
-        old = (,"") <$ "INFERNAL-1 [" <*> (decodeUtf8 <$> ABC.takeTill (==']')) <* eolT
+        old = (,"") <$ "INFERNAL-1 [" <*> (decodeUtf8 <$> ABC.takeTill (==']') <?> "decode") <* (eolT <?> "endOfLine")
 
 -- | Parse CM header information.
 --

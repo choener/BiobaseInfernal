@@ -100,28 +100,43 @@ parseSelectively :: (Monad m)
 parseSelectively fltr p = PP.parsed go p P.>-> P.concat where
   -- | Parse either a CM or a HMM ...
   go = do
-    p <- zoom (splitKeepEnd "//") parseCM
+    p <- zoom (splitKeepEnd "//\n") parseCM
     case p of
-      Nothing -> return $ Left $ error "done"
-      Just _ -> return $ Right $ (Nothing :: Maybe (Either (HMM ()) CM))
+      Nothing -> return $ Right Nothing -- return $ Left $ error "done"
+      Just x -> return $ Right $ Just x
   parseCM :: Monad m => PP.StateT (PP.Producer ByteString m x) m (Maybe (Either (HMM ()) CM))
   parseCM = do
-    pre <- traceShow "hi" . PA.parse $ (Left <$> parsePreHMM) <|> (Right <$> parsePreCM)
+    pre <- PA.parse $ (Left <$> parsePreHMM) <|> (Right <$> parsePreCM)
     case pre of
-      Nothing -> return $ error "nothing"
-      Just (Left err) -> return $ error "just left"
-      Just (Right mdl) -> trace "if" $ if fltr (mdl^.modelName) (mdl^.modelAccession)
+      Nothing -> return $ Nothing -- $ error "nothing"
+      Just (Left err) -> do
+        eoi1 <- PP.isEndOfInput
+        da <- PP.drawAll
+        eoi2 <- PP.isEndOfInput
+        return $ error $ "just left" ++ show err ++ show ("hmm",eoi1,da,eoi2)
+      Just (Right mdl) -> if fltr (mdl^.modelName) (mdl^.modelAccession)
         then do
-          m <- case mdl of
+          case mdl of
             Left hmm -> do
               h <- PA.parse $ parseHMMBody hmm
-              return $ Left h
+              case h of
+                Nothing -> undefined
+                Just (Left err) -> error $ show err
+                Just (Right hh) -> do
+                  eoi1 <- PP.isEndOfInput
+                  da <- PP.drawAll
+                  eoi2 <- PP.isEndOfInput
+                  traceShow ("hmm-trace",eoi1,da,eoi2,hh^.HMM.name,hh^.HMM.accession) . return $ Just $ Left hh
             Right cm -> do
-              c <- trace "ho" . PA.parse $ parseCMBody cm
-              return $ Right c
-          case m of
-            Left _ -> error "left m"
-            Right x -> error $ _ x
+              c <- PA.parse $ parseCMBody cm
+              case c of
+                Nothing -> undefined
+                Just (Left err) -> undefined
+                Just (Right d) -> do
+                  eoi <- PP.isEndOfInput
+                  da <- PP.drawAll
+                  eoi <- PP.isEndOfInput
+                  return $ Just $ Right d
         else PP.skipAll >> return Nothing
 
 
