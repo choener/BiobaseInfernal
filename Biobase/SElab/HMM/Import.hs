@@ -57,7 +57,6 @@ parseHMM :: ABC.Parser (HMM xfam)
 parseHMM = do
   pre <- parsePreHMM
   bdy <- parseHMMBody pre
-  ABC.endOfLine
   return bdy
 
 -- | Parse the header of an HMM, and return the partially filled HMM and
