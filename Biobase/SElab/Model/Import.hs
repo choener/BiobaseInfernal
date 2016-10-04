@@ -173,14 +173,17 @@ parseSelectively preFltr postFltr p
 
 
 
+-- | Keep all models
+
+keepAllModels _ _ _ = True
+
+
+
 -- | Load a number of models from file. Including pre- and full-model
 -- filtering.
 
 fromFile
-  :: FilePath
-    -- ^ input file name. Can be @-@ for stdin. If a file and the file ends
-    -- with @.gz@, the file is uncompressed on the ly.
-  -> PreFilterFun
+  :: PreFilterFun
     -- ^ filter premodels before they are fully parsed. Full parsing is
     -- costly. Use @\name acc hmmOrcm -> True@ if all models should be
     -- loaded.
@@ -189,8 +192,11 @@ fromFile
   -> Bool
     -- ^ If true, than any error during parsing means termination of the
     -- program.
+  -> FilePath
+    -- ^ input file name. Can be @-@ for stdin. If a file and the file ends
+    -- with @.gz@, the file is uncompressed on the ly.
   -> IO [CM]
-fromFile fp preFltr postFltr stopOnError
+fromFile preFltr postFltr stopOnError fp
   | fp == "-"                 = parse (PB.fromHandle stdin)
   | takeExtension fp == ".gz" = withFile fp ReadMode $ \hdl -> parse (PG.decompress $ PB.fromHandle hdl)
   | otherwise                 = withFile fp ReadMode $ \hdl -> parse (PB.fromHandle hdl)
