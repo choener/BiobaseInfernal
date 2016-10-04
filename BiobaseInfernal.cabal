@@ -49,6 +49,12 @@ library
                , hashable             >= 1.2
                , lens                 >= 4.0      &&  < 5.0
                , parallel             >= 3.0
+               , pipes                >= 4.0
+               , pipes-attoparsec     >= 0.5
+               , pipes-bytestring     >= 2.0
+               , pipes-parse          >= 3.0
+               , pipes-safe           >= 2.2
+               , pipes-zlib           >= 0.4
                , primitive            >= 0.5
                , strict               >= 0.3
                , string-conversions   >= 0.4
@@ -57,17 +63,10 @@ library
                , transformers
                , tuple                >= 0.3
                , unordered-containers >= 0.2
+               , utf8-string          >= 1.0
                , vector               >= 0.10
                , vector-th-unbox      >= 0.2
                , zlib                 >= 0.6
-               -- modules for switch to pipes/utf8-string
-               , pipes                >= 4.0
-               , pipes-attoparsec     >= 0.5
-               , pipes-bytestring     >= 2.0
-               , pipes-parse          >= 3.0
-               , utf8-string          >= 1.0
-               , pipes-zlib           >= 0.4
-               , pipes-safe           >= 2.2
                -- own libraries (keep tight control over versioning?)
                , BiobaseTypes         == 0.1.2.*
                , BiobaseXNA           == 0.9.3.*
