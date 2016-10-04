@@ -22,7 +22,7 @@ import           Data.Maybe (catMaybes)
 import           Data.Monoid
 import           Data.String (IsString)
 import           Data.Text (Text)
-import           Data.Text (Text)
+import           Data.Text.Encoding (decodeUtf8)
 import           Debug.Trace
 import qualified Data.Attoparsec.ByteString.Char8 as ABC
 import qualified Data.Attoparsec.Text as AT
@@ -135,8 +135,8 @@ parseSelectively preFltr postFltr p
   handleError err = do
     da <- PP.drawAll
     lift . tell . Log $ "could not parse:\n"
-    lift . tell . Log $ error "insert err here"
-    lift . tell . Log $ error "insert da here"
+    lift . tell . Log $ T.pack $ show err
+    lift . tell . Log . decodeUtf8 $ BS.concat da
     lift . tell . Log $ "\n"
     return $ Left ()
   parseMdl :: Monad m => PP.StateT (PP.Producer ByteString (Logger m) x) (Logger m) (Either () (Maybe (Either (HMM ()) CM)))
@@ -147,7 +147,8 @@ parseSelectively preFltr postFltr p
     -- this case, @y@ is either a @Left hmm@ or a @Right cm@.
     pre <- PA.parse $ (Left <$> parsePreHMM) <|> (Right <$> parsePreCM)
     case pre of
-      Nothing -> handleError "premature end of parsing\n"
+      -- we have nothing left to parse and indicate this now
+      Nothing -> return $ Left ()
       Just (Left err) -> handleError err
       Just (Right mdl) -> if preFltr (mdl^.modelName) (mdl^.modelAccession) mdl
         then do
@@ -155,7 +156,7 @@ parseSelectively preFltr postFltr p
             Left hmm -> do
               h <- PA.parse $ parseHMMBody hmm
               case h of
-                Nothing -> handleError "premature end of parsing\n"
+                Nothing -> handleError "premature end of parsing in hmm body"
                 Just (Left err) -> handleError err
                 Just (Right hh) -> do
                   da <- PP.drawAll
@@ -164,7 +165,7 @@ parseSelectively preFltr postFltr p
             Right cm -> do
               c <- PA.parse $ parseCMBody cm
               case c of
-                Nothing -> handleError "premature end of parsing\n"
+                Nothing -> handleError "premature end of parsing in cm body"
                 Just (Left err) -> handleError err
                 Just (Right d) -> do
                   da <- PP.drawAll
