@@ -79,6 +79,7 @@ library
     Biobase.SElab.Model.Types
     Biobase.SElab.CM
     Biobase.SElab.CM.Import
+    Biobase.SElab.CM.ModelStructure
     Biobase.SElab.CM.Types
     Biobase.SElab.Common.Parser
     Biobase.SElab.HMM
