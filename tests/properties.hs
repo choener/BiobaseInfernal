@@ -2,6 +2,7 @@
 module Main where
 
 import           Control.Lens
+import           Data.Either (isLeft)
 import           Data.Monoid (mempty)
 import           Test.HUnit
 import           Test.QuickCheck.Modifiers
@@ -11,8 +12,9 @@ import           Test.Tasty.HUnit (testCase)
 import           Test.Tasty.QuickCheck (testProperty)
 import           Test.Tasty.TH
 
-import qualified Biobase.SElab.HMM as HMM
+import           Biobase.SElab.CM.ModelStructure (flexibleToStatic, staticToFlexible)
 import qualified Biobase.SElab.CM as CM
+import qualified Biobase.SElab.HMM as HMM
 import qualified Biobase.SElab.Model as Mdl
 
 
@@ -35,6 +37,9 @@ case_CM__import = do
   assertEqual "unknown lines in CM:" mempty $ c ^. CM.unknownLines
   assertEqual "unknown lines in sub-HMM:" mempty $ c ^. CM.hmm . HMM.unknownLines
   assertEqual "RNA alphabet" "RNA" $ c ^. CM.alph
+  assertBool "is flexible model" $ isLeft $ c ^. CM.cm
+  let Left flx = c ^. CM.cm -- just asserted
+  assertEqual "flexible . static" flx (staticToFlexible . flexibleToStatic $ flx)
 
 
 

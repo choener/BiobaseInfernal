@@ -32,6 +32,7 @@ import           Biobase.Types.Bitscore
 import           Data.PrimitiveArray hiding (fromList,toList)
 
 import           Biobase.SElab.HMM.Types (HMM)
+import           Biobase.SElab.CM.ModelStructure
 
 
 
@@ -69,185 +70,14 @@ instance Hashable  EValueParams
 
 
 
--- | The type of a node, efficiently encoded as an Int.
-
-newtype NodeType = NodeType Int
-  deriving (Eq,Ord,Generic,Ix)
-
-pattern Bif  = NodeType 0
-pattern MatP = NodeType 1
-pattern MatL = NodeType 2
-pattern MatR = NodeType 3
-pattern BegL = NodeType 4
-pattern BegR = NodeType 5
-pattern Root = NodeType 6
-pattern End  = NodeType 7
-
-instance Binary    NodeType
-instance FromJSON  NodeType
-instance Hashable  NodeType
-instance Serialize NodeType
-instance ToJSON    NodeType
-instance NFData    NodeType
-
-instance Show NodeType where
-  show = \case
-    Bif  -> "BIF"
-    MatP -> "MATP"
-    MatL -> "MATL"
-    MatR -> "MATR"
-    BegL -> "BEGL"
-    BegR -> "BEGR"
-    Root -> "ROOT"
-    End  -> "END"
-
-instance Read NodeType where
-  readPrec = parens $ do
-    Ident s <- lexP
-    return $ case s of
-      "BIF"  -> Bif
-      "MATP" -> MatP
-      "MATL" -> MatL
-      "MATR" -> MatR
-      "BEGL" -> BegL
-      "BEGR" -> BegR
-      "ROOT" -> Root
-      "END"  -> End
-      _      -> error $ "read NodeType: " ++ s
-
-derivingUnbox "NodeType"
-  [t| NodeType -> Int |] [| \(NodeType n) -> n |] [| NodeType |]
-
--- | Type of a state, a newtype wrapper for performance
-
-newtype StateType = StateType Int
-  deriving (Eq,Ord,Generic,Ix)
-
-pattern D  = StateType 0
-pattern MP = StateType 1
-pattern ML = StateType 2
-pattern MR = StateType 3
-pattern IL = StateType 4
-pattern IR = StateType 5
-pattern S  = StateType 6
-pattern E  = StateType 7
-pattern B  = StateType 8
-pattern EL = StateType 9
-
-instance Binary    StateType
-instance FromJSON  StateType
-instance Hashable  StateType
-instance Serialize StateType
-instance ToJSON    StateType
-instance NFData    StateType
-
-instance Show StateType where
-  show = \case
-    D  -> "D"
-    MP -> "MP"
-    ML -> "ML"
-    MR -> "MR"
-    IL -> "IL"
-    IR -> "IR"
-    S  -> "S"
-    E  -> "E"
-    B  -> "B"
-    EL -> "EL"
-    (StateType e) -> "StateType " ++ show e
-
-instance Read StateType where
-  readPrec = parens $ do
-    Ident s <- lexP
-    return $ case s of
-      "D"  -> D
-      "MP" -> MP
-      "ML" -> ML
-      "MR" -> MR
-      "IL" -> IL
-      "IR" -> IR
-      "S"  -> S
-      "E"  -> E
-      "B"  -> B
-      "EL" -> EL
-      _    -> error $ "read StateType: " ++ s
-
-derivingUnbox "StateType"
-  [t| StateType -> Int |] [| \(StateType s) -> s |] [| StateType |]
-
-emitsSingle :: StateType -> Bool
-emitsSingle s | s `elem` [ML,MR,IL,IR] = True
-              | otherwise              = False
-{-# Inline emitsSingle #-}
-
-emitsPair = (==) MP
-{-# Inline emitsPair #-}
 
 
 
-data StateIndex
-
-type Transitions b = Vector (PInt () StateIndex, b)
-
--- |
-
-data State = State
-  { _sType        :: StateType
-  , _sid          :: PInt () StateIndex
-  , _sParents     :: (PInt () StateIndex, PInt () StateIndex)
-  , _sqdb         :: (Int,Int,Int,Int)
-  , _transitions  :: Transitions Bitscore
-  , _emissions    :: Vector Bitscore  -- emission order is ACGU or AA,AC,AG,AU, CA,CC,CG,CU, GA,GC,GG,GU, UA,UC,UG,UU
-  }
-  deriving (Eq,Show,Read,Generic)
-
-makeLenses ''State
-makePrisms ''State
-
-instance Default State where
-  def = State
-    { _sType        = StateType (-1)
-    , _sid          = -1
-    , _sParents     = (-1,-1)
-    , _sqdb         = (-1,-1,-1,-1)
-    , _transitions  = empty
-    , _emissions    = empty
-    }
-
-instance Binary    State
-instance Serialize State
-instance FromJSON  State
-instance ToJSON    State
-instance NFData    State
-
-
-
-data NodeIndex
-
--- | @Node@s are a high-level structure in covariance models, with each
--- node having one or more states as children. In addition, nodes carry
--- alignment-column based information.
---
--- TODO @_nColL@ and @nColR@ should become @Index 1@ types. We'll do that
--- once we re-activate Stockholm file parsing.
-
-data Node = Node
-  { _nstates :: V.Vector State
-  , _ntype   :: NodeType
-  , _nid     :: PInt () NodeIndex
-  , _nColL   :: Int
-  , _nColR   :: Int
-  , _nConL   :: Char
-  , _nConR   :: Char
-  , _nRefL   :: Char
-  , _nRefR   :: Char
-  }
-  deriving (Eq,Show,Read,Generic)
-
-makeLenses ''Node
-makePrisms ''Node
 
 data EntryExit = EntryState | ExitState
   deriving (Eq,Ord,Read,Show,Generic)
+
+{-
 
 -- | Return the main state for a given node.
 
@@ -265,52 +95,7 @@ nodeMainState ee = prism' repack unpack . _3
                 extr z = VG.findIndex ((==z) . view sType) (n^.nstates)
                 ty = n^.ntype
 
-instance Default Node where
-  def = Node
-    { _nstates  = empty
-    , _ntype    = NodeType (-1)
-    , _nid      = -1
-    , _nColL    = -1
-    , _nColR    = -1
-    , _nConL    = '-'
-    , _nConR    = '-'
-    , _nRefL    = '-'
-    , _nRefR    = '-'
-    }
-  {-# Inline def #-}
 
-instance Binary    Node
-instance Serialize Node
-instance FromJSON  Node
-instance ToJSON    Node
-instance NFData    Node
-
-
-
--- | Encode all the information necessary to have *efficient* covariance
--- models.
---
--- Transitions are encoded as a boxed vector of unboxed vectors. The outer
--- boxed vector is indexed by the current state. The inner unboxed vector
--- is indexed by the child number. For each child number we record the
--- target state and transition cost.
---
--- TODO emissions pair/single
--- TODO local / global mode
--- TODO add QDB information here?
---
--- TODO We need to modify how BiobaseXNA encodes RNA sequences (maybe ACGUN)
-
-data States = States
-  { _sTransitions     :: ! (V.Vector (Transitions Bitscore))                                    -- ^ Transitions to a state, together with the transition score; unpopulated transitions are set to @-1@.
-  , _sPairEmissions   :: ! (Unboxed (Z:.PInt () StateIndex:.Letter RNA:.Letter RNA) Bitscore)   -- ^ Scores for the emission of a pair
-  , _sSingleEmissions :: ! (Unboxed (Z:.PInt () StateIndex:.Letter RNA) Bitscore)               -- ^ Scores for the emission of a single nucleotide
-  , _sStateType       :: ! (Unboxed (PInt () StateIndex) StateType)                             -- ^ Type of the state at the current index
-  }
-  deriving (Eq,Show,Read,Generic)
-
-makeLenses ''States
-makePrisms ''States
 
 -- | A pure getter to retrieve the last state
 
@@ -318,19 +103,7 @@ sLastState :: Getter States (PInt () StateIndex)
 sLastState = sStateType . to bounds . to snd
 {-# Inline sLastState #-}
 
-instance Default States where
-  def = States
-    { _sTransitions     = empty
-    , _sPairEmissions   = fromAssocs (Z:.0:.A:.A) (Z:.0:.A:.A) 0                 []
-    , _sSingleEmissions = fromAssocs (Z:.0:.A)    (Z:.0:.A)    0                 []
-    , _sStateType       = fromAssocs 0            0            (StateType $ -1)  []
-    }
-
-instance Binary    States
-instance Serialize States
-instance FromJSON  States
-instance ToJSON    States
-instance NFData    States
+-}
 
 
 
@@ -370,8 +143,9 @@ data CM = CM
   , _ecmgc          :: EValueParams
   , _ecmli          :: EValueParams
   , _ecmgi          :: EValueParams
-  , _nodes          :: V.Vector Node
-  , _states         :: States
+  , _cm             :: Either FlexibleModel StaticModel
+--  , _nodes          :: V.Vector Node
+--  , _states         :: States
   , _hmm            :: HMM Rfam
   , _unknownLines   :: Seq Text
   , _cmIsLocal      :: Bool             -- ^ @True@ if we are in local mode
@@ -416,8 +190,9 @@ instance Default CM where
     , _ecmgc          = def
     , _ecmli          = def
     , _ecmgi          = def
-    , _nodes          = empty
-    , _states         = def
+    , _cm             = Left def
+--    , _nodes          = empty
+--    , _states         = def
     , _hmm            = def
     , _unknownLines   = def
     , _cmIsLocal      = False
@@ -432,6 +207,8 @@ instance NFData    CM
 
 
 -- * Operations on CMs
+
+{-
 
 -- | Given an otherwise valid 'CM', build the efficient 'States' system.
 --
@@ -530,4 +307,6 @@ localEndBitscore cm = prob2Score 1 $ cm^.pend / (genericLength $ cm^..nodes.fold
 
 makeGlobal :: CM -> CM
 makeGlobal = undefined
+
+-}
 

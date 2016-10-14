@@ -32,7 +32,7 @@ import           Text.Read
 import           Biobase.Primary.Letter
 import           Biobase.Primary.Nuc.RNA
 import           Biobase.Types.Bitscore
-import           Data.PrimitiveArray hiding (fromList,toList)
+import           Data.PrimitiveArray hiding (fromList,toList,map)
 
 
 
@@ -154,6 +154,14 @@ instance Read StateType where
 
 derivingUnbox "StateType"
   [t| StateType -> Int |] [| \(StateType s) -> s |] [| StateType |]
+
+emitsSingle :: StateType -> Bool
+emitsSingle s | s `elem` [ML,MR,IL,IR] = True
+              | otherwise              = False
+{-# Inline emitsSingle #-}
+
+emitsPair = (==) MP
+{-# Inline emitsPair #-}
 
 
 
@@ -388,6 +396,19 @@ data StaticModel = StaticModel
   { _smStates :: ! States
   , _smNodes  :: ! Nodes
   }
+  deriving (Eq,Show,Read,Generic)
+
+instance Binary    StaticModel
+instance Serialize StaticModel
+instance FromJSON  StaticModel
+instance ToJSON    StaticModel
+instance NFData    StaticModel
+
+instance Default StaticModel where
+  def = StaticModel
+    { _smStates = def
+    , _smNodes  = def
+    }
 
 -- | Model structure that is somewhat easy to modify. Before turning this
 -- into a @StaticModel@, the model itself needs to be valid.
@@ -396,9 +417,31 @@ data FlexibleModel = FlexibleModel
   { _fmStates :: ! (Map (PInt () StateIndex) State)
   , _fmNodes  :: ! (Map (PInt () NodeIndex ) Node )
   }
+  deriving (Eq,Show,Read,Generic)
+
+instance Binary    FlexibleModel
+instance Serialize FlexibleModel
+instance FromJSON  FlexibleModel
+instance ToJSON    FlexibleModel
+instance NFData    FlexibleModel
+
+instance Default FlexibleModel where
+  def = FlexibleModel
+    { _fmStates = def
+    , _fmNodes  = def
+    }
+
+
 
 isValidModel :: FlexibleModel -> Bool
 isValidModel = error "isvalidModel: write me!"
+
+
+
+-- * Isomorphisms between static and flexible models
+--
+-- @flexibleToStatic . staticToFlexible == id@
+-- @staticToFlexible . flexibleToStatic == id@
 
 -- | Make a flexible model static.
 --
@@ -445,6 +488,37 @@ flexibleToStatic (FlexibleModel s n)
           , _nodesRefL   = fromAssocs 0 mix '-'             $ zip ix $ n ^.. traverse . nodeRefL
           , _nodesRefR   = fromAssocs 0 mix '-'             $ zip ix $ n ^.. traverse . nodeRefR
           } where ix = M.keys n ; mix = maximum ix
+
+-- | Make static model flexible again.
+--
+-- Static models are always (defined to be) valid models.
+--
+-- TODO emission handling for generalized models
+
+staticToFlexible :: StaticModel -> FlexibleModel
+staticToFlexible (StaticModel States{..} Nodes{..})
+  = FlexibleModel s' n'
+  where s' = M.fromList $ map goS $ uncurry enumFromTo $ bounds _statesType
+        n' = M.fromList $ map goN $ uncurry enumFromTo $ bounds _nodesType
+        goS k = (k,) $ State
+          { _stateType        = t
+          , _stateParents     = _statesParents      ! k
+          , _stateQDB         = _statesQDB          ! k
+          , _stateTransitions = _statesTransitions  ! k
+          , _stateEmissions   = if | emitsPair   t -> VG.fromList [ _statesEmitPair   ! (Z:.k:.i:.j) | (i,j) <- (,) <$> acgu <*> acgu ]
+                                   | emitsSingle t -> VG.fromList [ _statesEmitSingle ! (Z:.k:.i   ) | i <- acgu ]
+                                   | otherwise     -> VG.empty
+          } where t = _statesType ! k
+        goN k = (k,) $ Node
+          { _nodeType   = _nodesType   ! k
+          , _nodeStates = _nodesStates ! k
+          , _nodeColL   = _nodesColL   ! k
+          , _nodeColR   = _nodesColR   ! k
+          , _nodeConL   = _nodesConL   ! k
+          , _nodeConR   = _nodesConR   ! k
+          , _nodeRefL   = _nodesRefL   ! k
+          , _nodeRefR   = _nodesRefR   ! k
+          }
 
 {-
 

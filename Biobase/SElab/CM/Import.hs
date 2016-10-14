@@ -5,6 +5,7 @@
 module Biobase.SElab.CM.Import where
 
 import           Control.Applicative ( (<|>), pure, (<$>), (<$), (<*>), (<*) )
+import           Control.DeepSeq (($!!))
 import           Control.Lens
 import           Control.Monad (forM_)
 import           Control.Monad.IO.Class (MonadIO)
@@ -21,11 +22,11 @@ import           Debug.Trace
 import qualified Data.Attoparsec.ByteString.Char8 as ABC
 import qualified Data.ByteString.Char8 as BSC
 import qualified Data.List as L
+import qualified Data.Map as M
 import qualified Data.Text as T
 import qualified Data.Vector.Generic as VG
 import           System.FilePath (takeExtension)
 import           System.IO (stdin)
-import           Control.DeepSeq (($!!))
 
 import           Biobase.Primary.Letter
 import           Biobase.Primary.Nuc.RNA
@@ -33,6 +34,7 @@ import           Biobase.Types.Accession (Accession(Accession),Rfam,retagAccessi
 import           Biobase.Types.Bitscore
 import           Data.PrimitiveArray hiding (fromList,map,toList)
 
+import           Biobase.SElab.CM.ModelStructure
 import           Biobase.SElab.CM.Types
 import           Biobase.SElab.Common.Parser
 import           Biobase.SElab.HMM.Import (parseHMM)
@@ -96,7 +98,6 @@ parseCMBody cm = do
           (vv,_) | "0.7" `T.isPrefixOf` vv -> manyTill node07 "//"
           err -> error $ show err
   ABC.endOfLine  <|> pure ()
-  -- cmhmm <- parseHMM <|> pure def  -- if there is no HMM, then return an empty one
   buildCM nss cm def
 
 -- | We have all the parts, just need to fill up the optimized 'States'
@@ -105,15 +106,14 @@ parseCMBody cm = do
 -- TODO make sure that @ss@ is ordered by @sid@ and that there are no
 -- missing states!
 
-buildCM :: [(Node,[State])] -> CM -> HMM Rfam -> ABC.Parser CM
+buildCM :: [((PInt () NodeIndex, Node),[(PInt () StateIndex, State)])] -> CM -> HMM Rfam -> ABC.Parser CM
 buildCM nss cm cmhmm = do
-  let maxState = maximum $ nss ^.. folded . _2 . folded . sid
-  let ns = fromList [ n & nstates .~ fromList ss | (n,ss) <- nss ]
+  let ns = M.fromList $ map fst nss
+  let ss = M.fromList $ concatMap snd nss
   let cm' = set hmm cmhmm
-          $ set nodes ns
+          $ set CM.cm (Left $ FlexibleModel { _fmStates = ss, _fmNodes = ns })
           $ cm
-  let sts = buildStatesFromCM cm'
-  return $!! set states sts cm'
+  return $!! cm'
 
 acceptedVersion :: ABC.Parser (T.Text,T.Text)
 acceptedVersion = (new <?> "new") <|> (old <?> "old") <?> "acceptedVersion"
@@ -165,14 +165,28 @@ cmHeader = ABC.choice
 
 -- | Parse a node together with the attached states.
 
-node1x :: ABC.Parser (Node, [State])
-node1x = (,) <$> aNode <*> ABC.many1 (aState True) <?> "node1x" where
-  aNode =   Node empty <$ ABC.skipSpace <* ("[ " <?> "[ ") <*> anType <*> (ssN <?> "node ID") <* ABC.skipSpace <* "]"
-        <*> (ssN_ <?> "mapL") <*> (ssN_ <?> "mapR") <*> (ssC <?> "consL") <*> (ssC <?> "consR") <*> (ssC <?> "rfL") <*> (eolC <?> "rfR") <?> "aNode"
+node1x :: ABC.Parser ((PInt () NodeIndex, Node), [(PInt () StateIndex, State)])
+node1x =
+  (\n ss -> (n & _2 . nodeStates .~ (VG.fromList $ map fst ss), ss)) <$> aNode <*> ABC.many1 (aState True) <?> "node1x"
+  where
+  aNode = (\nty nid mapl mapr conl conr refl refr -> (nid, Node nty empty mapl mapr conl conr refl refr))
+          <$ ABC.skipSpace <* ("[ " <?> "[ ")
+          <*> anType <*> (ssN <?> "node ID")
+          <* ABC.skipSpace <* "]"
+          <*> (ssN_ <?> "mapL") <*> (ssN_ <?> "mapR")
+          <*> (ssC <?> "consL") <*> (ssC <?> "consR")
+          <*> (ssC <?> "rfL") <*> (eolC <?> "rfR") <?> "aNode"
 
-node07 :: ABC.Parser (Node, [State])
-node07 = (,) <$> aNode <*> ABC.many1 (aState False) <?> "node07" where
-  aNode = (\x y -> Node empty x y 0 0 '-' '-' '-' '-') <$ ABC.skipSpace <* ("[ " <?> "[ ") <*> anType <*> (ssN <?> "node ID") <* ABC.skipSpace <* "]"
+node07 :: ABC.Parser ((PInt () NodeIndex, Node), [(PInt () StateIndex, State)])
+node07 =
+  -- Update the node with the indices from all the states belonging with
+  -- this node.
+  (\n ss -> (n & _2 . nodeStates .~ (VG.fromList $ map fst ss), ss)) <$> aNode <*> ABC.many1 (aState False) <?> "node07"
+  where
+  aNode = (\nty nix -> (nix, Node nty empty 0 0 '-' '-' '-' '-'))
+        <$ ABC.skipSpace <* ("[ " <?> "[ ")
+        <*> anType <*> (ssN <?> "node ID")
+        <* ABC.skipSpace <* "]"
 
 -- | Parse the node type
 
@@ -184,25 +198,25 @@ anType = ABC.choice [ Bif  <$ "BIF" , MatP <$ "MATP", MatL <$ "MATL", MatR <$ "M
 
 aState
   :: Bool             -- ^ Control if the four QDB parameters are present. Currently 'node1x' will parse those, 'node07' won't.
-  -> ABC.Parser State
+  -> ABC.Parser (PInt () StateIndex, State)
 aState parseQDB = do
   ABC.skipSpace
-  _sType     <- asType <?> "asType"
-  _sid       <- ssN
-  _sParents  <- (,) <$> ssZ <*> ssN
+  _stateType <- asType <?> "asType"
+  stateId    <- ssN
+  _stateParents <- (\a b -> VG.fromList [a,b]) <$> ssZ <*> ssN
   (c1,c2)    <- (,) <$> ssZ <*> ssN
-  let chdn = if _sType==B then [ PInt c1 , PInt c2 ]
-                          else take c2 [ PInt c1 .. ]
-  _sqdb      <- if parseQDB
-                then (,,,) <$> ssN <*> ssN <*> ssN <*> ssN
-                else pure (-1,-1,-1,-1)
-  _transitions <- if | _sType==B  -> pure $ fromList $ map (,0) chdn
-                     | otherwise  -> (fromList . zip chdn) <$> ABC.count c2 (Bitscore <$> ssD')
-  _emissions   <- if | _sType==MP -> fromList <$> ABC.count 16 (Bitscore <$> ssD)
-                     | _sType `elem` [ML,MR,IL,IR] -> fromList <$> ABC.count 4 (Bitscore <$> ssD)
-                     | otherwise -> pure empty
+  let chdn = if _stateType==B then [ PInt c1 , PInt c2 ]
+                              else take c2 [ PInt c1 .. ]
+  _stateQDB  <- if parseQDB
+                then QDB <$> ssN <*> ssN <*> ssN <*> ssN
+                else pure def
+  _stateTransitions <- if | _stateType == B  -> pure $ fromList $ map (,0) chdn
+                          | otherwise        -> (fromList . zip chdn) <$> ABC.count c2 (Bitscore <$> ssD')
+  _stateEmissions   <- if | emitsPair   _stateType -> fromList <$> ABC.count 16 (Bitscore <$> ssD)
+                          | emitsSingle _stateType -> fromList <$> ABC.count 4 (Bitscore <$> ssD)
+                          | otherwise -> pure empty
   eolS
-  return State{..}
+  return (stateId,State{..})
 
 -- | Type of the state
 
