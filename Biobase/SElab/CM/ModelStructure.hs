@@ -520,34 +520,24 @@ staticToFlexible (StaticModel States{..} Nodes{..})
           , _nodeRefR   = _nodesRefR   ! k
           }
 
+
+
+-- * Local / Global mode conversion
+
+
+-- | Given a @CM@, add the necessary transitions to create local
+-- beginnings.
+--
+-- This is done by simply adding additional transitions from the @S 0@
+-- state and its companions @IL 1@ and @IR 2@.
+
+addLocalBegins :: FlexibleModel -> FlexibleModel
+addLocalBegins mdl = undefined
 {-
-
--- *
-
--- |
-
-data ModelStruct
-  -- | Static, state-based structure. Highly efficient, but not friendly
-  -- for modifications.
-  = Static
-    { _sStates  :: ! States
-    -- ^ We only need the states for the actual computations.
-    , _sNodes   :: ! Nodes
-    -- ^ Nodes are kept as well, but are not used (typically).
-    }
-  | Dynamic
-    { _dStates :: ! (Map (PInt () StateIndex) State)
-    , _dNodes  :: ! (Map (PInt () NodeIndex ) Node )
-    }
-  deriving (Eq,Show,Read,Generic)
-
-makeLenses ''ModelStruct
-makePrisms ''ModelStruct
-
-instance Binary    ModelStruct
-instance Serialize ModelStruct
-instance FromJSON  ModelStruct
-instance ToJSON    ModelStruct
-instance NFData    ModelStruct
+cm & nodes . vectorIx 0 . nstates . traverse . transitions %~ addbegs
+  where lbegs = drop 1 $ cm^..nodes.folded.(nodeMainState EntryState).sid -- the first node already has a main transition from @S 0@.
+        lbp = localBeginBitscore cm
+        addbegs :: Transitions Bitscore -> Transitions Bitscore
+        addbegs ts = ts VG.++ (VG.map (,lbp) $ fromList lbegs)
 -}
 
