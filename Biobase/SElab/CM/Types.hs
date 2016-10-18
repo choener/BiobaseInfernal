@@ -79,22 +79,6 @@ data EntryExit = EntryState | ExitState
 
 {-
 
--- | Return the main state for a given node.
-
-nodeMainState ee = prism' repack unpack . _3
-  where repack :: (Node,Int,State) -> Node
-        repack (n,k,s) = n & nstates %~ (VG.// [(k,s)])
-        unpack :: Node -> Maybe (Node,Int,State)
-        unpack n = (\k -> (n,k,(n^.nstates) VG.! k)) <$> (go >>= extr)
-          where go | ty == MatP = Just MP
-                   | ty == MatL = Just ML
-                   | ty == MatR = Just MR
-                   | ty == Bif  && ee == EntryState = Just B
-                   | (ty == BegL || ty == BegR) && ee == ExitState  = Just S
-                   | otherwise = Nothing
-                extr z = VG.findIndex ((==z) . view sType) (n^.nstates)
-                ty = n^.ntype
-
 
 
 -- | A pure getter to retrieve the last state

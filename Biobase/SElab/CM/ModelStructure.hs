@@ -22,6 +22,7 @@ import           Data.Map (Map)
 import           Data.Serialize (Serialize)
 import           Data.Set (Set)
 import           Data.Vector.Unboxed.Deriving
+import           Debug.Trace
 import           GHC.Generics (Generic)
 import qualified Data.Map as M
 import qualified Data.Vector as V
@@ -524,12 +525,29 @@ staticToFlexible (StaticModel States{..} Nodes{..})
 
 -- * Local / Global mode conversion
 
+-- | The list of all nodes and states that can be the target of a local
+-- begin. They will not necessarily have been set this way.
+
+internalEntries :: FlexibleModel -> [(PInt () NodeIndex, PInt () StateIndex)]
+internalEntries FlexibleModel{..} = xs
+  where xs = concatMap givenN $ M.toList _fmNodes
+        givenN (n,Node{..})
+          | _nodeType == MatP = [(n, getState MP _nodeStates)]
+          | _nodeType == MatL = [(n, getState ML _nodeStates)]
+          | _nodeType == MatR = [(n, getState MR _nodeStates)]
+          | _nodeType == Bif  = [(n, getState B  _nodeStates)]
+          | otherwise         = []
+        getState ty = head . filter ((==ty) . _stateType . (_fmStates M.!)) . VG.toList
 
 -- | Given a @CM@, add the necessary transitions to create local
 -- beginnings.
 --
--- This is done by simply adding additional transitions from the @S 0@
--- state and its companions @IL 1@ and @IR 2@.
+-- Local beginnings are created by adding transitions from the @S 0@ state
+-- to the main states of each node.
+--
+-- This will add @S 0@ as parent state to all nodes.
+--
+-- TODO What about from @IL 1@ and @IR 2@?
 
 addLocalBegins :: FlexibleModel -> FlexibleModel
 addLocalBegins mdl = undefined
@@ -540,4 +558,26 @@ cm & nodes . vectorIx 0 . nstates . traverse . transitions %~ addbegs
         addbegs :: Transitions Bitscore -> Transitions Bitscore
         addbegs ts = ts VG.++ (VG.map (,lbp) $ fromList lbegs)
 -}
+
+-- | Return the main state for a given node.
+
+{-
+nodeMainState ee = prism' repack unpack . _3 where
+  -- |
+  repack :: (Node,Int,State) -> Node
+  repack (n,k,s) = n & nodeStates %~ (VG.// [(k,s)])
+  -- |
+  unpack :: Node -> Maybe (Node,Int,State)
+  unpack n = (\k -> (n,k,(n^.nodeStates) VG.! k)) <$> (go >>= extr)
+    where go | ty == MatP = Just MP
+             | ty == MatL = Just ML
+             | ty == MatR = Just MR
+             | ty == Bif  && ee == EntryState = Just B
+             | (ty == BegL || ty == BegR) && ee == ExitState  = Just S
+             | otherwise = Nothing
+          extr z = VG.findIndex ((==z) . view stateType) (n^.nodeStates)
+          ty = n^.nodeType
+-}
+
+makeLocal = traceShow "makeLocal: implement me!" id
 
