@@ -548,13 +548,24 @@ internalEntries FlexibleModel{..} = xs
 
 -- | Create a new transition from a given state to another given state.
 --
--- Will die with an error.
+-- Will die with an error if any of source or target state is not in the
+-- model.
 
 insertTransition :: PInt () StateIndex -> PInt () StateIndex -> Bitscore -> FlexibleModel -> FlexibleModel
 insertTransition frm to sc mdl
   | fS <- M.lookup frm (mdl^.fmStates)
-  , tS <- M.lookup to  (mdl^.fmStates) = mdl & fmStates . at frm . _Just . stateTransitions %~ addTransition to sc
+  , tS <- M.lookup to  (mdl^.fmStates)
+  = mdl
+    -- add the backlink
+    & fmStates . at to . _Just . stateParents %~ addParent frm
+    -- add the transition itself
+    & fmStates . at frm . _Just . stateTransitions %~ addTransition to sc
   | otherwise = error $ "insertTransition: missing state(s)"
+
+-- | Given a state we come from (@frm@), insert into the vector of parents.
+
+addParent :: PInt () StateIndex -> VU.Vector (PInt () StateIndex) -> VU.Vector (PInt () StateIndex)
+addParent frm = VG.fromList . L.nub . (frm:) . VG.toList
 
 -- | Adds a transition at the right position in the @Transitions@ vector.
 --
@@ -572,38 +583,30 @@ addTransition to sc ts = VG.fromList . L.nubBy ((==) `on` fst) $ VG.toList xs ++
 -- to the main states of each node.
 --
 -- This will add @S 0@, @IL 1@ and @IR 2@ as parent state to all nodes.
+
+addLocalBegins :: Bitscore -> FlexibleModel -> FlexibleModel
+addLocalBegins b mdl = foldl go mdl $ (,) <$> ss <*> (map snd $ internalEntries mdl)
+  where
+    -- list of states to modify. Assumed to be @S 0@ to @IR 2@.
+    ss = mdl ^.. fmNodes . at 0 . traverse . nodeStates . traverse
+    go m (f,t) = insertTransition f t b m
+
+-- | Perform the necessary edge insertions to make a mode "local".
 --
--- TODO What about from @IL 1@ and @IR 2@?
+-- TODO It holds that @makeLocal b e . makeLocal b e == makeLocal b e@.
+-- (Provisionary; depending on how we shall go about modifying bitscores)
+--
+-- TODO implement local ends part
 
-addLocalBegins :: FlexibleModel -> FlexibleModel
-addLocalBegins mdl = undefined
-{-
-cm & nodes . vectorIx 0 . nstates . traverse . transitions %~ addbegs
-  where lbegs = drop 1 $ cm^..nodes.folded.(nodeMainState EntryState).sid -- the first node already has a main transition from @S 0@.
-        lbp = localBeginBitscore cm
-        addbegs :: Transitions Bitscore -> Transitions Bitscore
-        addbegs ts = ts VG.++ (VG.map (,lbp) $ fromList lbegs)
--}
-
--- | Return the main state for a given node.
-
-{-
-nodeMainState ee = prism' repack unpack . _3 where
-  -- |
-  repack :: (Node,Int,State) -> Node
-  repack (n,k,s) = n & nodeStates %~ (VG.// [(k,s)])
-  -- |
-  unpack :: Node -> Maybe (Node,Int,State)
-  unpack n = (\k -> (n,k,(n^.nodeStates) VG.! k)) <$> (go >>= extr)
-    where go | ty == MatP = Just MP
-             | ty == MatL = Just ML
-             | ty == MatR = Just MR
-             | ty == Bif  && ee == EntryState = Just B
-             | (ty == BegL || ty == BegR) && ee == ExitState  = Just S
-             | otherwise = Nothing
-          extr z = VG.findIndex ((==z) . view stateType) (n^.nodeStates)
-          ty = n^.nodeType
--}
-
-makeLocal = traceShow "makeLocal: implement me!" id
+makeLocal
+  :: ()
+  => Maybe Bitscore
+  -- ^ @Just@ the local begin bitscore, or @Nothing@ if local begins are
+  -- not desired.
+  -> Maybe Bitscore
+  -- ^ @Just@ the local end bitscore, or @Nothing@ if local ends are not
+  -- desired.
+  -> FlexibleModel
+  -> FlexibleModel
+makeLocal mB mE = maybe id addLocalBegins mB
 
