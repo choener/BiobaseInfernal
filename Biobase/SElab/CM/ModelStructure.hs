@@ -16,6 +16,7 @@ import           Control.Lens
 import           Data.Aeson (FromJSON,ToJSON)
 import           Data.Binary (Binary)
 import           Data.Default
+import           Data.Function (on)
 import           Data.Hashable (Hashable)
 import           Data.Ix (Ix)
 import           Data.Map (Map)
@@ -24,6 +25,7 @@ import           Data.Set (Set)
 import           Data.Vector.Unboxed.Deriving
 import           Debug.Trace
 import           GHC.Generics (Generic)
+import qualified Data.List as L
 import qualified Data.Map as M
 import qualified Data.Vector as V
 import qualified Data.Vector.Generic as VG
@@ -426,6 +428,9 @@ instance FromJSON  FlexibleModel
 instance ToJSON    FlexibleModel
 instance NFData    FlexibleModel
 
+makeLenses ''FlexibleModel
+makePrisms ''FlexibleModel
+
 instance Default FlexibleModel where
   def = FlexibleModel
     { _fmStates = def
@@ -526,7 +531,9 @@ staticToFlexible (StaticModel States{..} Nodes{..})
 -- * Local / Global mode conversion
 
 -- | The list of all nodes and states that can be the target of a local
--- begin. They will not necessarily have been set this way.
+-- begin. These are nodes with type @MatP@, @MatL@,@MatR@, or @Bif@. They
+-- will not necessarily have been set this way. Targets of a local begin
+-- are *never* @Root@ nodes and their states.
 
 internalEntries :: FlexibleModel -> [(PInt () NodeIndex, PInt () StateIndex)]
 internalEntries FlexibleModel{..} = xs
@@ -539,13 +546,32 @@ internalEntries FlexibleModel{..} = xs
           | otherwise         = []
         getState ty = head . filter ((==ty) . _stateType . (_fmStates M.!)) . VG.toList
 
+-- | Create a new transition from a given state to another given state.
+--
+-- Will die with an error.
+
+insertTransition :: PInt () StateIndex -> PInt () StateIndex -> Bitscore -> FlexibleModel -> FlexibleModel
+insertTransition frm to sc mdl
+  | fS <- M.lookup frm (mdl^.fmStates)
+  , tS <- M.lookup to  (mdl^.fmStates) = mdl & fmStates . at frm . _Just . stateTransitions %~ addTransition to sc
+  | otherwise = error $ "insertTransition: missing state(s)"
+
+-- | Adds a transition at the right position in the @Transitions@ vector.
+--
+-- This operation takes @O(n^2)@ time for each insert! (Though @n@ is
+-- typically @<=6@.
+
+addTransition :: VU.Unbox s => PInt () StateIndex -> s -> Transitions s -> Transitions s
+addTransition to sc ts = VG.fromList . L.nubBy ((==) `on` fst) $ VG.toList xs ++ [(to,sc)] ++ VG.toList ys
+  where (xs,ys) = VG.partition ((<to) . fst) ts
+
 -- | Given a @CM@, add the necessary transitions to create local
 -- beginnings.
 --
 -- Local beginnings are created by adding transitions from the @S 0@ state
 -- to the main states of each node.
 --
--- This will add @S 0@ as parent state to all nodes.
+-- This will add @S 0@, @IL 1@ and @IR 2@ as parent state to all nodes.
 --
 -- TODO What about from @IL 1@ and @IR 2@?
 
