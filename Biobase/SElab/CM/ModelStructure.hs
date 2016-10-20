@@ -355,6 +355,18 @@ instance FromJSON  Node
 instance ToJSON    Node
 instance NFData    Node
 
+instance Default Node where
+  def = Node
+    { _nodeType   = NodeType (-1)
+    , _nodeStates = VG.empty
+    , _nodeColL   = -1
+    , _nodeColR   = -1
+    , _nodeConL   = '-'
+    , _nodeConR   = '-'
+    , _nodeRefL   = '-'
+    , _nodeRefR   = '-'
+    }
+
 
 
 -- * High-performance structure for @Node@s.
@@ -546,6 +558,24 @@ internalEntries FlexibleModel{..} = xs
           | otherwise         = []
         getState ty = head . filter ((==ty) . _stateType . (_fmStates M.!)) . VG.toList
 
+-- | The list of all nodes and states that can be the target of a local
+-- end.
+--
+-- Nodes that have and @End@ node following are excluded.
+
+internalExits :: FlexibleModel -> [(PInt () NodeIndex, PInt () StateIndex)]
+internalExits FlexibleModel{..} = xs
+  where xs = concatMap givenN $ M.toList _fmNodes
+        givenN (n,Node{..})
+          | _nodeType == MatP = [(n, getState MP _nodeStates) | noNextE _nodeStates ]
+          | _nodeType == MatL = [(n, getState ML _nodeStates) | noNextE _nodeStates ]
+          | _nodeType == MatR = [(n, getState MR _nodeStates) | noNextE _nodeStates ]
+          | _nodeType == BegL = [(n, getState S  _nodeStates) | noNextE _nodeStates ]
+          | _nodeType == BegR = [(n, getState S  _nodeStates) | noNextE _nodeStates ]
+          | otherwise         = []
+        getState ty = VG.head . VG.filter ((==ty) . _stateType . (_fmStates M.!))
+        noNextE = VG.null . VG.filter ((==E) . _stateType . (_fmStates M.!))
+
 -- | Create a new transition from a given state to another given state.
 --
 -- Will die with an error if any of source or target state is not in the
@@ -580,7 +610,8 @@ addTransition to sc ts = VG.fromList . L.nubBy ((==) `on` fst) $ VG.toList xs ++
 -- beginnings.
 --
 -- Local beginnings are created by adding transitions from the @S 0@ state
--- to the main states of each node.
+-- to the main states of each node. Activating local ends does not modify
+-- any existing transition or emission probabilities.
 --
 -- This will add @S 0@, @IL 1@ and @IR 2@ as parent state to all nodes.
 
@@ -591,7 +622,32 @@ addLocalBegins b mdl = foldl go mdl $ (,) <$> ss <*> (map snd $ internalEntries 
     ss = mdl ^.. fmNodes . at 0 . traverse . nodeStates . traverse
     go m (f,t) = insertTransition f t b m
 
--- | Perform the necessary edge insertions to make a mode "local".
+-- | Given a @CM@, add the necessary transitions to create local ends.
+
+addLocalEnds :: Bitscore -> FlexibleModel -> FlexibleModel
+addLocalEnds b mdl' = foldl go mdl . map snd $ internalExits mdl
+  where
+    go m f = insertTransition f t b m
+    [(t,_)] = filter ((==EL) . _stateType . snd) . M.toList $ mdl ^. fmStates
+    mdl = createLocalEndState mdl'
+
+-- | Create the @EL@ state, together with its own node.
+
+createLocalEndState :: FlexibleModel -> FlexibleModel
+createLocalEndState mdl
+  | null e    = mdl & fmNodes . at (maxN+1) .~ Just n & fmStates . at (maxS+1) .~ Just s
+  | otherwise = mdl -- we already have an @EL@ state.
+  where
+    e = filter (==EL) $ mdl ^.. fmStates . traverse . stateType
+    (maxN, _) = M.findMax $ mdl ^. fmNodes
+    (maxS, _) = M.findMax $ mdl ^. fmStates
+    n = def & nodeType .~ End & nodeStates .~ VG.singleton maxS
+    s = def & stateType .~ EL
+
+
+-- | Perform the necessary edge insertions to make a mode "local". If in
+-- doubt, use @Just 0.05@ and @Just 0.05@ as parameters for the local
+-- begins and local ends.
 --
 -- TODO It holds that @makeLocal b e . makeLocal b e == makeLocal b e@.
 -- (Provisionary; depending on how we shall go about modifying bitscores)
@@ -608,5 +664,5 @@ makeLocal
   -- desired.
   -> FlexibleModel
   -> FlexibleModel
-makeLocal mB mE = maybe id addLocalBegins mB
+makeLocal mB mE = maybe id addLocalEnds mE . maybe id addLocalBegins mB
 
