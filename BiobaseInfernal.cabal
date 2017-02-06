@@ -71,7 +71,7 @@ library
                , BiobaseTypes         == 0.1.2.*
                , BiobaseXNA           == 0.9.3.*
                , DPutils              == 0.0.1.*
-               , PrimitiveArray       == 0.7.2.*
+               , PrimitiveArray       == 0.8.0.*
 
   exposed-modules:
     Biobase.SElab.Model
