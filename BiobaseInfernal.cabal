@@ -4,14 +4,14 @@ author:         Christian Hoener zu Siederdissen
 maintainer:     choener@bioinf.uni-leipzig.de
 homepage:       https://github.com/choener/BiobaseInfernal
 bug-reports:    https://github.com/choener/BiobaseInfernal/issues
-copyright:      Christian Hoener zu Siederdissen, 2011 - 2016
+copyright:      Christian Hoener zu Siederdissen, 2011 - 2017
 category:       Bioinformatics
 license:        GPL-3
 license-file:   LICENSE
 build-type:     Simple
 stability:      experimental
 cabal-version:  >= 1.10.0
-tested-with:    GHC == 7.8.4, GHC == 7.10.3, GHC == 8.0.1
+tested-with:    GHC == 7.10.3, GHC == 8.0.1
 synopsis:       Infernal data structures and tools
 description:
                 Provides import and export facilities for Infernal/Rfam data
