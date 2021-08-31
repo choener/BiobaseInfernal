@@ -32,6 +32,8 @@ data NodeIndex
 -- that will pin the type to @Pfam@ or @Rfam@ (or maybe others later).
 --
 -- TODO Parsing has only been tested for HMMER3 and Infernal 1.1
+--
+-- TODO replace @() nameTy@ with a variable name type
 
 data HMM xfam = HMM
   { _version          :: (Text,Text)            -- ^ magic string aka @HMMER3/f@ (HMMer) or @HMMER3/i@ (Infernal), followed by the bracketed version info
@@ -60,9 +62,9 @@ data HMM xfam = HMM
   , _matchMap         :: Vector Int             -- ^ match node alignment index
   , _matchRef         :: Vector Char            -- ^ match node reference annotation
   , _matchCons        :: Vector Char            -- ^ match node consensus annotation
-  , _matchScores      :: Unboxed (Z:.PInt I NodeIndex:.Letter Unknown) Bitscore   -- ^
-  , _insertScores     :: Unboxed (Z:.PInt I NodeIndex:.Letter Unknown) Bitscore   -- ^
-  , _transitionScores :: Unboxed (Z:.PInt I NodeIndex:.Letter Unknown) Bitscore   -- ^
+  , _matchScores      :: Unboxed (Z:.PInt I NodeIndex:.Letter Unknown ()) Bitscore   -- ^
+  , _insertScores     :: Unboxed (Z:.PInt I NodeIndex:.Letter Unknown ()) Bitscore   -- ^
+  , _transitionScores :: Unboxed (Z:.PInt I NodeIndex:.Letter Unknown ()) Bitscore   -- ^
   , _unknownLines     :: Seq Text               -- ^ filled with header lines that can not be parsed
   } deriving (Eq,Show,Read,Generic)
 
@@ -97,15 +99,15 @@ instance Default (HMM xfam) where
     , _matchMap         = empty
     , _matchRef         = empty
     , _matchCons        = empty
-    , _matchScores      = fromAssocs (Z:.0:.Letter 0) (Z:.0:.Letter 0) def []
-    , _insertScores     = fromAssocs (Z:.0:.Letter 0) (Z:.0:.Letter 0) def []
-    , _transitionScores = fromAssocs (Z:.0:.Letter 0) (Z:.0:.Letter 0) def []
+    , _matchScores      = fromAssocs (ZZ:..LtPInt 0:..LtLetter (Letter 0)) def []
+    , _insertScores     = fromAssocs (ZZ:..LtPInt 0:..LtLetter (Letter 0)) def []
+    , _transitionScores = fromAssocs (ZZ:..LtPInt 0:..LtLetter (Letter 0)) def []
     , _unknownLines     = def
     }
 
-instance Binary    (HMM xfam)
-instance Serialize (HMM xfam)
-instance FromJSON  (HMM xfam)
-instance ToJSON    (HMM xfam)
-instance NFData    (HMM xfam)
+-- instance Binary    (HMM xfam)
+-- instance Serialize (HMM xfam)
+-- instance FromJSON  (HMM xfam)
+-- instance ToJSON    (HMM xfam)
+-- instance NFData    (HMM xfam)
 
