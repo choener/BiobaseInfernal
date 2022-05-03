@@ -1,9 +1,9 @@
 { mkDerivation, aeson, attoparsec, base, binary, BiobaseTypes
 , BiobaseXNA, bytestring, cereal, cereal-text, cereal-vector
 , cmdargs, containers, criterion, data-default, deepseq, DPutils
-, filepath, hashable, HUnit, lens, parallel, pipes
+, filepath, hashable, HUnit, lens, lib, parallel, pipes
 , pipes-attoparsec, pipes-bytestring, pipes-parse, pipes-safe
-, pipes-zlib, primitive, PrimitiveArray, QuickCheck, stdenv, strict
+, pipes-zlib, primitive, PrimitiveArray, QuickCheck, strict
 , string-conversions, tasty, tasty-hunit, tasty-quickcheck
 , tasty-th, text, text-binary, transformers, tuple
 , unordered-containers, utf8-string, vector, vector-th-unbox, zlib
@@ -33,5 +33,5 @@ mkDerivation {
   ];
   homepage = "https://github.com/choener/BiobaseInfernal";
   description = "Infernal data structures and tools";
-  license = stdenv.lib.licenses.gpl3;
+  license = lib.licenses.gpl3Only;
 }
